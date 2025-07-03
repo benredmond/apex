@@ -47,7 +47,7 @@ program
       process.exit(1);
     }
 
-    spinner.text = 'Gathering project information...';
+    spinner.succeed('Initial checks complete');
 
     // Prompt for project details
     const answers = await inquirer.prompt([
@@ -56,33 +56,13 @@ program
         name: 'projectName',
         message: 'Project name:',
         default: path.basename(process.cwd())
-      },
-      {
-        type: 'list',
-        name: 'projectType',
-        message: 'Project type:',
-        choices: [
-          'Full-stack Web Application',
-          'Frontend Application',
-          'Backend API',
-          'CLI Tool',
-          'Library/Package',
-          'Other'
-        ]
-      },
-      {
-        type: 'confirm',
-        name: 'useGemini',
-        message: 'Enable Gemini integration for complex tasks?',
-        default: false
       }
     ]);
 
-    spinner.text = 'Creating APEX directory structure...';
+    const spinner2 = ora('Creating APEX directory structure...').start();
 
     // Create directory structure
     const apexDirs = [
-      '.apex/00_SYSTEM',
       '.apex/01_PROJECT_DOCS',
       '.apex/02_PLANNING/MILESTONES',
       '.apex/03_ACTIVE_SPRINTS',
@@ -115,7 +95,7 @@ program
     }
 
     // Copy command templates
-    spinner.text = 'Installing APEX command templates...';
+    spinner2.text = 'Installing APEX command templates...';
     
     const templatePath = path.join(__dirname, '../../templates/.claude/commands/apex');
     const targetPath = '.claude/commands/apex';
@@ -124,30 +104,31 @@ program
       await fs.copy(templatePath, targetPath, { overwrite: true });
     }
 
-    spinner.text = 'Creating configuration files...';
+    spinner2.text = 'Creating configuration files...';
 
-    // Create manifest.json
-    const manifest = {
-      project: {
-        name: answers.projectName,
-        type: answers.projectType,
-        description: '',
-        version: '0.1.0',
-        status: 'active',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      apex: {
-        version: '0.1.0',
-        intelligence: {
-          patterns: 0,
-          trust_threshold: 0.8,
-          gemini_enabled: answers.useGemini
-        }
-      }
-    };
+    // Create PROJECT_MANIFEST.md
+    const projectManifest = `# PROJECT MANIFEST - ${answers.projectName}
 
-    await fs.writeJson('.apex/00_SYSTEM/manifest.json', manifest, { spaces: 2 });
+## Project Overview
+- **Name**: ${answers.projectName}
+- **Status**: Active
+- **Created**: ${new Date().toISOString()}
+- **Last Updated**: ${new Date().toISOString()}
+
+## Milestones
+<!-- Milestones will be added here by plan.milestone command -->
+
+## Active Work
+- **Current Milestone**: None
+- **Current Sprint**: None
+- **Total Tasks**: 0
+- **Completed Tasks**: 0
+
+## Notes
+This manifest is automatically updated by APEX commands.
+`;
+
+    await fs.writeFile('.apex/00_PROJECT_MANIFEST.md', projectManifest);
 
     // Copy template files
     const apexTemplatePath = path.join(__dirname, '../../templates/.apex');
@@ -222,7 +203,6 @@ This file captures key learnings from completed tasks to inform future work.
     // Create config
     const config = {
       apex: {
-        geminiApiKey: answers.useGemini ? '' : null,
         patternPromotionThreshold: 3,
         trustScoreThreshold: 0.8,
         complexityThreshold: 5,
@@ -232,18 +212,14 @@ This file captures key learnings from completed tasks to inform future work.
 
     await fs.writeJson('.apex/config.json', config, { spaces: 2 });
 
-    spinner.succeed('APEX initialized successfully!');
+    spinner2.succeed('APEX initialized successfully!');
 
     console.log(chalk.green('\n✨ APEX Intelligence is ready!\n'));
     console.log('Next steps:');
-    console.log(chalk.cyan('  1. Start your AI coding assistant (Claude, Cursor, etc.)'));
-    console.log(chalk.cyan('  2. Run: /apex system.prime'));
-    console.log(chalk.cyan('  3. Create your first task: /apex plan.task "Your task description"'));
-    console.log(chalk.cyan('  4. Execute it: /apex execute.task T001\n'));
-
-    if (answers.useGemini) {
-      console.log(chalk.yellow('⚠️  Remember to add your Gemini API key to .apex/config.json\n'));
-    }
+    console.log(chalk.cyan('  1. Open your AI coding assistant (Claude Code, Cursor, etc.)'));
+    console.log(chalk.cyan('  2. Create your first task: /create_task "Your task description"'));
+    console.log(chalk.cyan('  3. Execute it: /task T001\n'));
+    console.log(chalk.dim('  For more commands, see the README or run /prime to load APEX context\n'));
   });
 
 // Patterns command
@@ -315,7 +291,7 @@ program
 
     const checks = [
       { name: 'APEX directory', path: '.apex', required: true },
-      { name: 'Manifest file', path: '.apex/00_SYSTEM/manifest.json', required: true },
+      { name: 'Project manifest', path: '.apex/00_PROJECT_MANIFEST.md', required: true },
       { name: 'Conventions', path: '.apex/CONVENTIONS.md', required: true },
       { name: 'Config file', path: '.apex/config.json', required: false },
       { name: 'Claude integration', path: '.claude/commands/apex', required: false }

@@ -170,8 +170,7 @@ cp -r apex/templates/.claude .  # For Claude users
 APEX creates an organized project structure:
 ```
 .apex/
-├── 00_SYSTEM/                 # APEX configuration
-│   └── manifest.json          # Project metadata
+├── 00_PROJECT_MANIFEST.md     # Project metadata and status
 ├── 01_PROJECT_DOCS/           # Architecture & specifications
 ├── 02_PLANNING/               # Planning hierarchy
 │   └── MILESTONES/           # Project milestones
