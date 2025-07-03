@@ -1,7 +1,10 @@
 {
-  "name": "apex",
+  "name": "@apex-intelligence/apex",
   "version": "0.1.0",
   "description": "APEX - Autonomous Pattern-Enhanced eXecution. AI-powered development workflow with APEX Intelligence for pattern recognition and task execution",
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "ai",
     "development",
@@ -13,6 +16,7 @@
   ],
   "author": "Ben",
   "license": "MIT",
+  "type": "module",
   "main": "src/index.js",
   "bin": {
     "apex": "./src/cli/apex.js"

@@ -114,6 +114,16 @@ program
       await fs.ensureDir(dir);
     }
 
+    // Copy command templates
+    spinner.text = 'Installing APEX command templates...';
+    
+    const templatePath = path.join(__dirname, '../../templates/.claude/commands/apex');
+    const targetPath = '.claude/commands/apex';
+    
+    if (await fs.pathExists(templatePath)) {
+      await fs.copy(templatePath, targetPath, { overwrite: true });
+    }
+
     spinner.text = 'Creating configuration files...';
 
     // Create manifest.json
@@ -139,8 +149,29 @@ program
 
     await fs.writeJson('.apex/00_SYSTEM/manifest.json', manifest, { spaces: 2 });
 
-    // Create CONVENTIONS.md
-    const conventions = `# Conventions
+    // Copy template files
+    const apexTemplatePath = path.join(__dirname, '../../templates/.apex');
+    
+    if (await fs.pathExists(apexTemplatePath)) {
+      // Copy pattern files
+      const templateFiles = [
+        'CONVENTIONS.md',
+        'CONVENTIONS.pending.md',
+        'PATTERN_GUIDE.md',
+        'PATTERN_EXAMPLES.md',
+        'INTELLIGENCE_TRIGGERS.md'
+      ];
+      
+      for (const file of templateFiles) {
+        const srcPath = path.join(apexTemplatePath, file);
+        const destPath = path.join('.apex', file);
+        if (await fs.pathExists(srcPath)) {
+          await fs.copy(srcPath, destPath);
+        }
+      }
+    } else {
+      // Fallback - create basic files if templates not found
+      const conventions = `# Conventions
 
 ## Patterns
 
@@ -148,20 +179,45 @@ program
 <!-- Patterns are automatically promoted from CONVENTIONS.pending.md -->
 `;
 
-    await fs.writeFile('.apex/CONVENTIONS.md', conventions);
+      await fs.writeFile('.apex/CONVENTIONS.md', conventions);
 
-    // Create CONVENTIONS.pending.md
-    const pendingConventions = `# Pending Conventions
+      const pendingConventions = `# Pending Conventions
 
 ## Patterns Being Tested
 
 <!-- New patterns are added here and promoted after successful use -->
 `;
 
-    await fs.writeFile('.apex/CONVENTIONS.pending.md', pendingConventions);
+      await fs.writeFile('.apex/CONVENTIONS.pending.md', pendingConventions);
+    }
 
     // Create failures.jsonl
     await fs.writeFile('.apex/09_LEARNING/failures.jsonl', '');
+
+    // Create PATTERN_METADATA.json
+    const patternMetadata = {
+      patterns: {},
+      metadata: {
+        created_at: new Date().toISOString(),
+        last_updated: new Date().toISOString(),
+        total_patterns: 0,
+        promotion_threshold: 3
+      }
+    };
+    await fs.writeJson('.apex/PATTERN_METADATA.json', patternMetadata, { spaces: 2 });
+
+    // Create TASK_LEARNINGS.md
+    const taskLearnings = `# Task Learnings
+
+## Overview
+This file captures key learnings from completed tasks to inform future work.
+
+## Learnings Log
+
+<!-- APEX Intelligence will populate this file with learnings extracted from tasks -->
+<!-- Format: [DATE] TASK_ID: Learning description -->
+`;
+    await fs.writeFile('.apex/09_LEARNING/TASK_LEARNINGS.md', taskLearnings);
 
     // Create config
     const config = {
