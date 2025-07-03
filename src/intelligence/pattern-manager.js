@@ -123,7 +123,7 @@ export class PatternManager {
   /**
    * Find patterns relevant to a task
    */
-  async findRelevantPatterns(taskDescription, taskContext = {}) {
+  async findRelevantPatterns(taskDescription) {
     const conventions = await fs.readFile(this.conventionsPath, 'utf-8');
     const patterns = this.extractPatterns(conventions);
     

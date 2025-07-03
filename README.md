@@ -31,9 +31,6 @@ npx @apex-intelligence/apex init
 npm install -g @apex-intelligence/apex
 apex init
 
-# Prime your AI assistant with APEX context
-/prime
-
 # Create a milestone and sprint hierarchy
 /milestone "User Authentication System"
 /sprint M01 "Core Authentication"
@@ -101,7 +98,6 @@ APEX automatically discovers and tracks patterns through their lifecycle:
 ```javascript
 // Secure JWT implementation
 const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
-```
 CONTEXT: User authentication tokens
 PREVENTS: Security vulnerabilities, token expiration issues
 ```
@@ -158,15 +154,6 @@ npx @apex-intelligence/apex patterns
 # Install once, use everywhere
 npm install -g @apex-intelligence/apex
 apex init
-```
-
-### Project-specific Installation
-```bash
-# Add to your project's dev dependencies
-npm install --save-dev @apex-intelligence/apex
-
-# Run via npm scripts or npx
-npx apex init
 ```
 
 ### Manual Setup
@@ -256,10 +243,8 @@ Create `.apex/config.json` for custom settings:
 npx @apex-intelligence/apex init
 
 # 2. Open your AI assistant (Claude Code, Cursor, etc.)
-# 3. Prime the AI with APEX context
-/prime
 
-# 4. Plan your work hierarchically
+# 3. Plan your work hierarchically
 /milestone "E-commerce Platform MVP"
 # Returns: M01 created
 
@@ -272,7 +257,7 @@ npx @apex-intelligence/apex init
 /create_task "Implement user registration API" --sprint S01  
 # Returns: T002 created
 
-# 5. Execute tasks with intelligent workflow
+# 4. Execute tasks with intelligent workflow
 /task T001
 # APEX will:
 # - Load relevant patterns and past learnings
@@ -280,11 +265,11 @@ npx @apex-intelligence/apex init
 # - Apply trusted patterns automatically
 # - Engage Gemini for complex architecture decisions
 
-# 6. Ensure quality
+# 5. Ensure quality
 /review
 /test
 
-# 7. Finalize and learn
+# 6. Finalize and learn
 /commit
 /reflect
 ```
@@ -312,12 +297,6 @@ npx @apex-intelligence/apex patterns  # Run in terminal
 ## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Pattern Contributions
-- Document in `CONVENTIONS.pending.md`
-- Include trust score justification
-- Provide usage examples
-- Test across multiple scenarios
 
 ## License
 

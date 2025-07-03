@@ -114,7 +114,7 @@ export class FailureTracker {
     return errorMessage
       .replace(/\b\d+\b/g, 'N')                    // Replace numbers
       .replace(/['"][^'"]+['"]/g, 'STRING')       // Replace strings
-      .replace(/\/[^\/\s]+/g, '/PATH')             // Replace paths
+      .replace(/\/[^/\s]+/g, '/PATH')              // Replace paths
       .replace(/\s+/g, ' ')                        // Normalize whitespace
       .substring(0, 200);                          // Limit length
   }

@@ -1,5 +1,5 @@
 {
-  "name": "@apex-intelligence/apex",
+  "name": "@benredmond/apex",
   "version": "0.1.0",
   "description": "APEX - Autonomous Pattern-Enhanced eXecution. AI-powered development workflow with APEX Intelligence for pattern recognition and task execution",
   "publishConfig": {
@@ -19,7 +19,7 @@
   "type": "module",
   "main": "src/index.js",
   "bin": {
-    "apex": "./src/cli/apex.js"
+    "apex": "src/cli/apex.js"
   },
   "files": [
     "src/",
@@ -28,12 +28,16 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "jest",
-    "test:watch": "jest --watch",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "lint": "eslint src/",
     "format": "prettier --write src/",
     "build": "node scripts/build.js",
-    "prepublishOnly": "npm test && npm run lint"
+    "prepublishOnly": "npm test && npm run lint",
+    "release:patch": "npm test && npm run lint && npm version patch && npm publish",
+    "release:minor": "npm test && npm run lint && npm version minor && npm publish",
+    "release:major": "npm test && npm run lint && npm version major && npm publish",
+    "pack:test": "npm pack --dry-run"
   },
   "dependencies": {
     "chalk": "^5.3.0",
@@ -52,7 +56,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/apex.git"
+    "url": "git+https://github.com/yourusername/apex.git"
   },
   "bugs": {
     "url": "https://github.com/yourusername/apex/issues"
