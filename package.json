@@ -1,6 +1,6 @@
 {
   "name": "@benredmond/apex",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "APEX - Autonomous Pattern-Enhanced eXecution. AI-powered development workflow with APEX Intelligence for pattern recognition and task execution",
   "publishConfig": {
     "access": "public"
@@ -19,7 +19,7 @@
   "type": "module",
   "main": "src/index.js",
   "bin": {
-    "apex": "src/cli/apex.js"
+    "apex": "./src/cli/apex.js"
   },
   "files": [
     "src/",
@@ -56,10 +56,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/apex.git"
+    "url": "git+https://github.com/benredmond/apex.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/apex/issues"
+    "url": "https://github.com/benredmond/apex/issues"
   },
-  "homepage": "https://github.com/yourusername/apex#readme"
+  "homepage": "https://github.com/benredmond/apex#readme"
 }

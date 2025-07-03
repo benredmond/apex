@@ -2,12 +2,12 @@
 
 > AI-powered development workflow with APEX Intelligence for pattern recognition, learning, and task execution
 
-[![npm version](https://badge.fury.io/js/%40apex-intelligence%2Fapex.svg)](https://badge.fury.io/js/%40apex-intelligence%2Fapex)
+[![npm version](https://badge.fury.io/js/%40benredmond%2Fapex.svg)](https://badge.fury.io/js/%40benredmond%2Fapex)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ```bash
 # Get started in seconds - no installation required!
-npx @apex-intelligence/apex init
+npx @benredmond/apex init
 ```
 
 ## What is APEX?
@@ -25,10 +25,10 @@ APEX is a zero-runtime intelligence layer that transforms AI coding assistants (
 ```bash
 # Initialize APEX in your project (no installation needed!)
 cd your-project
-npx @apex-intelligence/apex init
+npx @benredmond/apex init
 
 # Or if you prefer global installation
-npm install -g @apex-intelligence/apex
+npm install -g @benredmond/apex
 apex init
 
 # Create a milestone and sprint hierarchy
@@ -142,24 +142,24 @@ PREVENTS: Security vulnerabilities, token expiration issues
 ### No Installation Required (Recommended)
 ```bash
 # Run directly with npx - no installation needed!
-npx @apex-intelligence/apex init
+npx @benredmond/apex init
 
 # All commands available via npx
-npx @apex-intelligence/apex verify
-npx @apex-intelligence/apex patterns
+npx @benredmond/apex verify
+npx @benredmond/apex patterns
 ```
 
 ### Global Installation
 ```bash
 # Install once, use everywhere
-npm install -g @apex-intelligence/apex
+npm install -g @benredmond/apex
 apex init
 ```
 
 ### Manual Setup
 ```bash
 # Clone and copy templates manually
-git clone https://github.com/yourusername/apex
+git clone https://github.com/benredmond/apex
 cd your-project
 cp -r apex/templates/.apex .
 cp -r apex/templates/.claude .  # For Claude users
@@ -240,7 +240,7 @@ Create `.apex/config.json` for custom settings:
 ### Complete Development Flow
 ```bash
 # 1. Initialize APEX in your project
-npx @apex-intelligence/apex init
+npx @benredmond/apex init
 
 # 2. Open your AI assistant (Claude Code, Cursor, etc.)
 
@@ -287,7 +287,7 @@ When you run `/task T001`, APEX:
 ### Working with Patterns
 ```bash
 # View current patterns
-npx @apex-intelligence/apex patterns  # Run in terminal
+npx @benredmond/apex patterns  # Run in terminal
 
 # The patterns command shows all active patterns
 # Pattern testing happens automatically during task execution
