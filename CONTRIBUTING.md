@@ -11,9 +11,24 @@ Thank you for your interest in contributing to APEX! This guide will help you ge
 
 ## Development Setup
 
+### Quick Start
+
 ```bash
 # Install dependencies
 npm install
+
+# Run the development setup script
+./scripts/dev.sh setup
+```
+
+### Manual Setup
+
+```bash
+# Install dependencies
+npm install
+
+# Run TypeScript type check
+npm run type-check
 
 # Run tests
 npm test
@@ -26,7 +41,37 @@ npm run lint
 
 # Format code
 npm run format
+
+# Build project
+npm run build
 ```
+
+### Docker Development
+
+APEX includes Docker support for consistent development environments:
+
+```bash
+# Build Docker images
+./scripts/dev.sh build:docker
+
+# Run tests in Docker
+./scripts/dev.sh test:docker
+
+# Start development environment
+./scripts/dev.sh dev
+
+# Run APEX CLI in Docker
+./scripts/dev.sh cli init
+```
+
+### TypeScript Migration
+
+APEX is gradually migrating to TypeScript. New code should be written in TypeScript when possible:
+
+- Use `.ts` extension for new files
+- Add type definitions to `src/types/`
+- Run `npm run type-check` to validate types
+- TypeScript errors are currently non-blocking in CI
 
 ## Contributing Patterns
 
@@ -66,14 +111,17 @@ Before submitting, test your pattern:
 
 - Use ES modules (`import`/`export`)
 - Follow ESLint configuration
+- Add TypeScript types for new code
 - Add JSDoc comments for public APIs
 - Write tests for new features
+- Follow existing patterns in the codebase
 
 ### Testing
 
 - Unit tests required for all new features
 - Integration tests for command workflows
 - Maintain >80% code coverage
+- Test with multiple Node.js versions (16, 18, 20)
 
 ### Commit Messages
 
@@ -110,12 +158,15 @@ Example: `feat: add gemini integration for complex tasks`
 ### Bug Reports
 
 Include:
-- APEX version
-- Node.js version
+- APEX version (`apex --version`)
+- Node.js version (`node --version`)
 - Operating system
+- npm/pnpm version
+- TypeScript version (if applicable)
 - Steps to reproduce
 - Expected vs actual behavior
 - Error messages/stack traces
+- Relevant `.apex/` directory structure
 
 ### Feature Requests
 

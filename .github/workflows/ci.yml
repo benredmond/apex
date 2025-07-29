@@ -23,11 +23,24 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
     
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-${{ matrix.node-version }}-
+          ${{ runner.os }}-node-
+    
     - name: Install dependencies
       run: npm ci
     
     - name: Run linter
       run: npm run lint
+    
+    - name: Type check
+      run: npm run type-check
+      continue-on-error: true  # Non-blocking initially
     
     - name: Run tests
       run: npm test -- --coverage
@@ -41,7 +54,12 @@ jobs:
         name: apex-coverage
     
     - name: Build
-      run: npm run build --if-present
+      run: |
+        if [ -f "tsconfig.json" ]; then
+          npm run build
+        else
+          echo "No TypeScript config found, skipping build"
+        fi
 
   example-validation:
     runs-on: ubuntu-latest
@@ -65,6 +83,14 @@ jobs:
     
     steps:
     - uses: actions/checkout@v3
+    
+    - name: Cache npm dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-npm-docs-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-docs-
     
     - name: Check documentation
       run: |
