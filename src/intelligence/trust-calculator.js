@@ -1,7 +1,11 @@
 /**
  * APEX Intelligence - Trust Calculator
  * Calculates and manages trust scores for patterns
+ * Enhanced with Beta-Bernoulli statistical model
  */
+
+import { BetaBernoulliTrustModel } from '../trust/index.js';
+import { JSONStorageAdapter } from '../trust/storage-adapter.js';
 
 export class TrustCalculator {
   constructor(config = {}) {
@@ -11,8 +15,19 @@ export class TrustCalculator {
       recencyWeight: 0.2, // Weight for recency
       minUsageForTrust: 3, // Minimum uses before trust is meaningful
       decayDays: 90, // Days before trust starts decaying
+      useBetaBernoulli: true, // Use statistical model
       ...config,
     };
+
+    // Initialize Beta-Bernoulli model if enabled
+    if (this.config.useBetaBernoulli) {
+      const storage = new JSONStorageAdapter(config.metadataPath);
+      this.betaModel = new BetaBernoulliTrustModel(storage, {
+        defaultAlpha: 3, // Match existing defaults
+        defaultBeta: 2,
+        defaultHalfLife: this.config.decayDays,
+      });
+    }
   }
 
   /**
@@ -21,22 +36,32 @@ export class TrustCalculator {
   calculate(stats) {
     if (!stats || stats.uses === 0) return 0;
 
-    // Base success rate
+    // Use Beta-Bernoulli model if available
+    if (this.config.useBetaBernoulli && this.betaModel) {
+      const failures = stats.uses - stats.successes;
+      const trust = this.betaModel.calculateTrust(stats.successes, failures);
+      
+      // Apply recency weighting if needed
+      if (this.config.recencyWeight > 0 && stats.lastUsed) {
+        const recencyFactor = this.calculateRecencyFactor(stats.lastUsed);
+        const recencyAdjusted = trust.value * (1 - this.config.recencyWeight) + 
+                               recencyFactor * this.config.recencyWeight;
+        return Math.min(recencyAdjusted, 1.0);
+      }
+      
+      return trust.value;
+    }
+
+    // Fallback to legacy calculation
     const successRate = stats.successes / stats.uses;
-
-    // Usage factor (logarithmic scale)
     const usageFactor = this.calculateUsageFactor(stats.uses);
-
-    // Recency factor
     const recencyFactor = this.calculateRecencyFactor(stats.lastUsed);
 
-    // Weighted calculation
     const trustScore =
       successRate * this.config.baseWeight +
       usageFactor * this.config.usageWeight +
       recencyFactor * this.config.recencyWeight;
 
-    // Apply minimum usage threshold
     if (stats.uses < this.config.minUsageForTrust) {
       return trustScore * (stats.uses / this.config.minUsageForTrust);
     }
@@ -162,6 +187,92 @@ export class TrustCalculator {
     }
 
     return uses < 1000 ? uses : null;
+  }
+
+  /**
+   * Get confidence interval for a pattern (Beta-Bernoulli only)
+   */
+  async getConfidenceInterval(patternId) {
+    if (!this.betaModel) {
+      throw new Error('Beta-Bernoulli model not enabled');
+    }
+    return await this.betaModel.getConfidenceInterval(patternId);
+  }
+
+  /**
+   * Get full trust score with confidence (Beta-Bernoulli only)
+   */
+  calculateWithConfidence(stats) {
+    if (!stats || stats.uses === 0) {
+      return {
+        value: 0,
+        confidence: 0,
+        interval: [0, 0],
+        samples: 0,
+      };
+    }
+
+    if (this.betaModel) {
+      const failures = stats.uses - stats.successes;
+      return this.betaModel.calculateTrust(stats.successes, failures);
+    }
+
+    // Fallback for legacy mode
+    const value = this.calculate(stats);
+    return {
+      value,
+      confidence: Math.min(stats.uses / 10, 1), // Simple confidence estimate
+      interval: [Math.max(0, value - 0.1), Math.min(1, value + 0.1)],
+      samples: stats.uses,
+    };
+  }
+
+  /**
+   * Apply time decay to trust scores (Beta-Bernoulli only)
+   */
+  async applyDecay(patternId, days) {
+    if (!this.betaModel) {
+      throw new Error('Beta-Bernoulli model not enabled');
+    }
+    return await this.betaModel.decayTrust(patternId, days);
+  }
+
+  /**
+   * Update trust with new outcome (Beta-Bernoulli only)
+   */
+  async updateTrust(patternId, outcome) {
+    if (!this.betaModel) {
+      throw new Error('Beta-Bernoulli model not enabled');
+    }
+    return await this.betaModel.updateTrust(patternId, outcome);
+  }
+
+  /**
+   * Get visualization data for trust distribution
+   */
+  getVisualization(stats) {
+    if (!stats || stats.uses === 0) {
+      return {
+        trustScore: 0,
+        starRating: '☆☆☆☆☆',
+        confidence: 'VERY_LOW',
+        description: 'No usage data',
+      };
+    }
+
+    const trust = this.calculateWithConfidence(stats);
+    const stars = Math.round(trust.value * 5);
+    const filled = '★'.repeat(stars);
+    const empty = '☆'.repeat(5 - stars);
+
+    return {
+      trustScore: trust.value,
+      starRating: filled + empty,
+      confidence: this.getConfidenceLevel(trust.value),
+      confidenceInterval: trust.interval,
+      samples: trust.samples,
+      description: this.explainTrust(stats, trust.value),
+    };
   }
 }
 
