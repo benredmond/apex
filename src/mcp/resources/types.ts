@@ -2,7 +2,7 @@
  * Resource type definitions for APEX MCP server
  */
 
-export type ResourceType = 'file' | 'pattern' | 'brief';
+export type ResourceType = "file" | "pattern" | "brief";
 
 /**
  * Base resource interface
@@ -22,7 +22,7 @@ export interface Resource {
  * File resource - represents a code file or document
  */
 export interface FileResource extends Resource {
-  type: 'file';
+  type: "file";
   content: string;
   path?: string;
   language?: string;
@@ -32,7 +32,7 @@ export interface FileResource extends Resource {
  * Pattern resource - represents an APEX pattern
  */
 export interface PatternResource extends Resource {
-  type: 'pattern';
+  type: "pattern";
   patternId: string; // e.g., "PAT:UI:COMPONENT"
   trustScore: number; // 1-5 stars
   usageCount: number;
@@ -45,9 +45,9 @@ export interface PatternResource extends Resource {
  * Brief resource - represents a task brief or specification
  */
 export interface BriefResource extends Resource {
-  type: 'brief';
+  type: "brief";
   taskId?: string;
-  status: 'draft' | 'active' | 'completed';
+  status: "draft" | "active" | "completed";
   content: string;
   acceptanceCriteria?: string[];
   estimate?: string;
@@ -57,15 +57,17 @@ export interface BriefResource extends Resource {
  * Type guards
  */
 export function isFileResource(resource: Resource): resource is FileResource {
-  return resource.type === 'file';
+  return resource.type === "file";
 }
 
-export function isPatternResource(resource: Resource): resource is PatternResource {
-  return resource.type === 'pattern';
+export function isPatternResource(
+  resource: Resource,
+): resource is PatternResource {
+  return resource.type === "pattern";
 }
 
 export function isBriefResource(resource: Resource): resource is BriefResource {
-  return resource.type === 'brief';
+  return resource.type === "brief";
 }
 
 /**
@@ -75,7 +77,7 @@ export function createResource<T extends Resource>(
   type: ResourceType,
   id: string,
   name: string,
-  additionalProps?: Partial<T>
+  additionalProps?: Partial<T>,
 ): T {
   const now = new Date();
   return {
