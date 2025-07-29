@@ -80,11 +80,11 @@ export class TrustCalculator {
    * Get confidence level from trust score
    */
   getConfidenceLevel(trustScore) {
-    if (trustScore >= 0.95) return "VERY_HIGH";
-    if (trustScore >= 0.85) return "HIGH";
-    if (trustScore >= 0.7) return "MEDIUM";
-    if (trustScore >= 0.5) return "LOW";
-    return "VERY_LOW";
+    if (trustScore >= 0.95) return 'VERY_HIGH';
+    if (trustScore >= 0.85) return 'HIGH';
+    if (trustScore >= 0.7) return 'MEDIUM';
+    if (trustScore >= 0.5) return 'LOW';
+    return 'VERY_LOW';
   }
 
   /**
@@ -118,10 +118,10 @@ export class TrustCalculator {
       percentage: oldStats ? ((newTrust - oldTrust) / oldTrust) * 100 : 100,
       direction:
         newTrust > oldTrust
-          ? "improving"
+          ? 'improving'
           : newTrust < oldTrust
-            ? "declining"
-            : "stable",
+            ? 'declining'
+            : 'stable',
     };
   }
 

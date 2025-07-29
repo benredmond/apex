@@ -1,10 +1,10 @@
-import { z } from 'zod';
-import { BasePatternSchema } from '../base.js';
+import { z } from "zod";
+import { BasePatternSchema } from "../base.js";
 
 // MIGRATION patterns - Migration strategies
 export const MigrationPatternSchema = BasePatternSchema.extend({
-  type: z.literal('MIGRATION'),
-  
+  type: z.literal("MIGRATION"),
+
   // MIGRATION-specific fields can be added here
   // For now, MIGRATION patterns use only the base fields
 });

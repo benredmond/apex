@@ -1,10 +1,10 @@
-import { z } from 'zod';
-import { BasePatternSchema } from '../base.js';
+import { z } from "zod";
+import { BasePatternSchema } from "../base.js";
 
 // CODEBASE patterns - Project-wide patterns and conventions
 export const CodebasePatternSchema = BasePatternSchema.extend({
-  type: z.literal('CODEBASE'),
-  
+  type: z.literal("CODEBASE"),
+
   // CODEBASE-specific fields can be added here
   // For now, CODEBASE patterns use only the base fields
 });

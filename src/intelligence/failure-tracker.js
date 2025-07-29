@@ -3,18 +3,18 @@
  * Learns from failures to prevent repeated mistakes
  */
 
-import fs from "fs-extra";
-import path from "path";
-import { createHash } from "crypto";
+import fs from 'fs-extra';
+import path from 'path';
+import { createHash } from 'crypto';
 
 export class FailureTracker {
-  constructor(projectRoot = ".") {
+  constructor(projectRoot = '.') {
     this.projectRoot = projectRoot;
     this.failuresPath = path.join(
       projectRoot,
-      ".apex",
-      "09_LEARNING",
-      "failures.jsonl",
+      '.apex',
+      '09_LEARNING',
+      'failures.jsonl',
     );
     this.cache = null;
     this.cacheTimestamp = 0;
@@ -26,7 +26,7 @@ export class FailureTracker {
    */
   generateFailureHash(failure) {
     const key = `${failure.error_type}:${failure.file_pattern}:${failure.error_pattern}`;
-    return createHash("md5").update(key).digest("hex").substring(0, 8);
+    return createHash('md5').update(key).digest('hex').substring(0, 8);
   }
 
   /**
@@ -39,9 +39,9 @@ export class FailureTracker {
     }
 
     try {
-      const content = await fs.readFile(this.failuresPath, "utf-8");
+      const content = await fs.readFile(this.failuresPath, 'utf-8');
       const failures = content
-        .split("\n")
+        .split('\n')
         .filter((line) => line.trim())
         .map((line) => JSON.parse(line));
 
@@ -49,7 +49,7 @@ export class FailureTracker {
       this.cacheTimestamp = Date.now();
       return failures;
     } catch (error) {
-      if (error.code === "ENOENT") {
+      if (error.code === 'ENOENT') {
         // File doesn't exist yet
         return [];
       }
@@ -68,7 +68,7 @@ export class FailureTracker {
       error_type: failureData.error_type,
       error_message: failureData.error_message,
       error_pattern: this.extractErrorPattern(failureData.error_message),
-      file_pattern: failureData.file_pattern || "unknown",
+      file_pattern: failureData.file_pattern || 'unknown',
       context: failureData.context || {},
       fix_applied: failureData.fix_applied || null,
       prevented_by: failureData.prevented_by || null,
@@ -89,7 +89,7 @@ export class FailureTracker {
       return failures[existingIndex];
     } else {
       // Append new failure
-      await fs.appendFile(this.failuresPath, JSON.stringify(failure) + "\n");
+      await fs.appendFile(this.failuresPath, JSON.stringify(failure) + '\n');
 
       // Clear cache
       this.cache = null;
@@ -101,7 +101,7 @@ export class FailureTracker {
    * Save all failures (for updates)
    */
   async saveFailures(failures) {
-    const content = failures.map((f) => JSON.stringify(f)).join("\n") + "\n";
+    const content = failures.map((f) => JSON.stringify(f)).join('\n') + '\n';
     await fs.writeFile(this.failuresPath, content);
 
     // Update cache
@@ -113,14 +113,14 @@ export class FailureTracker {
    * Extract pattern from error message
    */
   extractErrorPattern(errorMessage) {
-    if (!errorMessage) return "unknown";
+    if (!errorMessage) return 'unknown';
 
     // Remove specific values but keep structure
     return errorMessage
-      .replace(/\b\d+\b/g, "N") // Replace numbers
-      .replace(/['"][^'"]+['"]/g, "STRING") // Replace strings
-      .replace(/\/[^/\s]+/g, "/PATH") // Replace paths
-      .replace(/\s+/g, " ") // Normalize whitespace
+      .replace(/\b\d+\b/g, 'N') // Replace numbers
+      .replace(/['"][^'"]+['"]/g, 'STRING') // Replace strings
+      .replace(/\/[^/\s]+/g, '/PATH') // Replace paths
+      .replace(/\s+/g, ' ') // Normalize whitespace
       .substring(0, 200); // Limit length
   }
 
@@ -200,12 +200,12 @@ export class FailureTracker {
   suggestPrevention(failure) {
     const suggestions = {
       ModuleNotFoundError:
-        "Check imports and ensure all dependencies are installed",
-      TypeError: "Verify variable types and add type checking",
-      SyntaxError: "Review syntax, especially brackets and quotes",
-      TestFailure: "Run tests locally before committing",
-      LintError: "Run linter and fix issues before implementation",
-      AsyncError: "Ensure proper async/await usage and error handling",
+        'Check imports and ensure all dependencies are installed',
+      TypeError: 'Verify variable types and add type checking',
+      SyntaxError: 'Review syntax, especially brackets and quotes',
+      TestFailure: 'Run tests locally before committing',
+      LintError: 'Run linter and fix issues before implementation',
+      AsyncError: 'Ensure proper async/await usage and error handling',
     };
 
     // Check if we have a specific fix that worked
@@ -220,7 +220,7 @@ export class FailureTracker {
       }
     }
 
-    return "Review similar past failures and their solutions";
+    return 'Review similar past failures and their solutions';
   }
 
   /**

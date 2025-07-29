@@ -1,10 +1,10 @@
-import { z } from 'zod';
-import { BasePatternSchema } from '../base.js';
+import { z } from "zod";
+import { BasePatternSchema } from "../base.js";
 
 // ANTI patterns - Anti-patterns to avoid
 export const AntiPatternSchema = BasePatternSchema.extend({
-  type: z.literal('ANTI'),
-  
+  type: z.literal("ANTI"),
+
   // Evidence is strongly recommended for ANTI patterns
   // but not required to allow gradual migration
 });
