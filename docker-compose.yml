@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  apex-dev:
+    build:
+      context: .
+      target: development
+    image: apex:development
+    container_name: apex-dev
+    volumes:
+      # Mount source code for hot reloading
+      - ./src:/app/src:ro
+      - ./templates:/app/templates:ro
+      - ./tests:/app/tests:ro
+      - ./.apex:/app/.apex
+      # Prevent node_modules from being overwritten
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - APEX_ENV=docker
+    command: npm run test:watch
+    stdin_open: true
+    tty: true
+
+  apex-cli:
+    build:
+      context: .
+      target: production
+    image: apex:latest
+    container_name: apex-cli
+    volumes:
+      # Mount the project directory you want to work with
+      - ${APEX_PROJECT_PATH:-./examples/todo-app}:/workspace
+      - ${HOME}/.apex:/root/.apex
+    working_dir: /workspace
+    environment:
+      - NODE_ENV=production
+    stdin_open: true
+    tty: true
+    entrypoint: ["node", "/app/src/cli/apex.js"]
+
+  # Future service for documentation site
+  # apex-docs:
+  #   build:
+  #     context: .
+  #     dockerfile: docs/Dockerfile
+  #   image: apex:docs
+  #   container_name: apex-docs
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./docs:/app/docs:ro
+
+# Volumes for persistent data
+volumes:
+  apex-data:

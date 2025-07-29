@@ -1,0 +1,48 @@
+# Git
+.git
+.gitignore
+
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Testing
+coverage
+.nyc_output
+
+# Build outputs
+dist
+*.tgz
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Documentation build
+docs/_build
+docs/.vuepress/dist
+
+# Temporary files
+*.tmp
+*.temp
+.apex/
+
+# GitHub
+.github/
+
+# Development
+*.log
+.eslintcache
