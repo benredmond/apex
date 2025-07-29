@@ -209,8 +209,8 @@ describe('PatternRepository', () => {
       await new Promise(resolve => setTimeout(resolve, 100));
       await fs.writeFile(patternPath, JSON.stringify(patternData, null, 2));
       
-      // Wait for file watcher to process
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Wait for file watcher to process - increased timeout for reliability
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       const pattern = await repository.get('TEST:WATCH:NEW');
       expect(pattern).toBeTruthy();

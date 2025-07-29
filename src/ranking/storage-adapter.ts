@@ -7,34 +7,70 @@ import { PatternMeta } from './types.js';
  * this would query the related tables to get scope information.
  */
 export function adaptStoragePattern(pattern: any): PatternMeta {
+  // If json_canonical exists, parse it to get the full pattern data
+  let fullPattern = pattern;
+  if (pattern.json_canonical) {
+    try {
+      fullPattern = JSON.parse(pattern.json_canonical);
+    } catch (e) {
+      console.error('Failed to parse json_canonical:', e);
+    }
+  }
+  
   const meta: PatternMeta = {
     id: pattern.id,
     type: pattern.type,
     scope: {
-      // In real implementation, these would come from joining with
-      // PatternLanguage, PatternFramework, PatternPath tables
-      paths: pattern.paths || [],
-      languages: pattern.languages || [],
-      frameworks: pattern.frameworks || [],
+      // Extract from fullPattern.scope if available, otherwise use defaults
+      paths: fullPattern.scope?.paths || pattern.paths || [],
+      languages: fullPattern.scope?.languages || pattern.languages || [],
+      frameworks: adaptFrameworks(fullPattern.scope?.frameworks || pattern.frameworks || []),
     },
     metadata: {
-      lastReviewed: pattern.updated_at,
-      halfLifeDays: 90,
-      repo: pattern.source_repo,
-      // Org could be extracted from pattern ID prefix
-      org: pattern.id.split('.')[0],
+      lastReviewed: fullPattern.metadata?.lastReviewed || pattern.updated_at,
+      halfLifeDays: fullPattern.metadata?.halfLifeDays || 90,
+      repo: fullPattern.metadata?.repo || pattern.source_repo,
+      // Extract org from metadata or pattern ID prefix
+      org: fullPattern.metadata?.org || pattern.id.split('.')[0] || pattern.id.split(':')[0],
     },
   };
   
-  // Adapt trust information
-  if (pattern.trust_score !== undefined) {
+  // Adapt trust information from metadata
+  if (fullPattern.metadata?.trust?.score !== undefined) {
+    meta.trust = {
+      score: fullPattern.metadata.trust.score,
+      // Alpha/beta will be derived from score if not present
+    };
+  } else if (pattern.trust_score !== undefined) {
     meta.trust = {
       score: pattern.trust_score,
-      // Alpha/beta will be derived from score if not present
     };
   }
   
   return meta;
+}
+
+/**
+ * Adapt frameworks to the expected format
+ */
+function adaptFrameworks(frameworks: any[]): Array<{ name: string; range?: string }> {
+  if (!frameworks || !Array.isArray(frameworks)) {
+    return [];
+  }
+  
+  return frameworks.map(fw => {
+    if (typeof fw === 'string') {
+      // Parse strings like "express@^4.0.0"
+      const match = fw.match(/^([^@]+)(@(.+))?$/);
+      if (match) {
+        return { name: match[1], range: match[3] };
+      }
+      return { name: fw };
+    } else if (fw && typeof fw === 'object' && fw.name) {
+      return { name: fw.name, range: fw.range };
+    }
+    return null;
+  }).filter(Boolean) as Array<{ name: string; range?: string }>;
 }
 
 /**
@@ -46,14 +82,17 @@ export async function createRankerFromRepository(
   repository: any,
   config?: any
 ): Promise<{ rankPatterns: (signals: any, k?: number) => Promise<any[]> }> {
-  // In a real implementation, this would query patterns with all their relations
-  // For now, we'll just use a mock implementation
-  const patterns: PatternMeta[] = [];
-  
   // Import ranking module dynamically to avoid circular dependencies
   const { rankPatterns } = await import('./index.js');
   
   return {
-    rankPatterns: (signals, k) => rankPatterns(patterns, signals, k, config),
+    rankPatterns: async (signals, k) => {
+      // Query all patterns from repository
+      // Using a large k value to get all patterns for ranking
+      const result = await repository.lookup({ k: 1000 });
+      const patterns: PatternMeta[] = result.patterns.map((p: any) => adaptStoragePattern(p));
+      
+      return rankPatterns(patterns, signals, k, config);
+    },
   };
 }

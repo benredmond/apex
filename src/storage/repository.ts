@@ -67,6 +67,14 @@ export class PatternRepository {
     this.db.close();
   }
 
+  /**
+   * Get the watcher instance (for testing)
+   * @internal
+   */
+  public getWatcher(): PatternWatcher {
+    return this.watcher;
+  }
+
   // Core CRUD operations
 
   public async create(pattern: Pattern): Promise<Pattern> {
@@ -291,27 +299,108 @@ export class PatternRepository {
         invalid_reason: pattern.invalid_reason || null,
       });
 
-      // Delete existing facet data
-      const patternId = pattern.id;
-      this.db.prepare('DELETE FROM pattern_languages WHERE pattern_id = ?').run(patternId);
-      this.db.prepare('DELETE FROM pattern_frameworks WHERE pattern_id = ?').run(patternId);
-      this.db.prepare('DELETE FROM pattern_tags WHERE pattern_id = ?').run(patternId);
-      // ... other facet tables
-
-      // Insert new facet data
-      if (pattern.tags) {
-        const insertTag = this.db.prepare('INSERT INTO pattern_tags (pattern_id, tag) VALUES (?, ?)');
-        for (const tag of pattern.tags) {
-          insertTag.run(patternId, tag);
-        }
-      }
-
-      // Would insert other facet data here based on pattern content
+      // Insert facet data
+      this._insertFacets(pattern.id, pattern);
     });
     
     // Update cache
     this.cache.setPattern(pattern.id, pattern);
     this.cache.invalidateFacetsForPattern(pattern.id);
+  }
+
+  /**
+   * Extract and insert facet data for a pattern
+   * [PAT:INFRA:TYPESCRIPT_MIGRATION] ★★★☆☆ (2 uses) - Clean extraction of facet logic
+   */
+  private _insertFacets(patternId: string, pattern: any): void {
+    // Delete existing facet data for this pattern
+    this.db.prepare('DELETE FROM pattern_languages WHERE pattern_id = ?').run(patternId);
+    this.db.prepare('DELETE FROM pattern_frameworks WHERE pattern_id = ?').run(patternId);
+    this.db.prepare('DELETE FROM pattern_tags WHERE pattern_id = ?').run(patternId);
+    this.db.prepare('DELETE FROM pattern_paths WHERE pattern_id = ?').run(patternId);
+    this.db.prepare('DELETE FROM pattern_repos WHERE pattern_id = ?').run(patternId);
+    this.db.prepare('DELETE FROM pattern_task_types WHERE pattern_id = ?').run(patternId);
+    this.db.prepare('DELETE FROM pattern_envs WHERE pattern_id = ?').run(patternId);
+
+    // Insert tags (already implemented)
+    if (pattern.tags && Array.isArray(pattern.tags)) {
+      const insertTag = this.db.prepare('INSERT INTO pattern_tags (pattern_id, tag) VALUES (?, ?)');
+      for (const tag of pattern.tags) {
+        insertTag.run(patternId, tag);
+      }
+    }
+
+    // Extract scope data if available (patterns loaded from YAML have scope field)
+    const scope = pattern.scope || {};
+
+    // Insert languages
+    if (scope.languages && Array.isArray(scope.languages)) {
+      const insertLang = this.db.prepare('INSERT INTO pattern_languages (pattern_id, lang) VALUES (?, ?)');
+      for (const lang of scope.languages) {
+        insertLang.run(patternId, lang);
+      }
+    }
+
+    // Insert frameworks with optional semver
+    if (scope.frameworks && Array.isArray(scope.frameworks)) {
+      const insertFramework = this.db.prepare('INSERT INTO pattern_frameworks (pattern_id, framework, semver) VALUES (?, ?, ?)');
+      for (const fw of scope.frameworks) {
+        if (typeof fw === 'string') {
+          // Simple framework name
+          insertFramework.run(patternId, fw, null);
+        } else if (fw && typeof fw === 'object' && fw.name) {
+          // Framework with semver
+          const semver = fw.semver || fw.version || null;
+          insertFramework.run(patternId, fw.name, semver);
+        }
+      }
+      
+      // Also check semver_constraints for additional framework versions
+      if (pattern.semver_constraints?.dependencies) {
+        for (const [framework, version] of Object.entries(pattern.semver_constraints.dependencies)) {
+          // Only add if not already in scope.frameworks
+          const alreadyAdded = scope.frameworks.some((fw: any) => 
+            (typeof fw === 'string' && fw === framework) ||
+            (fw && typeof fw === 'object' && fw.name === framework)
+          );
+          if (!alreadyAdded && typeof version === 'string') {
+            insertFramework.run(patternId, framework, version);
+          }
+        }
+      }
+    }
+
+    // Insert paths
+    if (scope.paths && Array.isArray(scope.paths)) {
+      const insertPath = this.db.prepare('INSERT INTO pattern_paths (pattern_id, glob) VALUES (?, ?)');
+      for (const path of scope.paths) {
+        insertPath.run(patternId, path);
+      }
+    }
+
+    // Insert repos
+    if (scope.repos && Array.isArray(scope.repos)) {
+      const insertRepo = this.db.prepare('INSERT INTO pattern_repos (pattern_id, repo_glob) VALUES (?, ?)');
+      for (const repo of scope.repos) {
+        insertRepo.run(patternId, repo);
+      }
+    }
+
+    // Insert task types
+    if (scope.task_types && Array.isArray(scope.task_types)) {
+      const insertTaskType = this.db.prepare('INSERT INTO pattern_task_types (pattern_id, task_type) VALUES (?, ?)');
+      for (const taskType of scope.task_types) {
+        insertTaskType.run(patternId, taskType);
+      }
+    }
+
+    // Insert environments
+    if (scope.envs && Array.isArray(scope.envs)) {
+      const insertEnv = this.db.prepare('INSERT INTO pattern_envs (pattern_id, env) VALUES (?, ?)');
+      for (const env of scope.envs) {
+        insertEnv.run(patternId, env);
+      }
+    }
   }
 
   private async markInvalid(patternId: string, reason: string): Promise<void> {

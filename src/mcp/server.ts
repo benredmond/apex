@@ -16,6 +16,7 @@ import { ApexStdioTransport } from "./transports/stdio.js";
 import { toMCPError } from "./errors.js";
 import { PatternRepository } from "../storage/repository.js";
 import { PatternDatabase } from "../storage/database.js";
+import { getMetricsResource, readMetricsResource } from "./resources/metrics.js";
 
 export interface ApexMCPServerOptions {
   name?: string;
@@ -87,13 +88,25 @@ export class ApexMCPServer {
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
       try {
         const resources = this.resourceManager.list();
+        
+        // Add static resources like metrics
+        const metricsResource = getMetricsResource();
+        
         return {
-          resources: resources.map((r) => ({
-            uri: `apex://resource/${r.id}`,
-            name: r.name,
-            description: r.description,
-            mimeType: r.mimeType,
-          })),
+          resources: [
+            ...resources.map((r) => ({
+              uri: `apex://resource/${r.id}`,
+              name: r.name,
+              description: r.description,
+              mimeType: r.mimeType,
+            })),
+            {
+              uri: metricsResource.uri,
+              name: metricsResource.name,
+              description: metricsResource.description,
+              mimeType: metricsResource.mimeType,
+            },
+          ],
         };
       } catch (error) {
         throw toMCPError(error);
@@ -105,6 +118,20 @@ export class ApexMCPServer {
       async (request) => {
         try {
           const { uri } = request.params;
+
+          // Handle metrics resource specially
+          if (uri === "apex://metrics/lookup") {
+            const content = await readMetricsResource(uri);
+            return {
+              contents: [
+                {
+                  uri,
+                  mimeType: "application/json",
+                  text: content,
+                },
+              ],
+            };
+          }
 
           // Extract resource ID from URI
           const match = uri.match(/^apex:\/\/resource\/(.+)$/);

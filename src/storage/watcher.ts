@@ -93,4 +93,34 @@ export class PatternWatcher extends EventEmitter {
   public getWatched(): Record<string, string[]> {
     return this.watcher?.getWatched() || {};
   }
+
+  /**
+   * Wait for a specific file to be processed
+   * Returns a promise that resolves when the file change event is emitted
+   * [FIX:TEST:TIMING] - Event-based synchronization for tests
+   */
+  public waitForFile(filePath: string, timeout: number = 1000): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let resolved = false;
+      
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          this.removeListener('change', handler);
+          reject(new Error(`Timeout waiting for file: ${filePath}`));
+        }
+      }, timeout);
+
+      const handler = (event: FileChangeEvent) => {
+        if (event.path === filePath && !resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          this.removeListener('change', handler);
+          resolve();
+        }
+      };
+
+      this.on('change', handler);
+    });
+  }
 }

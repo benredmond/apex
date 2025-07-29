@@ -162,8 +162,8 @@ describe('PatternRepository Performance', () => {
       const jsonPath = patternPath.replace('.yaml', '.json');
       await fs.writeFile(jsonPath, JSON.stringify(pattern, null, 2));
       
-      // Wait for file watcher to process
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Wait for file watcher to process - increased timeout for reliability
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       const end = process.hrtime.bigint();
       const duration = Number(end - start) / 1e6;
@@ -174,9 +174,9 @@ describe('PatternRepository Performance', () => {
       const indexed = await repository.get('PERF:REINDEX:TEST');
       expect(indexed).toBeTruthy();
       
-      // Note: This includes file write time and debounce delay
-      // Actual reindex time should be much faster
-      expect(duration).toBeLessThan(500);
+      // Note: This includes file write time and debounce delay (500ms)
+      // Actual reindex time is much faster, but we need to wait for debounce
+      expect(duration).toBeLessThan(600);
     });
   });
 

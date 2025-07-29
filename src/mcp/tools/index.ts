@@ -9,20 +9,18 @@ import {
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { PatternRepository } from "../../storage/repository.js";
-import { PatternRanker } from "../../ranking/index.js";
-import { PackBuilder } from "../../ranking/pack-builder.js";
 import { toMCPError } from "../errors.js";
-import { Signals } from "../../ranking/types.js";
+import { PatternLookupService } from "./lookup.js";
 
 let repository: PatternRepository | null = null;
-let packBuilder: PackBuilder | null = null;
+let lookupService: PatternLookupService | null = null;
 
 /**
  * Initialize tool dependencies
  */
 export function initializeTools(repo: PatternRepository): void {
   repository = repo;
-  packBuilder = new PackBuilder(repo);
+  lookupService = new PatternLookupService(repo);
 }
 
 /**
@@ -45,51 +43,18 @@ export async function registerTools(server: Server): Promise<void> {
           };
 
         case "apex.patterns.lookup":
-          if (!repository || !packBuilder) {
-            throw new Error("Pattern tools not initialized");
+          if (!lookupService) {
+            throw new Error("Pattern lookup service not initialized");
           }
 
-          const query = String(args?.query || "");
-          const signals = (args?.signals || {}) as Signals;
-          const options = args?.options || {};
-
-          // Search for patterns using text search for now
-          // TODO: Update to use lookup with facets when signals are properly structured
-          const patterns = await repository.search(query, 100);
-          
-          // Convert patterns to PatternMeta format for ranker
-          const patternMetas = patterns.map(p => ({
-            id: p.id,
-            type: p.type,
-            scope: {
-              paths: [],
-              languages: [],
-              frameworks: [],
-            },
-            trust: {
-              score: 0.8, // Default trust score
-            },
-            metadata: {},
-          }));
-          
-          // Create ranker with patterns
-          const ranker = new PatternRanker(patternMetas);
-          
-          // Rank patterns
-          const ranked = await ranker.rank(signals);
-          
-          // Build PatternPack
-          const result = await packBuilder.buildPatternPack(
-            query,
-            ranked.slice(0, Number((options as any)?.limit) || 100),
-            options
-          );
+          // Use the new lookup service with enhanced functionality
+          const response = await lookupService.lookup(args);
 
           return {
             content: [
               {
                 type: "text",
-                text: result.json,
+                text: JSON.stringify(response),
               },
             ],
           };
@@ -125,61 +90,47 @@ export function getToolsList(): Tool[] {
     },
     {
       name: "apex.patterns.lookup",
-      description: "Search and rank patterns, returning a size-optimized PatternPack",
+      description: "Lookup relevant patterns for a given task with intelligent signal extraction",
       inputSchema: {
         type: "object",
         properties: {
-          query: {
+          task: {
             type: "string",
-            description: "Task description or search query",
+            description: "User's task description",
+            minLength: 1,
+            maxLength: 1000,
           },
-          signals: {
-            type: "object",
-            description: "Search signals (paths, languages, frameworks, etc.)",
-            properties: {
-              paths: {
-                type: "array",
-                items: { type: "string" },
-                description: "File paths to match patterns against",
-              },
-              languages: {
-                type: "array",
-                items: { type: "string" },
-                description: "Programming languages to filter by",
-              },
-              frameworks: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    name: { type: "string" },
-                    version: { type: "string" },
-                  },
-                },
-                description: "Frameworks and versions to filter by",
-              },
-            },
+          current_file: {
+            type: "string",
+            description: "Active file path (optional)",
           },
-          options: {
-            type: "object",
-            description: "PackBuilder options",
-            properties: {
-              limit: {
-                type: "number",
-                description: "Maximum patterns to consider (default: 100)",
-              },
-              budgetBytes: {
-                type: "number",
-                description: "Size budget in bytes (default: 8192)",
-              },
-              debug: {
-                type: "boolean",
-                description: "Include debug information (default: false)",
-              },
-            },
+          language: {
+            type: "string",
+            description: "Programming language (optional)",
+          },
+          framework: {
+            type: "string",
+            description: "Framework name (e.g., React, Django) (optional)",
+          },
+          recent_errors: {
+            type: "array",
+            items: { type: "string" },
+            description: "Recent error messages for context (optional)",
+            maxItems: 10,
+          },
+          repo_path: {
+            type: "string",
+            description: "Repository root path (optional)",
+          },
+          max_size: {
+            type: "number",
+            description: "Max response size in bytes (default: 8192)",
+            minimum: 1024,
+            maximum: 65536,
+            default: 8192,
           },
         },
-        required: ["query"],
+        required: ["task"],
       },
     },
   ];
