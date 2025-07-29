@@ -1,0 +1,112 @@
+schema_version: "0.3.0"
+pattern_version: "2.1.0"
+id: "ACME.ORG:POLICY:REVIEW:REQUIREMENTS"
+type: "POLICY"
+title: "Code Review Requirements Policy"
+summary: "Mandatory code review requirements and approval criteria for all production changes"
+
+scope:
+  repos: ["acme/*"]
+  envs: ["production", "staging"]
+  task_types: ["feature", "bugfix", "hotfix"]
+
+rules:
+  review_requirements:
+    min_approvals: 2
+    required_reviewers:
+      - role: "senior_engineer"
+        count: 1
+      - role: "team_member"
+        count: 1
+    
+    exceptions:
+      hotfix:
+        min_approvals: 1
+        time_limit: "2h"
+        escalation: "engineering_manager"
+      
+      documentation_only:
+        min_approvals: 1
+        paths: ["*.md", "docs/**", "*.txt"]
+  
+  review_criteria:
+    mandatory_checks:
+      - "Tests pass (coverage >= 80%)"
+      - "No security vulnerabilities"
+      - "Follows coding standards"
+      - "Documentation updated"
+      - "No console.log or print statements"
+    
+    automated_checks:
+      - tool: "sonarqube"
+        quality_gate: "pass"
+      - tool: "security_scan"
+        severity: "high"
+        max_issues: 0
+  
+  approval_matrix:
+    database_changes:
+      required_approvers: ["dba_team", "backend_lead"]
+      paths: ["**/migrations/**", "**/*.sql"]
+    
+    api_changes:
+      required_approvers: ["api_team", "client_team_rep"]
+      paths: ["**/api/**", "**/graphql/**"]
+    
+    security_changes:
+      required_approvers: ["security_team"]
+      paths: ["**/auth/**", "**/crypto/**", "**/security/**"]
+
+snippets:
+  - label: "GitHub PR template implementing policy"
+    language: "markdown"
+    code: |
+      ## PR Checklist
+      
+      ### Required Reviews (per ACME.ORG:POLICY:REVIEW:REQUIREMENTS)
+      - [ ] 2 approvals obtained (1 senior engineer + 1 team member)
+      - [ ] Specialty approvals (if applicable):
+        - [ ] DBA team (for database changes)
+        - [ ] API team (for API changes)
+        - [ ] Security team (for auth/security changes)
+      
+      ### Automated Checks
+      - [ ] All tests passing (coverage >= 80%)
+      - [ ] SonarQube quality gate: PASSED
+      - [ ] Security scan: No HIGH severity issues
+      
+      ### Manual Review Checklist
+      - [ ] Code follows team standards
+      - [ ] Documentation updated
+      - [ ] No debug statements (console.log, print, etc.)
+      - [ ] Changes are backwards compatible
+
+applicability:
+  rule_language: "jsonlogic"
+  rule: |
+    {
+      "and": [
+        {"!=": [{"var": "branch.target"}, "develop"]},
+        {"!=": [{"var": "pr.labels"}, "skip-policy"]}
+      ]
+    }
+
+evidence:
+  - kind: "issue"
+    id: "POL-123"
+    system: "jira"
+
+usage:
+  successes: 234
+  failures: 12
+  last_used_at: "2025-01-28T09:00:00Z"
+
+trust_score: 0.95
+created_at: "2023-04-01T00:00:00Z"
+updated_at: "2024-12-15T10:30:00Z"
+source_repo: "acme/policies"
+tags: ["policy", "code-review", "governance", "quality"]
+
+notes: |
+  This policy is enforced via GitHub branch protection rules and custom GitHub Actions.
+  Violations are reported to engineering management weekly. Exceptions require VP approval.

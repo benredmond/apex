@@ -1,0 +1,95 @@
+schema_version: "0.3.0"
+pattern_version: "1.0.0"
+id: "ACME.TEST:FAILURE:ASYNC:TIMEOUT"
+type: "FAILURE"
+title: "Async Test Timeout Failure"
+summary: "Tests timeout when async operations don't complete due to missing await or done callback"
+
+scope:
+  languages: ["javascript", "typescript"]
+  frameworks: ["jest", "mocha", "vitest"]
+  task_types: ["testing", "async-testing"]
+
+signature: |
+  Timeout - Async callback was not invoked within the 5000 ms timeout
+  OR
+  Jest did not exit one second after the test run has completed
+
+snippets:
+  - label: "Common failure case - missing await"
+    language: "javascript"
+    code: |
+      // ❌ This test will timeout
+      test('should fetch user data', () => {
+        const userData = fetchUser(123); // Missing await!
+        expect(userData.name).toBe('John');
+      });
+      
+      // ✅ Fixed version
+      test('should fetch user data', async () => {
+        const userData = await fetchUser(123);
+        expect(userData.name).toBe('John');
+      });
+
+  - label: "Common failure case - done callback"
+    language: "javascript"
+    code: |
+      // ❌ This test will timeout - done() never called
+      test('should process callback', (done) => {
+        processAsync((result) => {
+          expect(result).toBe('success');
+          // Missing done() call!
+        });
+      });
+      
+      // ✅ Fixed version
+      test('should process callback', (done) => {
+        processAsync((result) => {
+          expect(result).toBe('success');
+          done(); // Must call done()
+        });
+      });
+
+  - label: "Common failure case - unhandled promise"
+    language: "javascript"
+    code: |
+      // ❌ Unhandled promise rejection
+      test('should handle errors', async () => {
+        fetchUser(-1); // Returns rejected promise but not awaited
+        // Test passes but Jest complains about unhandled rejection
+      });
+      
+      // ✅ Fixed version
+      test('should handle errors', async () => {
+        await expect(fetchUser(-1)).rejects.toThrow('Invalid user ID');
+      });
+
+mitigations:
+  - "ACME.PLT:TEST:ASYNC:PATTERNS"
+  - "ACME.PLT:TEST:TIMEOUT:CONFIG"
+
+evidence:
+  - kind: "ci_run"
+    id: "build-4521"
+    provider: "gh"
+  - kind: "issue"
+    id: "DEV-890"
+    system: "linear"
+  - kind: "commit"
+    sha: "f5e4d3c2b1a0"
+
+usage:
+  successes: 0
+  failures: 23
+  last_used_at: "2025-01-20T16:45:00Z"
+
+trust_score: 0.15
+created_at: "2024-08-10T11:00:00Z"
+updated_at: "2025-01-20T16:45:00Z"
+source_repo: "acme/web-app"
+tags: ["testing", "async", "jest", "timeout", "common-error"]
+
+notes: |
+  This is one of the most common test failures for developers new to async testing.
+  The fix is usually simple: ensure all async operations are properly awaited or
+  use the done callback correctly. Consider enabling ESLint rules for async tests.

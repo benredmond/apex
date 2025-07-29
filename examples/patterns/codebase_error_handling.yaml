@@ -1,0 +1,161 @@
+schema_version: "0.3.0"
+pattern_version: "1.2.0"
+id: "ACME.PLATFORM:CODEBASE:ERROR:HANDLING"
+type: "CODEBASE"
+title: "Standardized Error Handling Pattern"
+summary: "Consistent error handling across all services with proper logging and client responses"
+
+scope:
+  repos: ["acme/*"]
+  languages: ["typescript", "python", "go"]
+  task_types: ["error-handling", "api-development"]
+
+snippets:
+  - label: "Custom error class hierarchy"
+    language: "typescript"
+    code: |
+      // Base error class for all custom errors
+      export abstract class AppError extends Error {
+        public readonly statusCode: number;
+        public readonly isOperational: boolean;
+        public readonly context?: Record<string, any>;
+        
+        constructor(
+          message: string,
+          statusCode: number,
+          isOperational = true,
+          context?: Record<string, any>
+        ) {
+          super(message);
+          this.statusCode = statusCode;
+          this.isOperational = isOperational;
+          this.context = context;
+          
+          Error.captureStackTrace(this, this.constructor);
+        }
+      }
+      
+      // Specific error types
+      export class ValidationError extends AppError {
+        constructor(message: string, context?: Record<string, any>) {
+          super(message, 400, true, context);
+        }
+      }
+      
+      export class NotFoundError extends AppError {
+        constructor(resource: string, id: string) {
+          super(`${resource} with id ${id} not found`, 404, true, { resource, id });
+        }
+      }
+      
+      export class UnauthorizedError extends AppError {
+        constructor(message = 'Unauthorized') {
+          super(message, 401, true);
+        }
+      }
+
+  - label: "Global error handler middleware"
+    language: "typescript"
+    code: |
+      import { Request, Response, NextFunction } from 'express';
+      import { AppError } from './errors';
+      import { logger } from './logger';
+      
+      export function errorHandler(
+        err: Error,
+        req: Request,
+        res: Response,
+        next: NextFunction
+      ) {
+        // Log error details
+        logger.error({
+          error: err.message,
+          stack: err.stack,
+          url: req.url,
+          method: req.method,
+          ip: req.ip,
+          context: err instanceof AppError ? err.context : undefined
+        });
+        
+        // Handle known operational errors
+        if (err instanceof AppError && err.isOperational) {
+          return res.status(err.statusCode).json({
+            error: {
+              message: err.message,
+              code: err.constructor.name,
+              context: err.context
+            }
+          });
+        }
+        
+        // Handle unexpected errors
+        if (process.env.NODE_ENV === 'production') {
+          return res.status(500).json({
+            error: {
+              message: 'Internal server error',
+              code: 'INTERNAL_ERROR'
+            }
+          });
+        }
+        
+        // In development, send full error
+        return res.status(500).json({
+          error: {
+            message: err.message,
+            code: err.name,
+            stack: err.stack
+          }
+        });
+      }
+
+  - label: "Error reporting integration"
+    language: "typescript"
+    code: |
+      import * as Sentry from '@sentry/node';
+      
+      // Initialize Sentry
+      Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        environment: process.env.NODE_ENV,
+        beforeSend(event, hint) {
+          // Don't send operational errors to Sentry
+          if (hint.originalException instanceof AppError && 
+              hint.originalException.isOperational) {
+            return null;
+          }
+          return event;
+        }
+      });
+      
+      // Async error wrapper
+      export function asyncHandler(fn: Function) {
+        return (req: Request, res: Response, next: NextFunction) => {
+          Promise.resolve(fn(req, res, next)).catch(next);
+        };
+      }
+
+evidence:
+  - kind: "pr"
+    number: 789
+    repo: "acme/api-platform"
+  - kind: "git_lines"
+    file: "src/middleware/errorHandler.ts"
+    sha: "a1b2c3d4e5f6"
+    start: 1
+    end: 75
+
+usage:
+  successes: 89
+  failures: 3
+  last_used_at: "2025-01-27T14:20:00Z"
+
+trust_score: 0.88
+created_at: "2024-03-10T09:00:00Z"
+updated_at: "2025-01-27T14:20:00Z"
+source_repo: "acme/api-platform"
+tags: ["error-handling", "middleware", "logging", "observability"]
+
+notes: |
+  This pattern ensures consistent error handling across all services. Operational errors
+  (like validation failures) are distinguished from programming errors. All errors are
+  properly logged with context, and critical errors are sent to Sentry for monitoring.

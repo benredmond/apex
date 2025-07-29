@@ -299,6 +299,16 @@ program
     }
   });
 
+// Pattern lint command
+program
+  .command("pattern-lint <pattern>")
+  .description("Validate APEX pattern files")
+  .option("-v, --verbose", "Show detailed validation output")
+  .action(async (pattern, options) => {
+    const { lintPatterns } = await import('./commands/pattern-lint.js');
+    await lintPatterns(pattern, options);
+  });
+
 // Prime command
 program
   .command("prime")

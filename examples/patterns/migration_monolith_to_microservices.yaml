@@ -1,0 +1,237 @@
+schema_version: "0.3.0"
+pattern_version: "2.0.0"
+id: "ACME.ARCH:MIGRATION:MONOLITH:MICROSERVICES"
+type: "MIGRATION"
+title: "Monolith to Microservices Migration Pattern"
+summary: "Incremental migration strategy from monolithic architecture to microservices using the Strangler Fig pattern"
+
+scope:
+  frameworks: ["express", "django", "rails", "spring"]
+  task_types: ["architecture-migration", "refactoring"]
+  envs: ["production"]
+
+snippets:
+  - label: "Phase 1: Identify service boundaries"
+    language: "markdown"
+    code: |
+      ## Service Boundary Identification
+      
+      1. **Analyze Data Models**
+         - Group related entities by business capability
+         - Identify aggregate roots
+         - Map data ownership boundaries
+      
+      2. **Review Transaction Boundaries**
+         - Find operations that must be atomic
+         - Identify eventual consistency opportunities
+         - Document cross-boundary transactions
+      
+      3. **Examine Team Structure**
+         - Align services with team ownership
+         - Consider Conway's Law implications
+         - Plan for team autonomy
+      
+      Example boundaries identified:
+      - User Service: users, profiles, preferences
+      - Order Service: orders, order_items, fulfillment
+      - Inventory Service: products, stock, warehouses
+      - Payment Service: transactions, invoices, refunds
+
+  - label: "Phase 2: API Gateway implementation"
+    language: "typescript"
+    code: |
+      // API Gateway with gradual routing migration
+      import express from 'express';
+      import httpProxy from 'http-proxy-middleware';
+      
+      const app = express();
+      
+      // Migration configuration
+      const routeMappings = {
+        '/api/users': {
+          target: process.env.USER_SERVICE_URL || 'http://monolith:3000',
+          migrated: process.env.USER_SERVICE_MIGRATED === 'true'
+        },
+        '/api/orders': {
+          target: process.env.ORDER_SERVICE_URL || 'http://monolith:3000',
+          migrated: process.env.ORDER_SERVICE_MIGRATED === 'true'
+        },
+        '/api/inventory': {
+          target: 'http://monolith:3000', // Not migrated yet
+          migrated: false
+        }
+      };
+      
+      // Dynamic routing based on migration status
+      Object.entries(routeMappings).forEach(([path, config]) => {
+        app.use(path, httpProxy.createProxyMiddleware({
+          target: config.target,
+          changeOrigin: true,
+          onProxyReq: (proxyReq, req, res) => {
+            // Add migration headers for monitoring
+            proxyReq.setHeader('X-Migration-Status', config.migrated ? 'new' : 'legacy');
+            proxyReq.setHeader('X-Request-ID', req.headers['x-request-id'] || uuid());
+          },
+          onError: (err, req, res) => {
+            console.error(`Proxy error for ${path}:`, err);
+            // Fallback to monolith if new service fails
+            if (config.migrated && process.env.ENABLE_FALLBACK === 'true') {
+              console.log(`Falling back to monolith for ${path}`);
+              // Proxy to monolith instead
+            }
+          }
+        }));
+      });
+
+  - label: "Phase 3: Data synchronization during migration"
+    language: "python"
+    code: |
+      # Dual-write pattern for gradual data migration
+      from abc import ABC, abstractmethod
+      import asyncio
+      from typing import Any, Dict
+      
+      class DualWriteRepository(ABC):
+          def __init__(self, legacy_repo, new_repo, migration_mode='dual_write'):
+              self.legacy_repo = legacy_repo
+              self.new_repo = new_repo
+              self.migration_mode = migration_mode  # dual_write, new_primary, legacy_primary
+          
+          async def create(self, data: Dict[str, Any]):
+              if self.migration_mode == 'dual_write':
+                  # Write to both, legacy is source of truth
+                  result = await self.legacy_repo.create(data)
+                  try:
+                      await self.new_repo.create(self._transform_to_new(data))
+                  except Exception as e:
+                      # Log but don't fail
+                      logger.error(f"Failed to write to new service: {e}")
+                  return result
+              
+              elif self.migration_mode == 'new_primary':
+                  # Write to both, new is source of truth
+                  result = await self.new_repo.create(self._transform_to_new(data))
+                  try:
+                      await self.legacy_repo.create(self._transform_to_legacy(data))
+                  except Exception as e:
+                      logger.error(f"Failed to write to legacy: {e}")
+                  return self._transform_from_new(result)
+              
+              else:  # legacy_only
+                  return await self.legacy_repo.create(data)
+          
+          @abstractmethod
+          def _transform_to_new(self, data: Dict[str, Any]) -> Dict[str, Any]:
+              """Transform legacy data format to new service format"""
+              pass
+          
+          @abstractmethod
+          def _transform_to_legacy(self, data: Dict[str, Any]) -> Dict[str, Any]:
+              """Transform new service format to legacy format"""
+              pass
+
+  - label: "Phase 4: Event-driven decoupling"
+    language: "typescript"
+    code: |
+      // Event bus for service communication
+      import { EventEmitter } from 'events';
+      import amqplib from 'amqplib';
+      
+      class ServiceEventBus {
+        private connection: amqplib.Connection;
+        private channel: amqplib.Channel;
+        
+        async initialize() {
+          this.connection = await amqplib.connect(process.env.RABBITMQ_URL);
+          this.channel = await this.connection.createChannel();
+          
+          // Create topic exchange for service events
+          await this.channel.assertExchange('services', 'topic', { durable: true });
+        }
+        
+        async publishEvent(service: string, event: string, data: any) {
+          const routingKey = `${service}.${event}`;
+          const message = {
+            service,
+            event,
+            data,
+            timestamp: new Date().toISOString(),
+            correlationId: data.correlationId || uuid()
+          };
+          
+          await this.channel.publish(
+            'services',
+            routingKey,
+            Buffer.from(JSON.stringify(message)),
+            { persistent: true }
+          );
+          
+          console.log(`Published event: ${routingKey}`);
+        }
+        
+        async subscribeToEvents(patterns: string[], handler: Function) {
+          const queue = await this.channel.assertQueue('', { exclusive: true });
+          
+          for (const pattern of patterns) {
+            await this.channel.bindQueue(queue.queue, 'services', pattern);
+          }
+          
+          await this.channel.consume(queue.queue, async (msg) => {
+            if (msg) {
+              const event = JSON.parse(msg.content.toString());
+              try {
+                await handler(event);
+                this.channel.ack(msg);
+              } catch (error) {
+                console.error('Event handler error:', error);
+                // Retry logic or dead letter queue
+                this.channel.nack(msg, false, false);
+              }
+            }
+          });
+        }
+      }
+      
+      // Usage in order service
+      const eventBus = new ServiceEventBus();
+      await eventBus.initialize();
+      
+      // Subscribe to user events
+      await eventBus.subscribeToEvents(['user.*'], async (event) => {
+        if (event.event === 'user.deleted') {
+          // Handle user deletion - cancel orders, etc.
+          await cancelUserOrders(event.data.userId);
+        }
+      });
+      
+      // Publish order events
+      await eventBus.publishEvent('order', 'order.created', {
+        orderId: '12345',
+        userId: 'user-123',
+        total: 99.99
+      });
+
+evidence:
+  - kind: "pr"
+    number: 1580
+    repo: "acme/platform"
+  - kind: "issue"
+    id: "ARCH-234"
+    system: "jira"
+
+usage:
+  successes: 4
+  failures: 1
+  last_used_at: "2025-01-15T09:00:00Z"
+
+trust_score: 0.8
+created_at: "2024-02-01T10:00:00Z"
+updated_at: "2025-01-15T09:00:00Z"
+source_repo: "acme/platform"
+tags: ["migration", "microservices", "architecture", "strangler-fig"]
+
+notes: |
+  This migration pattern has been successfully used to migrate our monolith to microservices
+  over 18 months. Key lessons: start with read-heavy services, implement comprehensive
+  monitoring before migration, use feature flags for gradual rollout, and maintain backward
+  compatibility for at least 2 releases after migration.

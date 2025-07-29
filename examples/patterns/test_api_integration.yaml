@@ -1,0 +1,181 @@
+schema_version: "0.3.0"
+pattern_version: "1.1.0"
+id: "ACME.QA:TEST:API:INTEGRATION"
+type: "TEST"
+title: "API Integration Testing Pattern"
+summary: "Comprehensive pattern for testing REST API endpoints with proper setup, teardown, and assertions"
+
+scope:
+  languages: ["javascript", "typescript", "python"]
+  frameworks: ["jest", "supertest", "pytest", "requests"]
+  task_types: ["api-testing", "integration-testing"]
+
+snippets:
+  - label: "Jest + Supertest setup for Express APIs"
+    language: "typescript"
+    code: |
+      import request from 'supertest';
+      import { app } from '../src/app';
+      import { db } from '../src/database';
+      import { seedTestData, cleanupTestData } from './helpers';
+      
+      describe('API Integration Tests', () => {
+        let authToken: string;
+        let testUserId: string;
+        
+        // Setup before all tests
+        beforeAll(async () => {
+          await db.connect();
+          const { user, token } = await seedTestData();
+          authToken = token;
+          testUserId = user.id;
+        });
+        
+        // Cleanup after all tests
+        afterAll(async () => {
+          await cleanupTestData();
+          await db.disconnect();
+        });
+        
+        // Reset state between tests
+        afterEach(async () => {
+          await db.query('DELETE FROM user_actions WHERE user_id = ?', [testUserId]);
+        });
+        
+        describe('GET /api/users/:id', () => {
+          it('should return user profile with valid auth', async () => {
+            const response = await request(app)
+              .get(`/api/users/${testUserId}`)
+              .set('Authorization', `Bearer ${authToken}`)
+              .expect('Content-Type', /json/)
+              .expect(200);
+            
+            expect(response.body).toMatchObject({
+              id: testUserId,
+              email: expect.stringMatching(/^[\w.-]+@[\w.-]+\.\w+$/),
+              createdAt: expect.any(String)
+            });
+          });
+          
+          it('should return 401 without auth token', async () => {
+            const response = await request(app)
+              .get(`/api/users/${testUserId}`)
+              .expect(401);
+            
+            expect(response.body.error).toMatchObject({
+              code: 'UNAUTHORIZED',
+              message: expect.stringContaining('authentication')
+            });
+          });
+          
+          it('should return 404 for non-existent user', async () => {
+            const response = await request(app)
+              .get('/api/users/non-existent-id')
+              .set('Authorization', `Bearer ${authToken}`)
+              .expect(404);
+            
+            expect(response.body.error.code).toBe('NOT_FOUND');
+          });
+        });
+        
+        describe('POST /api/users/:id/actions', () => {
+          it('should create action and return 201', async () => {
+            const actionData = {
+              type: 'profile_update',
+              metadata: { field: 'bio', oldValue: '', newValue: 'New bio' }
+            };
+            
+            const response = await request(app)
+              .post(`/api/users/${testUserId}/actions`)
+              .set('Authorization', `Bearer ${authToken}`)
+              .send(actionData)
+              .expect(201);
+            
+            expect(response.body).toMatchObject({
+              id: expect.any(String),
+              userId: testUserId,
+              type: actionData.type,
+              metadata: actionData.metadata
+            });
+            
+            // Verify in database
+            const dbAction = await db.query(
+              'SELECT * FROM user_actions WHERE id = ?',
+              [response.body.id]
+            );
+            expect(dbAction.rows).toHaveLength(1);
+          });
+          
+          it('should validate request body', async () => {
+            const invalidData = { type: '' }; // Missing required fields
+            
+            const response = await request(app)
+              .post(`/api/users/${testUserId}/actions`)
+              .set('Authorization', `Bearer ${authToken}`)
+              .send(invalidData)
+              .expect(400);
+            
+            expect(response.body.error).toMatchObject({
+              code: 'VALIDATION_ERROR',
+              message: expect.stringContaining('required')
+            });
+          });
+        });
+      });
+
+  - label: "Test data helpers"
+    language: "typescript"
+    code: |
+      import { v4 as uuid } from 'uuid';
+      import bcrypt from 'bcrypt';
+      import jwt from 'jsonwebtoken';
+      import { db } from '../src/database';
+      
+      export async function seedTestData() {
+        const userId = uuid();
+        const email = `test-${userId}@example.com`;
+        const hashedPassword = await bcrypt.hash('testpass123', 10);
+        
+        await db.query(
+          'INSERT INTO users (id, email, password) VALUES (?, ?, ?)',
+          [userId, email, hashedPassword]
+        );
+        
+        const token = jwt.sign(
+          { userId, email },
+          process.env.JWT_SECRET!,
+          { expiresIn: '1h' }
+        );
+        
+        return {
+          user: { id: userId, email },
+          token
+        };
+      }
+      
+      export async function cleanupTestData() {
+        // Clean up in reverse order of foreign key dependencies
+        await db.query('DELETE FROM user_actions WHERE user_id LIKE "test-%"');
+        await db.query('DELETE FROM users WHERE email LIKE "test-%"');
+      }
+
+evidence:
+  - kind: "pr"
+    number: 456
+    repo: "acme/api-server"
+
+usage:
+  successes: 67
+  failures: 2
+  last_used_at: "2025-01-28T11:00:00Z"
+
+trust_score: 0.94
+created_at: "2024-05-20T14:00:00Z"
+updated_at: "2025-01-28T11:00:00Z"
+source_repo: "acme/api-server"
+tags: ["testing", "integration", "api", "jest", "supertest"]
+
+notes: |
+  This pattern ensures reliable API integration tests with proper isolation between tests.
+  Key principles: use transactions or cleanup functions, test both success and error cases,
+  verify side effects in the database, and always test with realistic auth scenarios.

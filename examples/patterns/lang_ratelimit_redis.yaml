@@ -1,0 +1,142 @@
+schema_version: "0.3.0"
+pattern_version: "1.0.0"
+id: "ACME.PLT:LANG:RATELIMIT:REDIS"
+type: "LANG"
+title: "Redis-based Rate Limiting Pattern"
+summary: "Implement rate limiting using Redis with sliding window algorithm for API endpoints"
+
+scope:
+  languages: ["javascript", "typescript", "python"]
+  frameworks: ["express@^4 || ^5", "fastapi@^0.100"]
+  task_types: ["api-protection", "rate-limiting"]
+  envs: ["production", "staging"]
+
+semver_constraints:
+  dependencies:
+    redis: "^4.0.0"
+    ioredis: "^5.0.0"
+
+snippets:
+  - label: "Express middleware implementation"
+    language: "typescript"
+    code: |
+      import { Request, Response, NextFunction } from 'express';
+      import Redis from 'ioredis';
+      
+      const redis = new Redis(process.env.REDIS_URL);
+      
+      export function rateLimiter(windowMs: number, maxRequests: number) {
+        return async (req: Request, res: Response, next: NextFunction) => {
+          const key = `rate:${req.ip}:${req.path}`;
+          const now = Date.now();
+          const window = now - windowMs;
+          
+          try {
+            // Remove old entries
+            await redis.zremrangebyscore(key, '-inf', window);
+            
+            // Count current requests
+            const count = await redis.zcard(key);
+            
+            if (count >= maxRequests) {
+              return res.status(429).json({ error: 'Too many requests' });
+            }
+            
+            // Add current request
+            await redis.zadd(key, now, `${now}-${Math.random()}`);
+            await redis.expire(key, Math.ceil(windowMs / 1000));
+            
+            next();
+          } catch (error) {
+            console.error('Rate limiter error:', error);
+            next(); // Fail open
+          }
+        };
+      }
+    source_ref:
+      kind: "git_lines"
+      file: "src/middleware/rateLimiter.ts"
+      sha: "abc123def456"
+      start: 10
+      end: 40
+
+  - label: "Python FastAPI implementation"
+    language: "python"
+    code: |
+      from fastapi import Request, HTTPException
+      from redis import Redis
+      import time
+      
+      redis = Redis.from_url(os.environ['REDIS_URL'])
+      
+      async def rate_limiter(request: Request, window_ms: int, max_requests: int):
+          key = f"rate:{request.client.host}:{request.url.path}"
+          now = int(time.time() * 1000)
+          window = now - window_ms
+          
+          # Remove old entries
+          redis.zremrangebyscore(key, '-inf', window)
+          
+          # Count current requests
+          count = redis.zcard(key)
+          
+          if count >= max_requests:
+              raise HTTPException(status_code=429, detail="Too many requests")
+          
+          # Add current request
+          redis.zadd(key, {f"{now}-{id(request)}": now})
+          redis.expire(key, int(window_ms / 1000))
+
+plan_steps:
+  - "Install Redis client library for your language"
+  - "Configure Redis connection with environment variables"
+  - "Implement the rate limiting middleware/decorator"
+  - "Apply to specific routes that need protection"
+  - "Add monitoring for rate limit hits"
+
+when_to_use:
+  - "Protecting API endpoints from abuse"
+  - "Implementing user-specific rate limits"
+  - "Preventing DDoS attacks"
+  - "Managing resource-intensive operations"
+
+when_not_to_use:
+  - "Simple applications with low traffic"
+  - "When Redis infrastructure is not available"
+  - "For static content (use CDN rate limiting instead)"
+
+tests:
+  suggestions:
+    - name: "Test rate limit enforcement"
+      type: "integration"
+      target_file: "tests/middleware/rateLimiter.test.ts"
+    - name: "Test sliding window accuracy"
+      type: "unit"
+      target_file: "tests/middleware/rateLimiter.test.ts"
+    - name: "Test Redis connection failure handling"
+      type: "integration"
+      target_file: "tests/middleware/rateLimiter.test.ts"
+
+evidence:
+  - kind: "pr"
+    number: 1234
+    repo: "acme/api-server"
+  - kind: "issue"
+    id: "SEC-789"
+    system: "jira"
+
+usage:
+  successes: 45
+  failures: 2
+  last_used_at: "2025-01-15T10:30:00Z"
+
+trust_score: 0.92
+created_at: "2024-06-15T14:30:00Z"
+updated_at: "2025-01-15T10:30:00Z"
+source_repo: "acme/api-server"
+tags: ["security", "performance", "middleware", "redis"]
+
+notes: |
+  This pattern has been battle-tested in production with over 10M requests/day.
+  The sliding window algorithm provides more accurate rate limiting than fixed windows.
+  Consider using Lua scripts for atomic operations in high-concurrency scenarios.
