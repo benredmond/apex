@@ -168,11 +168,46 @@ export class PackBuilder {
     const patterns: PatternWithDetails[] = [];
     
     for (const rankedPattern of ranked) {
-      const pattern = await this.repository.get(rankedPattern.id);
-      if (pattern) {
+      const dbPattern = await this.repository.get(rankedPattern.id);
+      if (dbPattern) {
+        // Parse the json_canonical to get the full pattern structure
+        let fullPattern: Pattern;
+        try {
+          const parsed = JSON.parse(dbPattern.json_canonical);
+          // Merge database fields with parsed content
+          fullPattern = {
+            ...parsed,
+            id: dbPattern.id,
+            type: dbPattern.type,
+            title: dbPattern.title || parsed.title,
+            summary: dbPattern.summary || parsed.summary,
+            trust_score: dbPattern.trust_score,
+            alpha: dbPattern.alpha,
+            beta: dbPattern.beta,
+            created_at: dbPattern.created_at,
+            updated_at: dbPattern.updated_at,
+            snippets: (parsed.snippets || []).map((s: any) => ({
+              ...s,
+              code: s.content || s.code || '', // Map content to code
+              reference: s.source_ref ? `${s.source_ref.file}:L${s.source_ref.start}-L${s.source_ref.end}` : 'unknown'
+            })),
+            evidence: parsed.evidence || [],
+          } as Pattern;
+        } catch (e) {
+          // Fallback to basic pattern structure
+          fullPattern = {
+            id: dbPattern.id,
+            type: dbPattern.type,
+            title: dbPattern.title,
+            summary: dbPattern.summary,
+            snippets: [],
+            evidence: [],
+          } as Pattern;
+        }
+        
         patterns.push({
           ...rankedPattern,
-          pattern,
+          pattern: fullPattern,
         });
       }
     }
@@ -304,6 +339,7 @@ export class PackBuilder {
     const candidate: PackCandidate = {
       id: pattern.pattern.id,
       type: pattern.pattern.type,
+      title: pattern.pattern.title,
       score: pattern.score,
       summary: this.truncateSummary(pattern.pattern.summary, 120),
     };

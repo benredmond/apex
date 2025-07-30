@@ -5,6 +5,21 @@ export interface Signals {
   repo?: string;
   org?: string;
   deps?: Record<string, string>;
+  // Enhanced signals for better ranking
+  taskIntent?: {
+    type: string;
+    confidence: number;
+    subType?: string;
+  };
+  workflowPhase?: string;
+  recentPatterns?: Array<{
+    patternId: string;
+    success: boolean;
+    timestamp: string;
+  }>;
+  failedPatterns?: string[];
+  testFramework?: string;
+  buildTool?: string;
 }
 
 export interface Breakdown {
@@ -125,6 +140,7 @@ export interface PackSnippet {
 export interface PackCandidate {
   id: string;
   type: string;
+  title?: string;
   score: number;
   summary: string;
   snippet?: PackSnippet;
