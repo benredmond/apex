@@ -10,6 +10,8 @@ export interface Pattern {
   title: string;
   summary: string;
   trust_score: number;
+  alpha?: number; // Beta-Bernoulli parameter
+  beta?: number;  // Beta-Bernoulli parameter
   created_at: string; // ISO8601
   updated_at: string; // ISO8601
   source_repo?: string;

@@ -447,16 +447,22 @@ export class PatternRepository {
     const joins: string[] = [];
     const wheres: string[] = ['p.invalid = 0'];
     
+    // Include all patterns regardless of trust score
+    // The ranking system will prioritize high-trust patterns
+    // This allows new patterns to be discovered and used
+    
     if (facets.type) {
       wheres.push(`p.type = '${facets.type}'`);
     }
     
-    if (facets.languages?.length) {
+    // Only add language filter if languages are specified and non-empty
+    if (facets.languages && facets.languages.length > 0) {
       joins.push('JOIN pattern_languages l ON l.pattern_id = p.id');
       wheres.push(`l.lang IN (${facets.languages.map(l => `'${l}'`).join(',')})`);
     }
     
-    if (facets.frameworks?.length) {
+    // Only add framework filter if frameworks are specified and non-empty
+    if (facets.frameworks && facets.frameworks.length > 0) {
       joins.push('LEFT JOIN pattern_frameworks f ON f.pattern_id = p.id');
       const frameworkCondition = facets.frameworks.map(f => `f.framework = '${f}'`).join(' OR ');
       wheres.push(`(f.framework IS NULL OR (${frameworkCondition}))`);
@@ -473,6 +479,9 @@ export class PatternRepository {
     if (wheres.length > 0) {
       sql += ' WHERE ' + wheres.join(' AND ');
     }
+    
+    // Order by trust score descending to prioritize high-trust patterns
+    sql += ' ORDER BY p.trust_score DESC';
     
     return sql;
   }

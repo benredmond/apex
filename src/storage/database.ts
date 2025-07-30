@@ -18,10 +18,18 @@ export class PatternDatabase {
     
     this.db = new Database(dbPath);
     
-    // Enable WAL mode for concurrency
+    // Enable WAL mode for better concurrency
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('synchronous = NORMAL');
     this.db.pragma('temp_store = MEMORY');
+    
+    // Optimize for concurrent reads
+    this.db.pragma('read_uncommitted = 1');
+    this.db.pragma('busy_timeout = 5000');
+    
+    // Increase cache size for better performance with large codebases
+    const cacheSize = process.env.APEX_DB_CACHE_SIZE ? parseInt(process.env.APEX_DB_CACHE_SIZE) : 10000;
+    this.db.pragma(`cache_size = ${cacheSize}`);
     
     // Initialize schema
     this.initializeSchema();
@@ -85,6 +93,15 @@ export class PatternDatabase {
         pattern_id  TEXT NOT NULL,
         task_type   TEXT NOT NULL,
         PRIMARY KEY (pattern_id, task_type),
+        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS pattern_snippets (
+        pattern_id  TEXT NOT NULL,
+        snippet_id  TEXT NOT NULL,
+        content     TEXT NOT NULL,
+        language    TEXT,
+        PRIMARY KEY (pattern_id, snippet_id),
         FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
       );
 
