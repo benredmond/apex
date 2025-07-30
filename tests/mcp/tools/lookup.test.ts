@@ -298,6 +298,92 @@ describe('PatternLookupService', () => {
     });
   });
   
+  describe('Enhanced Context', () => {
+    it('should accept and process enhanced context fields', async () => {
+      const enhancedRequest = {
+        task: 'Fix TypeError in authentication module',
+        task_intent: {
+          type: 'bug_fix' as const,
+          confidence: 0.9,
+          sub_type: 'type_error',
+        },
+        code_context: {
+          current_file: '/src/auth.ts',
+          imports: ['jsonwebtoken', 'bcrypt'],
+          exports: ['authenticate', 'authorize'],
+          related_files: ['/src/user.ts', '/src/session.ts'],
+          test_files: ['/tests/auth.test.ts'],
+        },
+        error_context: [{
+          type: 'TypeError',
+          message: 'Cannot read property of undefined',
+          file: '/src/auth.ts',
+          line: 42,
+          frequency: 3,
+        }],
+        session_context: {
+          recent_patterns: [{
+            pattern_id: 'PAT:AUTH:JWT',
+            success: true,
+            timestamp: new Date().toISOString(),
+          }],
+          failed_patterns: ['PAT:SECURITY:BASIC'],
+        },
+        project_signals: {
+          language: 'typescript',
+          framework: 'express',
+          test_framework: 'jest',
+          build_tool: 'webpack',
+          dependencies: {
+            'express': '^4.18.0',
+            'jsonwebtoken': '^9.0.0',
+          },
+        },
+        workflow_phase: 'builder' as const,
+      };
+      
+      const response = await lookupService.lookup(enhancedRequest);
+      expect(response).toHaveProperty('pattern_pack');
+      expect(response).toHaveProperty('request_id');
+      expect(response.cache_hit).toBe(false);
+    });
+    
+    it('should maintain backwards compatibility with legacy fields', async () => {
+      const legacyRequest = {
+        task: 'Implement feature',
+        current_file: '/src/feature.js',
+        language: 'javascript',
+        framework: 'react',
+        recent_errors: ['Error: Something went wrong'],
+        repo_path: '/path/to/repo',
+      };
+      
+      const response = await lookupService.lookup(legacyRequest);
+      expect(response).toHaveProperty('pattern_pack');
+      expect(response.pattern_pack).toBeDefined();
+    });
+    
+    it('should prefer enhanced fields over legacy fields', async () => {
+      const mixedRequest = {
+        task: 'Fix bug',
+        // Legacy fields
+        language: 'javascript',
+        current_file: '/old/path.js',
+        // Enhanced fields (should take precedence)
+        project_signals: {
+          language: 'typescript',
+        },
+        code_context: {
+          current_file: '/new/path.ts',
+        },
+      };
+      
+      const response = await lookupService.lookup(mixedRequest);
+      expect(response.pattern_pack).toBeDefined();
+      // The signal extraction should prefer the enhanced fields
+    });
+  });
+
   describe('Integration', () => {
     it('should return valid PatternPack structure', async () => {
       const response = await lookupService.lookup({

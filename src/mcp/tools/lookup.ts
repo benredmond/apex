@@ -22,13 +22,60 @@ import type { PatternPack } from '../../ranking/types.js';
 // Request validation schema
 // [PAT:VALIDATION:ZOD_DISCRIMINATED_UNION] ★★★☆☆ (2 uses) - Zod validation pattern
 const LookupRequestSchema = z.object({
+  // Core fields
   task: z.string().min(1).max(1000),
+  max_size: z.number().min(1024).max(65536).default(8192),
+  
+  // Legacy fields (for backwards compatibility)
   current_file: z.string().optional(),
   language: z.string().optional(),
   framework: z.string().optional(),
   recent_errors: z.array(z.string()).max(10).optional(),
   repo_path: z.string().optional(),
-  max_size: z.number().min(1024).max(65536).default(8192),
+  
+  // Enhanced context fields
+  task_intent: z.object({
+    type: z.enum(['bug_fix', 'feature', 'refactor', 'test', 'perf', 'docs']),
+    confidence: z.number().min(0).max(1),
+    sub_type: z.string().optional(),
+  }).optional(),
+  
+  code_context: z.object({
+    current_file: z.string().optional(),
+    imports: z.array(z.string()).optional(),
+    exports: z.array(z.string()).optional(),
+    related_files: z.array(z.string()).optional(),
+    test_files: z.array(z.string()).optional(),
+  }).optional(),
+  
+  error_context: z.array(z.object({
+    type: z.string(),
+    message: z.string(),
+    file: z.string().optional(),
+    line: z.number().optional(),
+    stack_depth: z.number().optional(),
+    frequency: z.number().default(1),
+  })).optional(),
+  
+  session_context: z.object({
+    recent_patterns: z.array(z.object({
+      pattern_id: z.string(),
+      success: z.boolean(),
+      timestamp: z.string(),
+    })),
+    failed_patterns: z.array(z.string()),
+  }).optional(),
+  
+  project_signals: z.object({
+    language: z.string().optional(),
+    framework: z.string().optional(),
+    test_framework: z.string().optional(),
+    build_tool: z.string().optional(),
+    ci_platform: z.string().optional(),
+    dependencies: z.record(z.string()).optional(),
+  }).optional(),
+  
+  workflow_phase: z.enum(['architect', 'builder', 'validator', 'reviewer', 'documenter']).optional(),
 });
 
 export type LookupRequest = z.infer<typeof LookupRequestSchema>;
@@ -77,8 +124,18 @@ export class PatternLookupService {
   constructor(repository: PatternRepository) {
     this.repository = repository;
     this.packBuilder = new PackBuilder(repository);
-    this.cache = new RequestCache();
-    this.rateLimiter = new RateLimiter(100, 60000); // 100 req/min
+    
+    // Configure cache with environment variables for flexibility
+    const cacheOptions = {
+      maxSize: process.env.APEX_CACHE_MAX_SIZE ? parseInt(process.env.APEX_CACHE_MAX_SIZE) : 10000,
+      ttlMs: process.env.APEX_CACHE_TTL_MS ? parseInt(process.env.APEX_CACHE_TTL_MS) : 5 * 60 * 1000,
+    };
+    this.cache = new RequestCache(cacheOptions);
+    
+    // Configure rate limiter with environment variables
+    const maxRequests = process.env.APEX_RATE_LIMIT_MAX ? parseInt(process.env.APEX_RATE_LIMIT_MAX) : 100;
+    const windowMs = process.env.APEX_RATE_LIMIT_WINDOW_MS ? parseInt(process.env.APEX_RATE_LIMIT_WINDOW_MS) : 60000;
+    this.rateLimiter = new RateLimiter(maxRequests, windowMs);
   }
   
   /**
@@ -91,7 +148,7 @@ export class PatternLookupService {
     try {
       // Rate limiting check
       if (!this.rateLimiter.check()) {
-        throw new ToolExecutionError('Rate limit exceeded. Please try again later.');
+        throw new ToolExecutionError('apex.patterns.lookup', 'Rate limit exceeded. Please try again later.');
       }
       
       // Validate request
@@ -128,8 +185,39 @@ export class PatternLookupService {
       
       lookupMetrics.recordCacheMiss();
       
-      // Extract signals from request
-      const extracted = extractSignals(request);
+      // Extract signals from request - pass all fields including enhanced ones
+      const extracted = extractSignals({
+        task: request.task || "",
+        current_file: request.current_file,
+        language: request.language,
+        framework: request.framework,
+        recent_errors: request.recent_errors,
+        repo_path: request.repo_path,
+        task_intent: request.task_intent ? {
+          type: request.task_intent.type || 'unknown',
+          confidence: request.task_intent.confidence || 0,
+          sub_type: request.task_intent.sub_type
+        } : undefined,
+        code_context: request.code_context,
+        error_context: request.error_context ? request.error_context.map(err => ({
+          type: err.type || 'unknown',
+          message: err.message || '',
+          file: err.file,
+          line: err.line,
+          stack_depth: err.stack_depth,
+          frequency: err.frequency
+        })) : undefined,
+        session_context: request.session_context ? {
+          recent_patterns: request.session_context.recent_patterns?.map(p => ({
+            pattern_id: p.pattern_id || '',
+            success: p.success !== undefined ? p.success : false,
+            timestamp: p.timestamp || ''
+          })) || [],
+          failed_patterns: request.session_context.failed_patterns || []
+        } : undefined,
+        project_signals: request.project_signals,
+        workflow_phase: request.workflow_phase,
+      });
       const signals = toRankingSignals(extracted);
       
       // Build query facets for repository lookup
@@ -137,7 +225,9 @@ export class PatternLookupService {
         languages: extracted.languages,
         frameworks: extracted.frameworks.map(f => f.name),
         paths: extracted.paths,
-        // TODO: Add more facets as repository supports them
+        task_types: extracted.taskIntent ? [extracted.taskIntent.type] : undefined,
+        // Enhanced facets based on workflow phase
+        tags: extracted.workflowPhase ? [extracted.workflowPhase] : undefined,
       };
       
       // Query repository with facets
@@ -145,7 +235,11 @@ export class PatternLookupService {
       try {
         patternPack = await this.repository.lookup({
           task: request.task,
-          ...facets,
+          languages: facets.languages,
+          frameworks: facets.frameworks,
+          paths: facets.paths,
+          task_types: facets.task_types,
+          tags: facets.tags,
           k: 100, // Get top 100 for ranking
         });
       } catch (error) {
@@ -166,10 +260,14 @@ export class PatternLookupService {
         },
         trust: {
           score: p.trust_score || 0.8,
+          alpha: p.alpha,
+          beta: p.beta,
         },
         metadata: {
           repo: extracted.repo,
           org: extracted.org,
+          taskIntent: extracted.taskIntent,
+          workflowPhase: extracted.workflowPhase,
         },
       }));
       
@@ -234,7 +332,7 @@ export class PatternLookupService {
       if (error instanceof Error) {
         // Remove any stack traces or sensitive info
         const sanitized = error.message.split('\n')[0].substring(0, 200);
-        throw new ToolExecutionError(sanitized);
+        throw new ToolExecutionError('apex.patterns.lookup', sanitized);
       }
       
       throw new InternalError('An unexpected error occurred');

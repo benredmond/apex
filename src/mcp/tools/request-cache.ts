@@ -27,7 +27,7 @@ export class RequestCache {
   constructor(options: CacheOptions = {}) {
     this.cache = new Map();
     this.ttlMs = options.ttlMs || 5 * 60 * 1000; // 5 minutes default
-    this.maxSize = options.maxSize || 1000; // 1000 entries default
+    this.maxSize = options.maxSize || 10000; // 10000 entries default (increased for large codebases)
   }
   
   /**

@@ -65,16 +65,22 @@ export class ApexMCPServer {
   /**
    * Initialize the pattern storage system
    */
-  private initializePatternSystem(): void {
+  private async initializePatternSystem(): Promise<void> {
     try {
-      // Initialize database with in-memory storage for now
-      const database = new PatternDatabase(":memory:");
-
-      // Create repository
-      this.repository = new PatternRepository({ dbPath: ":memory:" });
+      // Use the actual patterns database
+      const dbPath = process.env.APEX_PATTERNS_DB || 'patterns.db';
+      console.error(`[APEX MCP] Using database: ${dbPath}`);
+      
+      // Create repository with actual database
+      this.repository = new PatternRepository({ dbPath });
+      
+      // Initialize the repository (loads patterns)
+      await this.repository.initialize();
+      console.error(`[APEX MCP] Repository initialized`);
 
       // Initialize tools with repository
       initializeTools(this.repository);
+      console.error(`[APEX MCP] Tools initialized`);
     } catch (error) {
       console.error("[APEX MCP] Failed to initialize pattern system:", error);
     }
@@ -186,6 +192,9 @@ export class ApexMCPServer {
    * Start the server with stdio transport
    */
   async startStdio(): Promise<void> {
+    // Initialize pattern system before starting
+    await this.initializePatternSystem();
+    
     this.transport = new ApexStdioTransport();
     await this.transport.connect(this.server);
     await this.transport.start();
