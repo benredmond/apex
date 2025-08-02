@@ -12,10 +12,14 @@ import { PatternRepository } from "../../storage/repository.js";
 import { toMCPError } from "../errors.js";
 import { PatternLookupService } from "./lookup.js";
 import { ReflectionService } from "./reflect.js";
+import { PatternDiscoverer } from "./discover.js";
+import { PatternExplainer } from "./explain.js";
 
 let repository: PatternRepository | null = null;
 let lookupService: PatternLookupService | null = null;
 let reflectionService: ReflectionService | null = null;
+let discoverService: PatternDiscoverer | null = null;
+let explainService: PatternExplainer | null = null;
 
 /**
  * Initialize tool dependencies
@@ -23,10 +27,12 @@ let reflectionService: ReflectionService | null = null;
 export function initializeTools(repo: PatternRepository): void {
   repository = repo;
   lookupService = new PatternLookupService(repo);
-  reflectionService = new ReflectionService(repo, 'patterns.db', {
+  reflectionService = new ReflectionService(repo, "patterns.db", {
     gitRepoPath: process.cwd(),
     enableMining: true,
   });
+  discoverService = new PatternDiscoverer(repo);
+  explainService = new PatternExplainer(repo);
 }
 
 /**
@@ -81,6 +87,38 @@ export async function registerTools(server: Server): Promise<void> {
             ],
           };
 
+        case "apex_patterns_discover":
+          if (!discoverService) {
+            throw new Error("Pattern discover service not initialized");
+          }
+
+          const discoverResponse = await discoverService.discover(args);
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(discoverResponse),
+              },
+            ],
+          };
+
+        case "apex_patterns_explain":
+          if (!explainService) {
+            throw new Error("Pattern explain service not initialized");
+          }
+
+          const explainResponse = await explainService.explain(args);
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(explainResponse),
+              },
+            ],
+          };
+
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
@@ -112,14 +150,16 @@ export function getToolsList(): Tool[] {
     },
     {
       name: "apex_patterns_lookup",
-      description: "Find and retrieve code patterns, fixes, and commands relevant to your current task. Returns patterns ranked by relevance with code snippets.",
+      description:
+        "Find and retrieve code patterns, fixes, and commands relevant to your current task. Returns patterns ranked by relevance with code snippets.",
       inputSchema: {
         type: "object",
         properties: {
           // Core fields
           task: {
             type: "string",
-            description: "Describe what you're trying to do. Examples: 'fix sqlite sync error', 'implement user authentication', 'add pytest backend tests', 'create FastAPI endpoint'",
+            description:
+              "Describe what you're trying to do. Examples: 'fix sqlite sync error', 'implement user authentication', 'add pytest backend tests', 'create FastAPI endpoint'",
             minLength: 1,
             maxLength: 1000,
           },
@@ -130,31 +170,35 @@ export function getToolsList(): Tool[] {
             maximum: 65536,
             default: 8192,
           },
-          
+
           // Legacy fields (backwards compatibility)
           current_file: {
             type: "string",
-            description: "Active file path (optional, prefer code_context.current_file)",
+            description:
+              "Active file path (optional, prefer code_context.current_file)",
           },
           language: {
             type: "string",
-            description: "Programming language (optional, prefer project_signals.language)",
+            description:
+              "Programming language (optional, prefer project_signals.language)",
           },
           framework: {
             type: "string",
-            description: "Framework name (optional, prefer project_signals.framework)",
+            description:
+              "Framework name (optional, prefer project_signals.framework)",
           },
           recent_errors: {
             type: "array",
             items: { type: "string" },
-            description: "Recent error messages (optional, prefer error_context)",
+            description:
+              "Recent error messages (optional, prefer error_context)",
             maxItems: 10,
           },
           repo_path: {
             type: "string",
             description: "Repository root path (optional)",
           },
-          
+
           // Enhanced context fields
           task_intent: {
             type: "object",
@@ -162,7 +206,14 @@ export function getToolsList(): Tool[] {
             properties: {
               type: {
                 type: "string",
-                enum: ["bug_fix", "feature", "refactor", "test", "perf", "docs"],
+                enum: [
+                  "bug_fix",
+                  "feature",
+                  "refactor",
+                  "test",
+                  "perf",
+                  "docs",
+                ],
                 description: "Primary task type",
               },
               confidence: {
@@ -178,7 +229,7 @@ export function getToolsList(): Tool[] {
             },
             required: ["type", "confidence"],
           },
-          
+
           code_context: {
             type: "object",
             description: "Code relationship graph",
@@ -209,7 +260,7 @@ export function getToolsList(): Tool[] {
               },
             },
           },
-          
+
           error_context: {
             type: "array",
             description: "Structured error information",
@@ -245,10 +296,11 @@ export function getToolsList(): Tool[] {
               required: ["type", "message"],
             },
           },
-          
+
           session_context: {
             type: "object",
-            description: "Track patterns used in current session for better recommendations. Include pattern IDs you've recently used.",
+            description:
+              "Track patterns used in current session for better recommendations. Include pattern IDs you've recently used.",
             properties: {
               recent_patterns: {
                 type: "array",
@@ -257,7 +309,8 @@ export function getToolsList(): Tool[] {
                   properties: {
                     pattern_id: {
                       type: "string",
-                      description: "Pattern ID like 'FIX:SQLITE:SYNC' or 'CODE:API:FASTAPI_ENDPOINT'",
+                      description:
+                        "Pattern ID like 'FIX:SQLITE:SYNC' or 'CODE:API:FASTAPI_ENDPOINT'",
                     },
                     success: {
                       type: "boolean",
@@ -280,7 +333,7 @@ export function getToolsList(): Tool[] {
             },
             required: ["recent_patterns", "failed_patterns"],
           },
-          
+
           project_signals: {
             type: "object",
             description: "Project-level context",
@@ -312,10 +365,16 @@ export function getToolsList(): Tool[] {
               },
             },
           },
-          
+
           workflow_phase: {
             type: "string",
-            enum: ["architect", "builder", "validator", "reviewer", "documenter"],
+            enum: [
+              "architect",
+              "builder",
+              "validator",
+              "reviewer",
+              "documenter",
+            ],
             description: "Current APEX workflow phase",
           },
         },
@@ -324,7 +383,8 @@ export function getToolsList(): Tool[] {
     },
     {
       name: "apex_reflect",
-      description: "Submit task reflection with evidence to update pattern trust scores and discover new patterns",
+      description:
+        "Submit task reflection with evidence to update pattern trust scores and discover new patterns",
       inputSchema: {
         type: "object",
         properties: {
@@ -420,6 +480,150 @@ export function getToolsList(): Tool[] {
           },
         },
         required: ["task", "outcome", "claims"],
+      },
+    },
+    {
+      name: "apex_patterns_discover",
+      description:
+        "Discover patterns using natural language queries with semantic search. Supports error context, technology detection, and intelligent ranking.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description:
+              "Natural language query describing what you're looking for. Examples: 'how to handle async errors in jest', 'patterns for API authentication', 'fix typescript module import errors'",
+            minLength: 3,
+            maxLength: 500,
+          },
+          filters: {
+            type: "object",
+            description: "Optional filters to narrow results",
+            properties: {
+              types: {
+                type: "array",
+                items: { type: "string" },
+                description:
+                  "Pattern types to include (e.g., 'fix', 'code', 'pattern')",
+              },
+              categories: {
+                type: "array",
+                items: { type: "string" },
+                description:
+                  "Pattern categories to include (e.g., 'auth', 'test', 'api')",
+              },
+              min_trust: {
+                type: "number",
+                minimum: 0,
+                maximum: 1,
+                description: "Minimum trust score (0-1)",
+              },
+              max_age_days: {
+                type: "number",
+                minimum: 1,
+                description: "Maximum age in days since last use",
+              },
+            },
+          },
+          context: {
+            type: "object",
+            description: "Additional context for better matching",
+            properties: {
+              current_errors: {
+                type: "array",
+                items: { type: "string" },
+                maxItems: 5,
+                description: "Current error messages to help find fixes",
+              },
+              current_file: {
+                type: "string",
+                description: "Current file path for technology detection",
+              },
+              recent_patterns: {
+                type: "array",
+                items: { type: "string" },
+                maxItems: 10,
+                description:
+                  "Recently used pattern IDs to improve recommendations",
+              },
+            },
+          },
+          max_results: {
+            type: "number",
+            minimum: 1,
+            maximum: 50,
+            default: 10,
+            description: "Maximum number of patterns to return",
+          },
+          min_score: {
+            type: "number",
+            minimum: 0,
+            maximum: 1,
+            default: 0.3,
+            description: "Minimum relevance score (0-1)",
+          },
+          include_explanation: {
+            type: "boolean",
+            default: true,
+            description: "Include explanation of why each pattern matched",
+          },
+        },
+        required: ["query"],
+      },
+    },
+    {
+      name: "apex_patterns_explain",
+      description:
+        "Get detailed contextual explanation of a pattern with usage guidance, trust information, and examples. Supports session-aware recommendations.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          pattern_id: {
+            type: "string",
+            description:
+              "The pattern ID to explain (e.g., 'PAT:API:ERROR_HANDLING', 'FIX:SQLITE:SYNC')",
+            minLength: 1,
+          },
+          context: {
+            type: "object",
+            description: "Optional context for tailored guidance",
+            properties: {
+              task_type: {
+                type: "string",
+                description:
+                  "What you're trying to do (e.g., 'implement API', 'fix test')",
+              },
+              current_errors: {
+                type: "array",
+                items: { type: "string" },
+                maxItems: 10,
+                description: "Current errors to provide targeted advice",
+              },
+              session_patterns: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    pattern_id: { type: "string" },
+                    success: { type: "boolean" },
+                  },
+                  required: ["pattern_id", "success"],
+                },
+                maxItems: 20,
+                description:
+                  "Recently used patterns for workflow recommendations",
+              },
+            },
+          },
+          verbosity: {
+            type: "string",
+            enum: ["concise", "detailed", "examples"],
+            default: "concise",
+            description:
+              "Level of detail: concise (summary), detailed (full guidance), examples (with code)",
+          },
+        },
+        required: ["pattern_id"],
       },
     },
   ];

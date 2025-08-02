@@ -3,75 +3,75 @@
  * [PAT:PROTOCOL:MCP_SERVER] ★★★★☆ (4 uses, 100% success)
  */
 
-import path from 'path';
-import { Signals } from '../../ranking/types.js';
+import path from "path";
+import { Signals } from "../../ranking/types.js";
 
 // Language mapping from file extensions
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
   // JavaScript family
-  'js': 'javascript',
-  'jsx': 'javascript',
-  'mjs': 'javascript',
-  'cjs': 'javascript',
-  'ts': 'typescript',
-  'tsx': 'typescript',
-  
+  js: "javascript",
+  jsx: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+  ts: "typescript",
+  tsx: "typescript",
+
   // Python
-  'py': 'python',
-  'pyw': 'python',
-  'pyi': 'python',
-  
+  py: "python",
+  pyw: "python",
+  pyi: "python",
+
   // Java family
-  'java': 'java',
-  'kt': 'kotlin',
-  'scala': 'scala',
-  
+  java: "java",
+  kt: "kotlin",
+  scala: "scala",
+
   // C family
-  'c': 'c',
-  'h': 'c',
-  'cpp': 'cpp',
-  'cc': 'cpp',
-  'cxx': 'cpp',
-  'hpp': 'cpp',
-  'cs': 'csharp',
-  
+  c: "c",
+  h: "c",
+  cpp: "cpp",
+  cc: "cpp",
+  cxx: "cpp",
+  hpp: "cpp",
+  cs: "csharp",
+
   // Web
-  'html': 'html',
-  'htm': 'html',
-  'css': 'css',
-  'scss': 'scss',
-  'sass': 'sass',
-  'less': 'less',
-  
+  html: "html",
+  htm: "html",
+  css: "css",
+  scss: "scss",
+  sass: "sass",
+  less: "less",
+
   // Other
-  'go': 'go',
-  'rs': 'rust',
-  'rb': 'ruby',
-  'php': 'php',
-  'swift': 'swift',
-  'm': 'objective-c',
-  'r': 'r',
-  'sql': 'sql',
-  'sh': 'bash',
-  'bash': 'bash',
-  'zsh': 'zsh',
-  'ps1': 'powershell',
-  'yaml': 'yaml',
-  'yml': 'yaml',
-  'json': 'json',
-  'xml': 'xml',
-  'md': 'markdown',
+  go: "go",
+  rs: "rust",
+  rb: "ruby",
+  php: "php",
+  swift: "swift",
+  m: "objective-c",
+  r: "r",
+  sql: "sql",
+  sh: "bash",
+  bash: "bash",
+  zsh: "zsh",
+  ps1: "powershell",
+  yaml: "yaml",
+  yml: "yaml",
+  json: "json",
+  xml: "xml",
+  md: "markdown",
 };
 
 // Common language aliases
 const LANGUAGE_ALIASES: Record<string, string> = {
-  'js': 'javascript',
-  'ts': 'typescript',
-  'py': 'python',
-  'rb': 'ruby',
-  'yml': 'yaml',
-  'node': 'nodejs',
-  'nodejs': 'javascript',
+  js: "javascript",
+  ts: "typescript",
+  py: "python",
+  rb: "ruby",
+  yml: "yaml",
+  node: "nodejs",
+  nodejs: "javascript",
 };
 
 // Error type patterns for structured extraction
@@ -79,14 +79,14 @@ const ERROR_PATTERNS = {
   // JavaScript/TypeScript errors
   jsError: /^(\w+Error): (.+?) at (.+?):(\d+):(\d+)$/,
   jsStack: /at\s+(.+?)\s+\((.+?):(\d+):(\d+)\)/,
-  
+
   // Python errors
   pythonError: /^(\w+Error): (.+)$/,
   pythonStack: /File "(.+?)", line (\d+), in (.+)/,
-  
+
   // Generic error codes
   errorCode: /\b(E[A-Z0-9]+|ERR_[A-Z0-9_]+)\b/g,
-  
+
   // HTTP status codes
   httpStatus: /\b(4\d{2}|5\d{2})\s+(error|Error|ERROR)/,
 };
@@ -164,7 +164,7 @@ function extractFromErrors(errors: string[]): {
   const types = new Set<string>();
   const files = new Set<string>();
   const codes = new Set<string>();
-  
+
   for (const error of errors) {
     // Extract error types
     const jsMatch = error.match(ERROR_PATTERNS.jsError);
@@ -172,30 +172,30 @@ function extractFromErrors(errors: string[]): {
       types.add(jsMatch[1]);
       if (jsMatch[3]) files.add(jsMatch[3]);
     }
-    
+
     const pyMatch = error.match(ERROR_PATTERNS.pythonError);
     if (pyMatch) {
       types.add(pyMatch[1]);
     }
-    
+
     // Extract file paths from stack traces
     const jsStackMatch = error.match(ERROR_PATTERNS.jsStack);
     if (jsStackMatch && jsStackMatch[2]) {
       files.add(jsStackMatch[2]);
     }
-    
+
     const pyStackMatch = error.match(ERROR_PATTERNS.pythonStack);
     if (pyStackMatch && pyStackMatch[1]) {
       files.add(pyStackMatch[1]);
     }
-    
+
     // Extract error codes
     const codeMatches = error.matchAll(ERROR_PATTERNS.errorCode);
     for (const match of codeMatches) {
       codes.add(match[1]);
     }
   }
-  
+
   return {
     types: Array.from(types),
     files: Array.from(files),
@@ -208,7 +208,7 @@ function extractFromErrors(errors: string[]): {
  */
 function extractRepoInfo(repoPath?: string): { repo?: string; org?: string } {
   if (!repoPath) return {};
-  
+
   // Try to extract from Git remote URL patterns
   // e.g., github.com:org/repo.git or https://github.com/org/repo
   const gitMatch = repoPath.match(/(?:github\.com[:/])([^/]+)\/([^/.]+)/);
@@ -218,16 +218,16 @@ function extractRepoInfo(repoPath?: string): { repo?: string; org?: string } {
       repo: gitMatch[2],
     };
   }
-  
+
   // Fallback to simple path-based extraction
-  const parts = repoPath.split('/').filter(Boolean);
+  const parts = repoPath.split("/").filter(Boolean);
   if (parts.length >= 2) {
     return {
       repo: parts[parts.length - 1],
       org: parts[parts.length - 2],
     };
   }
-  
+
   return { repo: parts[parts.length - 1] };
 }
 
@@ -284,37 +284,39 @@ export function extractSignals(request: {
     frameworks: [],
     paths: [],
   };
-  
+
   // Extract languages
   const languages = new Set<string>();
-  
+
   // Use project_signals language if available, otherwise fall back to legacy
   const primaryLanguage = request.project_signals?.language || request.language;
   if (primaryLanguage) {
     languages.add(normalizeLanguage(primaryLanguage));
   }
-  
+
   // Extract from code context or legacy current_file
-  const currentFile = request.code_context?.current_file || request.current_file;
+  const currentFile =
+    request.code_context?.current_file || request.current_file;
   if (currentFile) {
     const lang = extractLanguageFromPath(currentFile);
     if (lang) languages.add(lang);
     signals.paths.push(currentFile);
   }
-  
+
   signals.languages = Array.from(languages);
-  
+
   // Parse frameworks - prefer project_signals
-  const frameworkString = request.project_signals?.framework || request.framework;
+  const frameworkString =
+    request.project_signals?.framework || request.framework;
   if (frameworkString) {
     signals.frameworks.push(parseFramework(frameworkString));
   }
-  
+
   // Extract from structured error context if available
   if (request.error_context && request.error_context.length > 0) {
     const types = new Set<string>();
     const files = new Set<string>();
-    
+
     for (const error of request.error_context) {
       types.add(error.type);
       if (error.file) {
@@ -326,7 +328,7 @@ export function extractSignals(request: {
         }
       }
     }
-    
+
     signals.errorTypes = Array.from(types);
     signals.errorFiles = Array.from(files);
     signals.paths.push(...Array.from(files));
@@ -347,7 +349,7 @@ export function extractSignals(request: {
       }
     }
   }
-  
+
   // Extract enhanced signals
   if (request.task_intent) {
     signals.taskIntent = {
@@ -356,10 +358,12 @@ export function extractSignals(request: {
       subType: request.task_intent.sub_type,
     };
   }
-  
+
   if (request.code_context) {
-    if (request.code_context.imports) signals.imports = request.code_context.imports;
-    if (request.code_context.exports) signals.exports = request.code_context.exports;
+    if (request.code_context.imports)
+      signals.imports = request.code_context.imports;
+    if (request.code_context.exports)
+      signals.exports = request.code_context.exports;
     if (request.code_context.related_files) {
       signals.relatedFiles = request.code_context.related_files;
       signals.paths.push(...request.code_context.related_files);
@@ -369,39 +373,45 @@ export function extractSignals(request: {
       signals.paths.push(...request.code_context.test_files);
     }
   }
-  
+
   if (request.session_context) {
     if (request.session_context.recent_patterns.length > 0) {
-      signals.recentPatterns = request.session_context.recent_patterns.map(p => ({
-        patternId: p.pattern_id,
-        success: p.success,
-        timestamp: p.timestamp,
-      }));
+      signals.recentPatterns = request.session_context.recent_patterns.map(
+        (p) => ({
+          patternId: p.pattern_id,
+          success: p.success,
+          timestamp: p.timestamp,
+        }),
+      );
     }
     if (request.session_context.failed_patterns.length > 0) {
       signals.failedPatterns = request.session_context.failed_patterns;
     }
   }
-  
+
   if (request.project_signals) {
-    if (request.project_signals.dependencies) signals.dependencies = request.project_signals.dependencies;
-    if (request.project_signals.test_framework) signals.testFramework = request.project_signals.test_framework;
-    if (request.project_signals.build_tool) signals.buildTool = request.project_signals.build_tool;
-    if (request.project_signals.ci_platform) signals.ciPlatform = request.project_signals.ci_platform;
+    if (request.project_signals.dependencies)
+      signals.dependencies = request.project_signals.dependencies;
+    if (request.project_signals.test_framework)
+      signals.testFramework = request.project_signals.test_framework;
+    if (request.project_signals.build_tool)
+      signals.buildTool = request.project_signals.build_tool;
+    if (request.project_signals.ci_platform)
+      signals.ciPlatform = request.project_signals.ci_platform;
   }
-  
+
   if (request.workflow_phase) {
     signals.workflowPhase = request.workflow_phase;
   }
-  
+
   // Extract repo/org info
   const repoInfo = extractRepoInfo(request.repo_path);
   if (repoInfo.repo) signals.repo = repoInfo.repo;
   if (repoInfo.org) signals.org = repoInfo.org;
-  
+
   // Deduplicate paths
   signals.paths = Array.from(new Set(signals.paths));
-  
+
   return signals;
 }
 
