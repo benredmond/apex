@@ -18,11 +18,11 @@ export interface DecayResult {
 export function calculateDecayFactor(days: number, halfLife: number): number {
   if (days <= 0) return 1;
   if (halfLife <= 0) {
-    throw new Error('Half-life must be positive');
+    throw new Error("Half-life must be positive");
   }
-  
+
   // Exponential decay: e^(-ln(2) * t / half_life)
-  return Math.exp(-Math.LN2 * days / halfLife);
+  return Math.exp((-Math.LN2 * days) / halfLife);
 }
 
 /**
@@ -42,15 +42,15 @@ export function applyDecay(
   days: number,
   halfLife: number,
   priorAlpha: number = 1,
-  priorBeta: number = 1
+  priorBeta: number = 1,
 ): DecayResult {
   const decayFactor = calculateDecayFactor(days, halfLife);
-  
+
   // Decay towards prior
   // New = Prior + (Current - Prior) * decay_factor
   const decayedAlpha = priorAlpha + (alpha - priorAlpha) * decayFactor;
   const decayedBeta = priorBeta + (beta - priorBeta) * decayFactor;
-  
+
   return {
     alpha: decayedAlpha,
     beta: decayedBeta,
@@ -73,20 +73,21 @@ export function calculateEffectiveAge(
   beta: number,
   priorAlpha: number,
   priorBeta: number,
-  halfLife: number
+  halfLife: number,
 ): number {
   // Calculate what decay factor would produce current parameters
-  const currentEvidence = (alpha - priorAlpha) + (beta - priorBeta);
-  const originalEvidence = currentEvidence / calculateAverageDecay(alpha, beta, priorAlpha, priorBeta);
-  
+  const currentEvidence = alpha - priorAlpha + (beta - priorBeta);
+  const originalEvidence =
+    currentEvidence / calculateAverageDecay(alpha, beta, priorAlpha, priorBeta);
+
   if (originalEvidence <= currentEvidence) {
     return 0; // No decay detected
   }
-  
+
   const decayFactor = currentEvidence / originalEvidence;
-  
+
   // Solve for time: t = -half_life * ln(decay_factor) / ln(2)
-  return -halfLife * Math.log(decayFactor) / Math.LN2;
+  return (-halfLife * Math.log(decayFactor)) / Math.LN2;
 }
 
 /**
@@ -96,13 +97,13 @@ function calculateAverageDecay(
   alpha: number,
   beta: number,
   priorAlpha: number,
-  priorBeta: number
+  priorBeta: number,
 ): number {
-  const alphaDecay = (alpha - priorAlpha) > 0 ? 1 : 0;
-  const betaDecay = (beta - priorBeta) > 0 ? 1 : 0;
-  
+  const alphaDecay = alpha - priorAlpha > 0 ? 1 : 0;
+  const betaDecay = beta - priorBeta > 0 ? 1 : 0;
+
   if (alphaDecay + betaDecay === 0) return 1;
-  
+
   return (alphaDecay + betaDecay) / 2;
 }
 
@@ -122,15 +123,15 @@ export function daysUntilTarget(
   targetTrust: number,
   halfLife: number,
   priorAlpha: number = 1,
-  priorBeta: number = 1
+  priorBeta: number = 1,
 ): number | null {
   const priorTrust = priorAlpha / (priorAlpha + priorBeta);
-  
+
   // If prior trust equals target, it will reach it eventually
   if (Math.abs(priorTrust - targetTrust) < 0.001) {
     return Infinity;
   }
-  
+
   // If current trust is already at or past target in the decay direction
   const currentTrust = currentAlpha / (currentAlpha + currentBeta);
   if (priorTrust < targetTrust && currentTrust <= targetTrust) {
@@ -139,17 +140,24 @@ export function daysUntilTarget(
   if (priorTrust > targetTrust && currentTrust >= targetTrust) {
     return null; // Will never reach target
   }
-  
+
   // Binary search for the number of days
   let low = 0;
   let high = halfLife * 10; // Search up to 10 half-lives
   const tolerance = 0.1; // 0.1 day precision
-  
+
   while (high - low > tolerance) {
     const mid = (low + high) / 2;
-    const decayed = applyDecay(currentAlpha, currentBeta, mid, halfLife, priorAlpha, priorBeta);
+    const decayed = applyDecay(
+      currentAlpha,
+      currentBeta,
+      mid,
+      halfLife,
+      priorAlpha,
+      priorBeta,
+    );
     const decayedTrust = decayed.alpha / (decayed.alpha + decayed.beta);
-    
+
     if (priorTrust < targetTrust) {
       if (decayedTrust < targetTrust) {
         high = mid;
@@ -164,7 +172,7 @@ export function daysUntilTarget(
       }
     }
   }
-  
+
   return (low + high) / 2;
 }
 
@@ -187,16 +195,23 @@ export function getDecaySchedule(
   halfLife: number,
   intervals: number = 30,
   priorAlpha: number = 1,
-  priorBeta: number = 1
+  priorBeta: number = 1,
 ): Array<{ day: number; trust: number; alpha: number; beta: number }> {
   const schedule = [];
   const stepSize = days / intervals;
-  
+
   for (let i = 0; i <= intervals; i++) {
     const day = i * stepSize;
-    const decayed = applyDecay(alpha, beta, day, halfLife, priorAlpha, priorBeta);
+    const decayed = applyDecay(
+      alpha,
+      beta,
+      day,
+      halfLife,
+      priorAlpha,
+      priorBeta,
+    );
     const trust = decayed.alpha / (decayed.alpha + decayed.beta);
-    
+
     schedule.push({
       day: Math.round(day * 10) / 10,
       trust: Math.round(trust * 1000) / 1000,
@@ -204,6 +219,6 @@ export function getDecaySchedule(
       beta: Math.round(decayed.beta * 100) / 100,
     });
   }
-  
+
   return schedule;
 }

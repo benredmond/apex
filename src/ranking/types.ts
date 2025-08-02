@@ -157,25 +157,25 @@ export interface PackMeta {
   budget_bytes: number;
   trimmed_reason?: string;
   explain?: boolean;
-  reasons?: Array<{id: string; [key: string]: number | string}>;
+  reasons?: Array<{ id: string; [key: string]: number | string }>;
 }
 
 export interface PatternPack {
   task: string;
   candidates: PackCandidate[];
-  anti_patterns: Array<{id: string; summary: string}>;
-  policies: Array<{id: string; summary: string}>;
-  tests: Array<{id: string; summary: string}>;
+  anti_patterns: Array<{ id: string; summary: string }>;
+  policies: Array<{ id: string; summary: string }>;
+  tests: Array<{ id: string; summary: string }>;
   meta: PackMeta;
 }
 
 export interface PackOptions {
-  budgetBytes?: number;          // default 8192
-  debug?: boolean;               // include explain
-  snippetLinesInit?: number;     // default 18
-  snippetLinesMin?: number;      // default 8
-  topCandidatesQuota?: number;   // default 3
-  failuresQuota?: number;        // default 2
-  antisQuota?: number;           // default 1
-  testsQuota?: number;           // default 1
+  budgetBytes?: number; // default 8192
+  debug?: boolean; // include explain
+  snippetLinesInit?: number; // default 18
+  snippetLinesMin?: number; // default 8
+  topCandidatesQuota?: number; // default 3
+  failuresQuota?: number; // default 2
+  antisQuota?: number; // default 1
+  testsQuota?: number; // default 1
 }

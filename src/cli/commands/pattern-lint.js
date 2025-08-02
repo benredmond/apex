@@ -1,8 +1,8 @@
-import chalk from 'chalk';
-import ora from 'ora';
-import path from 'path';
-import { validatePatternFile } from '../../../dist/schemas/pattern/validators.js';
-import { glob } from 'glob';
+import chalk from "chalk";
+import ora from "ora";
+import path from "path";
+import { validatePatternFile } from "../../../dist/schemas/pattern/validators.js";
+import { glob } from "glob";
 
 export async function lintPattern(filePath, options = {}) {
   const spinner = ora(`Validating ${filePath}...`).start();
@@ -20,13 +20,13 @@ export async function lintPattern(filePath, options = {}) {
           chalk.dim(`  Trust: ${(result.data.trust_score * 100).toFixed(0)}%`),
         );
         console.log(
-          chalk.dim(`  Tags: ${result.data.tags?.join(', ') || 'none'}`),
+          chalk.dim(`  Tags: ${result.data.tags?.join(", ") || "none"}`),
         );
       }
 
       // Show warnings if any
       if (result.warnings && result.warnings.length > 0) {
-        console.log(chalk.yellow('\n  Warnings:'));
+        console.log(chalk.yellow("\n  Warnings:"));
         result.warnings.forEach((warning) => {
           console.log(chalk.yellow(`    - ${warning}`));
         });
@@ -34,12 +34,12 @@ export async function lintPattern(filePath, options = {}) {
 
       return { success: true, warnings: result.warnings?.length || 0 };
     } else {
-      spinner.fail('✗ Invalid pattern');
+      spinner.fail("✗ Invalid pattern");
 
       if (result.errors) {
-        console.log(chalk.red('\n  Errors:'));
+        console.log(chalk.red("\n  Errors:"));
         result.errors.forEach((error) => {
-          const prefix = error.path ? `${error.path}: ` : '';
+          const prefix = error.path ? `${error.path}: ` : "";
           console.log(chalk.red(`    - ${prefix}${error.message}`));
         });
       }
@@ -54,7 +54,7 @@ export async function lintPattern(filePath, options = {}) {
 }
 
 export async function lintPatterns(pattern, options = {}) {
-  console.log(chalk.cyan('🔍 Validating APEX patterns...\n'));
+  console.log(chalk.cyan("🔍 Validating APEX patterns...\n"));
 
   // Find all pattern files matching the glob
   const files = await glob(pattern, {
@@ -63,7 +63,7 @@ export async function lintPatterns(pattern, options = {}) {
   });
 
   if (files.length === 0) {
-    console.log(chalk.yellow('No pattern files found matching:', pattern));
+    console.log(chalk.yellow("No pattern files found matching:", pattern));
     return;
   }
 
@@ -94,7 +94,7 @@ export async function lintPatterns(pattern, options = {}) {
   }
 
   // Summary
-  console.log('\n' + chalk.bold('Summary:'));
+  console.log("\n" + chalk.bold("Summary:"));
   console.log(`  Total files: ${totalFiles}`);
   console.log(`  Valid: ${chalk.green(validFiles)}`);
   console.log(`  Invalid: ${chalk.red(totalFiles - validFiles)}`);
@@ -109,10 +109,10 @@ export async function lintPatterns(pattern, options = {}) {
 
   // Exit code
   if (totalFiles === validFiles) {
-    console.log(chalk.green('\n✅ All patterns are valid!'));
+    console.log(chalk.green("\n✅ All patterns are valid!"));
     process.exit(0);
   } else {
-    console.log(chalk.red('\n❌ Some patterns have errors'));
+    console.log(chalk.red("\n❌ Some patterns have errors"));
     process.exit(1);
   }
 }

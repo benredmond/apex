@@ -3,21 +3,21 @@
  * Core engine for pattern recognition, tracking, and promotion
  */
 
-import fs from 'fs-extra';
-import path from 'path';
+import fs from "fs-extra";
+import path from "path";
 
 export class PatternManager {
-  constructor(projectRoot = '.') {
+  constructor(projectRoot = ".") {
     this.projectRoot = projectRoot;
-    this.apexDir = path.join(projectRoot, '.apex');
-    this.conventionsPath = path.join(this.apexDir, 'CONVENTIONS.md');
-    this.pendingPath = path.join(this.apexDir, 'CONVENTIONS.pending.md');
-    this.metadataPath = path.join(this.apexDir, 'PATTERN_METADATA.json');
+    this.apexDir = path.join(projectRoot, ".apex");
+    this.conventionsPath = path.join(this.apexDir, "CONVENTIONS.md");
+    this.pendingPath = path.join(this.apexDir, "CONVENTIONS.pending.md");
+    this.metadataPath = path.join(this.apexDir, "PATTERN_METADATA.json");
     this.config = this.loadConfig();
   }
 
   loadConfig() {
-    const configPath = path.join(this.apexDir, 'config.json');
+    const configPath = path.join(this.apexDir, "config.json");
     try {
       return fs.readJsonSync(configPath).apex || {};
     } catch {
@@ -66,11 +66,11 @@ export class PatternManager {
    * Get star rating from trust score
    */
   getStarRating(trustScore) {
-    if (trustScore >= 0.95) return '★★★★★';
-    if (trustScore >= 0.85) return '★★★★☆';
-    if (trustScore >= 0.7) return '★★★☆☆';
-    if (trustScore >= 0.5) return '★★☆☆☆';
-    return '★☆☆☆☆';
+    if (trustScore >= 0.95) return "★★★★★";
+    if (trustScore >= 0.85) return "★★★★☆";
+    if (trustScore >= 0.7) return "★★★☆☆";
+    if (trustScore >= 0.5) return "★★☆☆☆";
+    return "★☆☆☆☆";
   }
 
   /**
@@ -126,7 +126,7 @@ export class PatternManager {
    * Find patterns relevant to a task
    */
   async findRelevantPatterns(taskDescription) {
-    const conventions = await fs.readFile(this.conventionsPath, 'utf-8');
+    const conventions = await fs.readFile(this.conventionsPath, "utf-8");
     const patterns = this.extractPatterns(conventions);
 
     // Simple keyword matching (can be enhanced with better NLP)
@@ -200,8 +200,8 @@ export class PatternManager {
    * Promote a pattern from pending to active
    */
   async promotePattern(patternId) {
-    const pending = await fs.readFile(this.pendingPath, 'utf-8');
-    const conventions = await fs.readFile(this.conventionsPath, 'utf-8');
+    const pending = await fs.readFile(this.pendingPath, "utf-8");
+    const conventions = await fs.readFile(this.conventionsPath, "utf-8");
 
     // Find pattern in pending
     const patterns = this.extractPatterns(pending);
@@ -225,11 +225,11 @@ export class PatternManager {
       );
 
     // Add to conventions
-    const updatedConventions = conventions + '\n' + formattedPattern + '\n';
+    const updatedConventions = conventions + "\n" + formattedPattern + "\n";
     await fs.writeFile(this.conventionsPath, updatedConventions);
 
     // Remove from pending
-    const updatedPending = pending.replace(pattern.content, '');
+    const updatedPending = pending.replace(pattern.content, "");
     await fs.writeFile(this.pendingPath, updatedPending);
 
     return true;
@@ -239,15 +239,15 @@ export class PatternManager {
    * Add a new pattern to pending
    */
   async addPattern(patternDefinition) {
-    const pending = await fs.readFile(this.pendingPath, 'utf-8');
+    const pending = await fs.readFile(this.pendingPath, "utf-8");
 
     // Format pattern
     const formatted = `
-${patternDefinition.id} ${this.getStarRating(0.5)} (0 uses, 0% success) ${patternDefinition.tags.join(' ')}
+${patternDefinition.id} ${this.getStarRating(0.5)} (0 uses, 0% success) ${patternDefinition.tags.join(" ")}
 ${patternDefinition.code}
 CONTEXT: ${patternDefinition.context}
 PREVENTS: ${patternDefinition.prevents}
-${patternDefinition.seeAlso ? `SEE_ALSO: ${patternDefinition.seeAlso}` : ''}
+${patternDefinition.seeAlso ? `SEE_ALSO: ${patternDefinition.seeAlso}` : ""}
 `;
 
     await fs.writeFile(this.pendingPath, pending + formatted);

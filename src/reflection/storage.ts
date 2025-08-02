@@ -3,25 +3,25 @@
  * Handles database persistence and queries
  */
 
-import Database from 'better-sqlite3';
-import { nanoid } from 'nanoid';
-import { 
-  ReflectionRecord, 
-  PatternDraft, 
+import Database from "better-sqlite3";
+import { nanoid } from "nanoid";
+import {
+  ReflectionRecord,
+  PatternDraft,
   AuditEvent,
   ReflectRequest,
   NewPattern,
-  AntiPattern
-} from './types.js';
+  AntiPattern,
+} from "./types.js";
 
 export class ReflectionStorage {
   private db: Database.Database;
 
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
-    this.db.pragma('journal_mode = WAL');
-    this.db.pragma('foreign_keys = ON');
-    
+    this.db.pragma("journal_mode = WAL");
+    this.db.pragma("foreign_keys = ON");
+
     this.initializeTables();
   }
 
@@ -89,7 +89,7 @@ export class ReflectionStorage {
       request.task.id,
       request.brief_id || null,
       request.outcome,
-      JSON.stringify(request)
+      JSON.stringify(request),
     );
 
     // Check if insert was ignored (already existed)
@@ -97,9 +97,11 @@ export class ReflectionStorage {
 
     if (existed) {
       // Get existing ID
-      const existing = this.db.prepare(
-        'SELECT id FROM reflections WHERE task_id = ? AND brief_id = ?'
-      ).get(request.task.id, request.brief_id || null) as { id: number };
+      const existing = this.db
+        .prepare(
+          "SELECT id FROM reflections WHERE task_id = ? AND brief_id = ?",
+        )
+        .get(request.task.id, request.brief_id || null) as { id: number };
 
       return { id: existing.id, existed: true };
     }
@@ -112,9 +114,9 @@ export class ReflectionStorage {
    */
   storePatternDraft(
     pattern: NewPattern | AntiPattern,
-    kind: 'NEW_PATTERN' | 'ANTI_PATTERN'
+    kind: "NEW_PATTERN" | "ANTI_PATTERN",
   ): string {
-    const draftId = `draft:${kind === 'NEW_PATTERN' ? 'PAT' : 'ANTI'}:${nanoid(12)}`;
+    const draftId = `draft:${kind === "NEW_PATTERN" ? "PAT" : "ANTI"}:${nanoid(12)}`;
 
     const stmt = this.db.prepare(`
       INSERT INTO pattern_drafts (draft_id, kind, json)
@@ -129,7 +131,7 @@ export class ReflectionStorage {
   /**
    * Store audit events
    */
-  storeAuditEvent(event: Omit<AuditEvent, 'id' | 'created_at'>): void {
+  storeAuditEvent(event: Omit<AuditEvent, "id" | "created_at">): void {
     const stmt = this.db.prepare(`
       INSERT INTO audit_events (task_id, kind, pattern_id, evidence_digest)
       VALUES (?, ?, ?, ?)
@@ -139,7 +141,7 @@ export class ReflectionStorage {
       event.task_id,
       event.kind,
       event.pattern_id || null,
-      event.evidence_digest || null
+      event.evidence_digest || null,
     );
   }
 
@@ -152,7 +154,9 @@ export class ReflectionStorage {
       WHERE task_id = ? AND brief_id = ?
     `);
 
-    const row = stmt.get(taskId, briefId || null) as ReflectionRecord | undefined;
+    const row = stmt.get(taskId, briefId || null) as
+      | ReflectionRecord
+      | undefined;
     return row || null;
   }
 
@@ -180,7 +184,28 @@ export class ReflectionStorage {
       ORDER BY count DESC
     `);
 
-    return stmt.all(cutoffDate.toISOString()) as Array<{ title: string; count: number }>;
+    return stmt.all(cutoffDate.toISOString()) as Array<{
+      title: string;
+      count: number;
+    }>;
+  }
+
+  /**
+   * Update pattern trust scores
+   * [FIX:SQLITE:SYNC] - Synchronous pattern trust update for transactions
+   */
+  updatePatternTrust(
+    patternId: string,
+    alpha: number,
+    beta: number,
+    trustScore: number,
+  ): void {
+    const stmt = this.db.prepare(`
+      UPDATE patterns 
+      SET alpha = ?, beta = ?, trust_score = ?
+      WHERE id = ?
+    `);
+    stmt.run(alpha, beta, trustScore, patternId);
   }
 
   /**

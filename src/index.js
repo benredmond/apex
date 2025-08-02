@@ -3,22 +3,22 @@
  * Main entry point for APEX Intelligence
  */
 
-export { PatternManager } from './intelligence/pattern-manager.js';
-export { TrustCalculator } from './intelligence/trust-calculator.js';
-export { FailureTracker } from './intelligence/failure-tracker.js';
+export { PatternManager } from "./intelligence/pattern-manager.js";
+export { TrustCalculator } from "./intelligence/trust-calculator.js";
+export { FailureTracker } from "./intelligence/failure-tracker.js";
 
 // Core APEX Intelligence class
 export class ApexIntelligence {
-  constructor(projectRoot = '.') {
+  constructor(projectRoot = ".") {
     this.projectRoot = projectRoot;
     this.patternManager =
-      new (require('./intelligence/pattern-manager.js').PatternManager)(
+      new (require("./intelligence/pattern-manager.js").PatternManager)(
         projectRoot,
       );
     this.trustCalculator =
-      new (require('./intelligence/trust-calculator.js').TrustCalculator)();
+      new (require("./intelligence/trust-calculator.js").TrustCalculator)();
     this.failureTracker =
-      new (require('./intelligence/failure-tracker.js').FailureTracker)(
+      new (require("./intelligence/failure-tracker.js").FailureTracker)(
         projectRoot,
       );
   }
@@ -66,12 +66,12 @@ export class ApexIntelligence {
     const complexityFactors = {
       // Keywords indicating complexity
       keywords: [
-        'refactor',
-        'migrate',
-        'optimize',
-        'integrate',
-        'redesign',
-        'architect',
+        "refactor",
+        "migrate",
+        "optimize",
+        "integrate",
+        "redesign",
+        "architect",
       ],
       // File count
       files: context.files ? Math.min(context.files.length / 5, 2) : 0,
@@ -109,8 +109,8 @@ export class ApexIntelligence {
       const topPattern = analysis.patterns[0];
       if (topPattern.trustScore > 0.8) {
         recommendations.push({
-          type: 'pattern',
-          priority: 'high',
+          type: "pattern",
+          priority: "high",
           message: `Use pattern ${topPattern.id} - ${topPattern.uses} successful uses`,
           pattern: topPattern,
         });
@@ -121,8 +121,8 @@ export class ApexIntelligence {
     if (analysis.warnings.length > 0) {
       const topWarning = analysis.warnings[0];
       recommendations.push({
-        type: 'warning',
-        priority: 'high',
+        type: "warning",
+        priority: "high",
         message: `Potential issue: ${topWarning.error_type} (occurred ${topWarning.occurrences} times)`,
         prevention: topWarning.prevention,
       });
@@ -131,17 +131,17 @@ export class ApexIntelligence {
     // Complexity-based recommendations
     if (analysis.complexity >= 7) {
       recommendations.push({
-        type: 'approach',
-        priority: 'medium',
-        message: 'High complexity task - consider breaking into subtasks',
-        suggestion: 'Use Gemini for architectural analysis',
+        type: "approach",
+        priority: "medium",
+        message: "High complexity task - consider breaking into subtasks",
+        suggestion: "Use Gemini for architectural analysis",
       });
     } else if (analysis.complexity >= 5) {
       recommendations.push({
-        type: 'approach',
-        priority: 'medium',
-        message: 'Moderate complexity - follow APEX phases carefully',
-        suggestion: 'Consider peer review before implementation',
+        type: "approach",
+        priority: "medium",
+        message: "Moderate complexity - follow APEX phases carefully",
+        suggestion: "Consider peer review before implementation",
       });
     }
 

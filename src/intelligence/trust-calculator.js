@@ -4,8 +4,8 @@
  * Enhanced with Beta-Bernoulli statistical model
  */
 
-import { BetaBernoulliTrustModel } from '../trust/index.js';
-import { JSONStorageAdapter } from '../trust/storage-adapter.js';
+import { BetaBernoulliTrustModel } from "../trust/index.js";
+import { JSONStorageAdapter } from "../trust/storage-adapter.js";
 
 export class TrustCalculator {
   constructor(config = {}) {
@@ -40,15 +40,16 @@ export class TrustCalculator {
     if (this.config.useBetaBernoulli && this.betaModel) {
       const failures = stats.uses - stats.successes;
       const trust = this.betaModel.calculateTrust(stats.successes, failures);
-      
+
       // Apply recency weighting if needed
       if (this.config.recencyWeight > 0 && stats.lastUsed) {
         const recencyFactor = this.calculateRecencyFactor(stats.lastUsed);
-        const recencyAdjusted = trust.value * (1 - this.config.recencyWeight) + 
-                               recencyFactor * this.config.recencyWeight;
+        const recencyAdjusted =
+          trust.value * (1 - this.config.recencyWeight) +
+          recencyFactor * this.config.recencyWeight;
         return Math.min(recencyAdjusted, 1.0);
       }
-      
+
       return trust.value;
     }
 
@@ -105,11 +106,11 @@ export class TrustCalculator {
    * Get confidence level from trust score
    */
   getConfidenceLevel(trustScore) {
-    if (trustScore >= 0.95) return 'VERY_HIGH';
-    if (trustScore >= 0.85) return 'HIGH';
-    if (trustScore >= 0.7) return 'MEDIUM';
-    if (trustScore >= 0.5) return 'LOW';
-    return 'VERY_LOW';
+    if (trustScore >= 0.95) return "VERY_HIGH";
+    if (trustScore >= 0.85) return "HIGH";
+    if (trustScore >= 0.7) return "MEDIUM";
+    if (trustScore >= 0.5) return "LOW";
+    return "VERY_LOW";
   }
 
   /**
@@ -143,10 +144,10 @@ export class TrustCalculator {
       percentage: oldStats ? ((newTrust - oldTrust) / oldTrust) * 100 : 100,
       direction:
         newTrust > oldTrust
-          ? 'improving'
+          ? "improving"
           : newTrust < oldTrust
-            ? 'declining'
-            : 'stable',
+            ? "declining"
+            : "stable",
     };
   }
 
@@ -194,7 +195,7 @@ export class TrustCalculator {
    */
   async getConfidenceInterval(patternId) {
     if (!this.betaModel) {
-      throw new Error('Beta-Bernoulli model not enabled');
+      throw new Error("Beta-Bernoulli model not enabled");
     }
     return await this.betaModel.getConfidenceInterval(patternId);
   }
@@ -232,7 +233,7 @@ export class TrustCalculator {
    */
   async applyDecay(patternId, days) {
     if (!this.betaModel) {
-      throw new Error('Beta-Bernoulli model not enabled');
+      throw new Error("Beta-Bernoulli model not enabled");
     }
     return await this.betaModel.decayTrust(patternId, days);
   }
@@ -242,7 +243,7 @@ export class TrustCalculator {
    */
   async updateTrust(patternId, outcome) {
     if (!this.betaModel) {
-      throw new Error('Beta-Bernoulli model not enabled');
+      throw new Error("Beta-Bernoulli model not enabled");
     }
     return await this.betaModel.updateTrust(patternId, outcome);
   }
@@ -254,16 +255,16 @@ export class TrustCalculator {
     if (!stats || stats.uses === 0) {
       return {
         trustScore: 0,
-        starRating: '☆☆☆☆☆',
-        confidence: 'VERY_LOW',
-        description: 'No usage data',
+        starRating: "☆☆☆☆☆",
+        confidence: "VERY_LOW",
+        description: "No usage data",
       };
     }
 
     const trust = this.calculateWithConfidence(stats);
     const stars = Math.round(trust.value * 5);
-    const filled = '★'.repeat(stars);
-    const empty = '☆'.repeat(5 - stars);
+    const filled = "★".repeat(stars);
+    const empty = "☆".repeat(5 - stars);
 
     return {
       trustScore: trust.value,

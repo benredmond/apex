@@ -1,9 +1,9 @@
 // [BUILD:MODULE:ESM] ★★★☆☆ (3 uses) - ES module with .js extensions
-import Database from 'better-sqlite3';
-import { fileURLToPath } from 'url';
-import path from 'path';
-import fs from 'fs-extra';
-import type { Pattern, Migration } from './types.js';
+import Database from "better-sqlite3";
+import { fileURLToPath } from "url";
+import path from "path";
+import fs from "fs-extra";
+import type { Pattern, Migration } from "./types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,25 +12,27 @@ export class PatternDatabase {
   private db: Database.Database;
   private statements: Map<string, Database.Statement> = new Map();
 
-  constructor(dbPath: string = '.apex/patterns.db') {
+  constructor(dbPath: string = ".apex/patterns.db") {
     // Ensure directory exists
     fs.ensureDirSync(path.dirname(dbPath));
-    
+
     this.db = new Database(dbPath);
-    
+
     // Enable WAL mode for better concurrency
-    this.db.pragma('journal_mode = WAL');
-    this.db.pragma('synchronous = NORMAL');
-    this.db.pragma('temp_store = MEMORY');
-    
+    this.db.pragma("journal_mode = WAL");
+    this.db.pragma("synchronous = NORMAL");
+    this.db.pragma("temp_store = MEMORY");
+
     // Optimize for concurrent reads
-    this.db.pragma('read_uncommitted = 1');
-    this.db.pragma('busy_timeout = 5000');
-    
+    this.db.pragma("read_uncommitted = 1");
+    this.db.pragma("busy_timeout = 5000");
+
     // Increase cache size for better performance with large codebases
-    const cacheSize = process.env.APEX_DB_CACHE_SIZE ? parseInt(process.env.APEX_DB_CACHE_SIZE) : 10000;
+    const cacheSize = process.env.APEX_DB_CACHE_SIZE
+      ? parseInt(process.env.APEX_DB_CACHE_SIZE)
+      : 10000;
     this.db.pragma(`cache_size = ${cacheSize}`);
-    
+
     // Initialize schema
     this.initializeSchema();
     this.prepareStatements();
@@ -186,16 +188,16 @@ export class PatternDatabase {
 
   private createIndices(): void {
     const indices = [
-      'CREATE INDEX IF NOT EXISTS idx_patterns_type ON patterns(type)',
-      'CREATE INDEX IF NOT EXISTS idx_patterns_digest ON patterns(pattern_digest)',
-      'CREATE INDEX IF NOT EXISTS idx_patterns_invalid ON patterns(invalid)',
-      'CREATE INDEX IF NOT EXISTS idx_langs_lang ON pattern_languages(lang)',
-      'CREATE INDEX IF NOT EXISTS idx_frameworks_fw ON pattern_frameworks(framework)',
-      'CREATE INDEX IF NOT EXISTS idx_paths_glob ON pattern_paths(glob)',
-      'CREATE INDEX IF NOT EXISTS idx_repos_glob ON pattern_repos(repo_glob)',
-      'CREATE INDEX IF NOT EXISTS idx_tasks_type ON pattern_task_types(task_type)',
-      'CREATE INDEX IF NOT EXISTS idx_envs_env ON pattern_envs(env)',
-      'CREATE INDEX IF NOT EXISTS idx_tags_tag ON pattern_tags(tag)',
+      "CREATE INDEX IF NOT EXISTS idx_patterns_type ON patterns(type)",
+      "CREATE INDEX IF NOT EXISTS idx_patterns_digest ON patterns(pattern_digest)",
+      "CREATE INDEX IF NOT EXISTS idx_patterns_invalid ON patterns(invalid)",
+      "CREATE INDEX IF NOT EXISTS idx_langs_lang ON pattern_languages(lang)",
+      "CREATE INDEX IF NOT EXISTS idx_frameworks_fw ON pattern_frameworks(framework)",
+      "CREATE INDEX IF NOT EXISTS idx_paths_glob ON pattern_paths(glob)",
+      "CREATE INDEX IF NOT EXISTS idx_repos_glob ON pattern_repos(repo_glob)",
+      "CREATE INDEX IF NOT EXISTS idx_tasks_type ON pattern_task_types(task_type)",
+      "CREATE INDEX IF NOT EXISTS idx_envs_env ON pattern_envs(env)",
+      "CREATE INDEX IF NOT EXISTS idx_tags_tag ON pattern_tags(tag)",
     ];
 
     for (const idx of indices) {
@@ -205,11 +207,14 @@ export class PatternDatabase {
 
   private prepareStatements(): void {
     // Prepare commonly used statements
-    this.statements.set('getPattern', this.db.prepare(
-      'SELECT * FROM patterns WHERE id = ? AND invalid = 0'
-    ));
+    this.statements.set(
+      "getPattern",
+      this.db.prepare("SELECT * FROM patterns WHERE id = ? AND invalid = 0"),
+    );
 
-    this.statements.set('upsertPattern', this.db.prepare(`
+    this.statements.set(
+      "upsertPattern",
+      this.db.prepare(`
       INSERT INTO patterns (
         id, schema_version, pattern_version, type, title, summary,
         trust_score, created_at, updated_at, source_repo, tags_csv,
@@ -233,13 +238,17 @@ export class PatternDatabase {
         json_canonical = excluded.json_canonical,
         invalid = excluded.invalid,
         invalid_reason = excluded.invalid_reason
-    `));
+    `),
+    );
 
-    this.statements.set('deletePattern', this.db.prepare(
-      'DELETE FROM patterns WHERE id = ?'
-    ));
+    this.statements.set(
+      "deletePattern",
+      this.db.prepare("DELETE FROM patterns WHERE id = ?"),
+    );
 
-    this.statements.set('searchPatterns', this.db.prepare(`
+    this.statements.set(
+      "searchPatterns",
+      this.db.prepare(`
       SELECT p.id, p.title, p.summary, bm25(patterns_fts) AS rank
       FROM patterns_fts
       JOIN patterns p ON p.rowid = patterns_fts.rowid
@@ -247,7 +256,8 @@ export class PatternDatabase {
       AND p.invalid = 0
       ORDER BY rank
       LIMIT ?
-    `));
+    `),
+    );
   }
 
   public transaction<T>(fn: () => T): T {
@@ -277,14 +287,19 @@ export class PatternDatabase {
 
   // Migration support
   public async runMigrations(migrations: Migration[]): Promise<void> {
-    const applied = this.db.prepare('SELECT id FROM migrations').all() as { id: string }[];
-    const appliedIds = new Set(applied.map(m => m.id));
+    const applied = this.db.prepare("SELECT id FROM migrations").all() as {
+      id: string;
+    }[];
+    const appliedIds = new Set(applied.map((m) => m.id));
 
     for (const migration of migrations) {
       if (!appliedIds.has(migration.id)) {
         const transaction = this.db.transaction(() => {
           this.db.exec(migration.sql);
-          this.db.prepare('INSERT INTO migrations (id, sql, applied_at) VALUES (?, ?, ?)')
+          this.db
+            .prepare(
+              "INSERT INTO migrations (id, sql, applied_at) VALUES (?, ?, ?)",
+            )
             .run(migration.id, migration.sql, new Date().toISOString());
         });
         transaction();
@@ -293,8 +308,9 @@ export class PatternDatabase {
   }
 
   public getSchemaVersion(): string {
-    const result = this.db.prepare('SELECT value FROM schema_meta WHERE key = ?')
-      .get('schema_version') as { value: string };
-    return result?.value || '0.1';
+    const result = this.db
+      .prepare("SELECT value FROM schema_meta WHERE key = ?")
+      .get("schema_version") as { value: string };
+    return result?.value || "0.1";
   }
 }

@@ -1,6 +1,6 @@
 // [BUILD:MODULE:ESM] ★★★☆☆ (3 uses) - ES module with .js extensions
-import { LRUCache } from 'lru-cache';
-import type { Pattern, CacheEntry } from './types.js';
+import { LRUCache } from "lru-cache";
+import type { Pattern, CacheEntry } from "./types.js";
 
 export class PatternCache {
   private byId: LRUCache<string, Pattern>;
@@ -92,8 +92,8 @@ export class PatternCache {
   public static generateFacetKey(facets: Record<string, any>): string {
     const sorted = Object.keys(facets)
       .sort()
-      .map(k => `${k}:${JSON.stringify(facets[k])}`)
-      .join('|');
+      .map((k) => `${k}:${JSON.stringify(facets[k])}`)
+      .join("|");
     return `facet:${sorted}`;
   }
 }

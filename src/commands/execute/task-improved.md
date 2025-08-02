@@ -1,9 +1,11 @@
 # Execute.Task - Process Tasks with APEX Intelligence
+
 **Domain**: Execution
 **Purpose**: Implement tasks using intelligent 5-phase workflow with PatternPack integration
 **Hierarchy**: Works on tasks created by planning phase
 
 ## Quick Reference
+
 **When to use**: Implementing any development task (features, bugs, refactors)
 **Typical duration**: 1-4 hours depending on complexity
 **Complexity**: Adaptive (uses intelligence to determine approach)
@@ -29,6 +31,7 @@
 ### Phase Execution Flow (TODO Item 7)
 
 Execute the current phase based on task.current_phase:
+
 - Read the phase section (ARCHITECT, BUILDER, etc.)
 - Complete all phase actions
 - Phase will update current_phase when done
@@ -137,14 +140,16 @@ Analyze task [TASK_ID] for:
 ```
 
 **PARALLELISM NOTE**: The intelligence-gatherer subagent internally executes multiple operations in parallel:
+
 - Pattern discovery via apex.patterns.lookup MCP (includes CONVENTIONS.md analysis)
 - Git history analysis (parallel)
 - Task similarity matching (parallel)
 - Failure pattern detection (parallel)
 - Dependency mapping (parallel)
-This provides the same parallelism benefits as multiple Task agents but with better coordination.
+  This provides the same parallelism benefits as multiple Task agents but with better coordination.
 
 **Intelligence-gatherer subagent will:**
+
 - Execute apex.patterns.lookup ONCE with comprehensive context
 - Cache all discovered patterns for phase usage
 - Execute searches in parallel for efficiency
@@ -156,6 +161,7 @@ This provides the same parallelism benefits as multiple Task agents but with bet
 ### 3.2 · Calculate Complexity Score
 
 **Complexity Scoring (1-10 scale):**
+
 - Base score: 1
 - Number of systems involved: +1 per system beyond first
 - Authentication/security mentions: +2
@@ -166,6 +172,7 @@ This provides the same parallelism benefits as multiple Task agents but with bet
 - Cross-team dependencies: +1
 
 **Gemini Integration Thresholds:**
+
 - Complexity < 5: No Gemini involvement
 - Complexity 5-6: Gemini REVIEWER only
 - Complexity 7+: Gemini ARCHITECT + REVIEWER
@@ -192,6 +199,7 @@ This provides the same parallelism benefits as multiple Task agents but with bet
 ### 3.4 · Store Intelligence Context
 
 Create structured intelligence context for phase injection:
+
 ```yaml
 # === INTELLIGENCE CONTEXT ===
 intelligence:
@@ -226,6 +234,7 @@ intelligence:
     1. Start with pattern PAT:X:Y from TX99
     2. Pre-apply failure prevention for F001
     3. Use parallel execution for file updates
+
 # ===
 ```
 
@@ -256,6 +265,7 @@ display_format:
 ## 4 · Analyse the task and determine current phase
 
 Read the task file and check:
+
 - `current_phase` in frontmatter (default: ARCHITECT if not present)
 - Phase history to understand what's been done
 - Any existing handoff documentation
@@ -275,6 +285,7 @@ Classify and load minimal context for task [TASK_ID]:
 ```
 
 **Context-loader subagent will:**
+
 - Classify task as: test_fix, feature_implementation, bug_fix, refactor, or documentation
 - Load appropriate patterns, files, and documentation (in parallel)
 - Track token usage to stay within limits
@@ -282,6 +293,7 @@ Classify and load minimal context for task [TASK_ID]:
 - **NO .md FILES**: Return context summary as text response only
 
 **PARALLELISM**: The subagent loads multiple context sources concurrently:
+
 - Pattern files (from cache) - parallel access
 - Relevant code files - parallel glob/read
 - Documentation - parallel fetch
@@ -295,6 +307,7 @@ Classify and load minimal context for task [TASK_ID]:
 # Execute context validation using parallel approaches:
 
 # Option 1: Use specialized subagents in parallel (ONE message):
+
 <Task subagent_type="context-loader" description="Load requirements">
 Load requirements and specifications for task [TASK_ID]
 </Task>
@@ -304,6 +317,7 @@ Verify cached patterns are sufficient for task implementation
 </Task>
 
 # Option 2: For quick parallel operations, use standard Task agents:
+
 <Task description="Load API contracts">
 Load relevant API specifications and contracts
 </Task>
@@ -360,6 +374,7 @@ For validation, execute all three checks in parallel using a single message with
 ### 5.2 · Context Availability Check
 
 Verify you have access to necessary context:
+
 - Required codebases/files are accessible
 - Any mentioned APIs or services are documented
 - Dependencies and their versions are clear
@@ -371,6 +386,7 @@ Verify you have access to necessary context:
 Before proceeding with validation decision, check for ambiguous requirements:
 
 **Common Ambiguity Patterns:**
+
 1. **Subjective Analysis** - "analyze/evaluate/assess what you think", "check quality" without criteria
    - Example from T169: "analyze the output to see what you think" → Need specific evaluation criteria
 2. **Undefined Terms** - Technical terms or phrases not defined in task context
@@ -383,6 +399,7 @@ Before proceeding with validation decision, check for ambiguous requirements:
    - Example from T169: Evaluation framework produced empty metrics {} → Need to verify output capability
 
 **If ambiguities detected:**
+
 ```markdown
 ## ⚠️ Clarification Needed
 
@@ -398,20 +415,25 @@ Please provide clarifications to continue with the task.
 ```
 
 **After receiving clarifications:**
+
 1. Add to task file:
+
    ```markdown
    ## Validation Clarifications
+
    _Added during validation phase to clarify ambiguous requirements:_
 
    - **[Original ambiguous text]**: [User's clarification]
    - **[Original ambiguous text]**: [User's clarification]
    ```
+
 2. Re-run validation with clarified requirements
 3. Continue to validation decision gate
 
 ### 5.4 · Validation Decision Gate
 
 **STOP if any of these conditions are true:**
+
 - ❌ Task description provides insufficient context to understand the goal
 - ❌ No acceptance criteria defined (even high-level)
 - ❌ Critical "TODO" or "TBD" sections that block implementation
@@ -422,31 +444,37 @@ Please provide clarifications to continue with the task.
 - ❌ Pattern cache insufficient and critical patterns missing
 
 **If validation fails:**
+
 1. Update task status to "blocked"
 2. Document specific missing information in task file:
+
    ```markdown
    ## Validation Failed - Blocked
 
    **Missing Requirements:**
+
    - [ ] Specific item 1
    - [ ] Specific item 2
 
    **Questions for Task Author:**
+
    - Question 1?
    - Question 2?
    ```
+
 3. Report to user with actionable next steps
 4. STOP execution - do not proceed to ARCHITECT
 
 **If validation passes:**
+
 - Continue to next step (Set status to in_progress)
 - Pass validated context forward:
-  * Confirmed file/component locations
-  * Task type classification from section 4.1
-  * List of available resources and APIs
-  * Any constraints or special requirements identified
-  * Any clarifications received during validation
-  * Pattern cache from intelligence phase
+  - Confirmed file/component locations
+  - Task type classification from section 4.1
+  - List of available resources and APIs
+  - Any constraints or special requirements identified
+  - Any clarifications received during validation
+  - Pattern cache from intelligence phase
 - This context will enhance the intelligence phase pattern matching
 
 ## 6 · Set status to in_progress
@@ -456,6 +484,7 @@ Please provide clarifications to continue with the task.
 - Update current_phase if needed
 
 **AUTO-TRACKING**: Create a minimal tracking block in the task file:
+
 ```yaml
 # === TRACKING (remove after complete) ===
 decision: [one line - what approach?]
@@ -493,7 +522,9 @@ errors: none
 <summary><strong>Advanced ARCHITECT Features</strong></summary>
 
 ### Intelligence Injection
+
 Display relevant architecture patterns from intelligence context:
+
 ```
 📋 Relevant Architecture Patterns:
 - [ID] Pattern Name (★★★☆☆ trust) - [Brief description]
@@ -501,6 +532,7 @@ Display relevant architecture patterns from intelligence context:
 ```
 
 ### Gemini Collaboration (Complexity ≥ 7)
+
 ```yaml
 gemini_architect:
   trigger: complexity >= 7 OR security_involved
@@ -518,6 +550,7 @@ gemini_architect:
 **If current_phase == ARCHITECT:**
 
 ### 🧠 Intelligence Injection Point
+
 Before starting architecture design, review intelligence context and pattern cache:
 
 ```yaml
@@ -529,6 +562,7 @@ intelligence_review:
 ```
 
 **Example display:**
+
 ```
 ┌─────────────────────────────────────────────┐
 │ 📊 Intelligence Recommendations             │
@@ -573,13 +607,15 @@ Validate all assumptions for task [TASK_ID]:
 ```
 
 **PARALLELISM WITHIN SUBAGENT**:
+
 - Git archaeology operations (parallel git commands)
 - Configuration change searches (parallel grep)
 - Dependency mapping (parallel file analysis)
 - Task history searches (parallel .apex/ searches)
-All executed concurrently and results aggregated
+  All executed concurrently and results aggregated
 
 **Architecture-validator subagent will:**
+
 - Execute comprehensive git archaeology
 - Search for configuration changes and migrations
 - Verify assumptions with evidence
@@ -604,21 +640,23 @@ historical_checks:
 
 ```markdown
 ## Verified Assumptions
+
 ✅ **Assumption**: [Current system uses X]
-   **Evidence**: Found in <file:line>, implemented in TX123
-   **History**: Changed from Y to X in TX111 due to [reason]
-   **Patterns**: Compatible with PAT:ARCH:X from cache
+**Evidence**: Found in <file:line>, implemented in TX123
+**History**: Changed from Y to X in TX111 due to [reason]
+**Patterns**: Compatible with PAT:ARCH:X from cache
 
 ✅ **Assumption**: [No other systems depend on this]
-   **Evidence**: Grep found no imports/references
-   **Verified**: Checked all service files and tests
+**Evidence**: Grep found no imports/references
+**Verified**: Checked all service files and tests
 
 ❌ **Assumption**: [This is the first implementation]
-   **Evidence**: TX089 previously implemented this
-   **Correction**: Need to understand why it was removed/changed
+**Evidence**: TX089 previously implemented this
+**Correction**: Need to understand why it was removed/changed
 ```
 
 **MANDATORY VERIFICATION CHECKLIST:**
+
 - [ ] Current state origin traced (what task/commit created it)
 - [ ] Change history discovered (what it replaced and why)
 - [ ] Dependencies mapped (what will be affected)
@@ -627,6 +665,7 @@ historical_checks:
 - [ ] Pattern compatibility verified (no anti-pattern conflicts)
 
 **STOP if you find:**
+
 - 🚨 Current state was created by reverting a previous change
 - 🚨 Task asks to implement something previously removed
 - 🚨 Hidden dependencies not mentioned in task description
@@ -634,13 +673,15 @@ historical_checks:
 - 🚨 Cached patterns conflict with discovered constraints
 
 **If verification reveals critical context:**
+
 1. Update task with "## Critical Context Discovered" section
 2. Revise architectural approach based on findings
 3. Document why previous approaches failed
 4. Get user confirmation if task fundamentally conflicts with discoveries
 
-1. **Pattern-Based Architecture Design:**
+5. **Pattern-Based Architecture Design:**
    Use cached architecture patterns from pattern_cache:
+
    ```yaml
    architecture_design:
      - Review architecture patterns in cache
@@ -649,10 +690,10 @@ historical_checks:
      - Document pattern selection rationale
    ```
 
-2. Research existing patterns in codebase
-3. Design solution approach avoiding known pitfalls
-4. Create specifications
-5. **Gemini Architecture Review** (if complexity >= 7):
+6. Research existing patterns in codebase
+7. Design solution approach avoiding known pitfalls
+8. Create specifications
+9. **Gemini Architecture Review** (if complexity >= 7):
    Use the gemini-orchestrator subagent for productive discussions:
 
    ```markdown
@@ -674,35 +715,42 @@ historical_checks:
    - Document the discussion journey
    - **NO .md FILES**: Return discussion summary as text response only
 
-6. Document decisions in handoff section
-7. Update phase to BUILDER when complete
+10. Document decisions in handoff section
+11. Update phase to BUILDER when complete
 
 **Key outputs:**
+
 - Technical decisions with rationale
 - File/API specifications
 - Patterns to follow from cache
 - Complete ARCHITECT → BUILDER handoff section
 
 **PATTERN TRACKING**: Update tracking block with patterns selected:
+
 ```yaml
 # patterns_used: ["ARCH:STATE:FRONTEND", "ARCH:API:STRUCTURE"]
 ```
 
 **HANDOFF TEMPLATE** (auto-populate what you can):
+
 ```markdown
 ## ARCHITECT → BUILDER Handoff
 
 ### Architecture Decision
+
 [REUSE FROM: architecture_decision in tracking block]
 Based on cached patterns:
+
 - Primary: [ARCH:PATTERN] ★★★★★ (from cache)
 - Supporting: [Additional patterns]
 
 ### Files to Create/Modify
+
 - [ ] path/to/file1 - purpose
 - [ ] path/to/file2 - purpose
 
 ### Key Specifications
+
 [Detailed specs here]
 ```
 
@@ -714,12 +762,12 @@ Based on cached patterns:
 <summary><strong>Advanced BUILDER Features</strong></summary>
 
 ### Proactive Pattern Application
+
 Before implementing, check pattern trust scores from cache:
 
 ```yaml
 pattern_application:
-  From cache (in priority order):
-    1. High-trust patterns (★★★★★)
+  From cache (in priority order): 1. High-trust patterns (★★★★★)
     2. Project-specific patterns
     3. Lower-trust patterns with caution
 
@@ -734,7 +782,8 @@ pattern_application:
 ```
 
 ### Failure Prevention System
-```yaml
+
+````yaml
 failure_check:
   - Check cached FIX patterns before modifications
   - If match found (frequency >= 5):
@@ -765,7 +814,7 @@ For complex algorithms or logic not in patterns:
    - Constraints: [constraints]
    - Context: [relevant context]
    - Patterns to follow: [from cache]"
-   ```
+````
 
 2. **Refinement Discussion:**
    - Review generated code
@@ -804,6 +853,7 @@ template_generation:
 ```
 
 **Example Pattern Application:**
+
 ```javascript
 // [PAT:ERROR:HANDLING] ★★★★★ (156 uses, 100% success) - From cache
 // Source: CONVENTIONS.md
@@ -823,6 +873,7 @@ export const handleError = (error: Error): APIResponse => {
 ```
 
 **2. Failure Prevention Checkpoints:**
+
 ```yaml
 Before writing code, check cached FIX patterns:
 failure_prevention:
@@ -833,6 +884,7 @@ failure_prevention:
 
 **3. Similar Implementation Reference:**
 Display relevant code from similar tasks in intelligence context:
+
 ```yaml
 reference_panel:
   - File: similar/task/implementation.js
@@ -842,6 +894,7 @@ reference_panel:
 
 **4. Pre-emptive Error Handling:**
 Based on cached FIX patterns, automatically add:
+
 ```python
 # [FIX:ASYNC:SYNC] ★★★★★ (47 uses) - MongoDB is SYNC in this project
 # WARNING: Do NOT use await with MongoDB operations
@@ -872,6 +925,7 @@ Analyze planned changes for task [TASK_ID]:
 ```
 
 **Failure-predictor subagent will:**
+
 - Match operations against cached failure patterns
 - Calculate probability based on frequency and context
 - Provide specific FIX patterns to apply
@@ -879,6 +933,7 @@ Analyze planned changes for task [TASK_ID]:
 - **NO .md FILES**: Return predictions as text response only
 
 **High-Risk Operations Alert:**
+
 ```yaml
 high_risk_patterns:
   - Modifying authentication → Check F005, F011
@@ -902,23 +957,26 @@ high_risk_patterns:
 6. Update phase to VALIDATOR when complete
 
 **Key outputs:**
+
 - Implemented code matching specifications
 - List of files modified
 - Complete BUILDER → VALIDATOR handoff section
 
 **PATTERN TRACKING**: Update tracking with implementation patterns:
+
 ```yaml
 patterns: {
-  "PAT:ASYNC:TEST": ✓,     # Worked perfectly
-  "CMD:TEST:BE": ⚠,        # Needed adjustment
-  "FIX:MODULE": ✗          # Didn't work
-}
+    "PAT:ASYNC:TEST": ✓, # Worked perfectly
+    "CMD:TEST:BE": ⚠, # Needed adjustment
+    "FIX:MODULE": ✗, # Didn't work
+  }
 # Add new patterns to new_patterns list if discovered
 ```
 
 **PARALLEL EXECUTION STRATEGIES:**
 
 1. **Multiple File Modifications:**
+
    ```yaml
    parallel_implementation:
      - When updating similar patterns across files (e.g., imports, mocks)
@@ -927,6 +985,7 @@ patterns: {
    ```
 
 2. **Test-Driven Development:**
+
    ```yaml
    parallel_testing:
      - Run affected tests while implementing
@@ -947,6 +1006,7 @@ patterns: {
 When modifying multiple similar files, use parallel processing:
 
 1. **Identify Batchable Operations:**
+
    ```yaml
    batchable_operations:
      - Multiple test files needing same pattern updates
@@ -956,10 +1016,10 @@ When modifying multiple similar files, use parallel processing:
    ```
 
 2. **Parallel Execution Pattern:**
+
    ```yaml
    # Instead of sequential:
-   for file in files:
-     modify(file)
+   for file in files: modify(file)
 
    # Use parallel approaches:
    parallel_modifications:
@@ -970,6 +1030,7 @@ When modifying multiple similar files, use parallel processing:
    ```
 
 3. **Example Implementation:**
+
    ```markdown
    # Execute multiple file modifications in ONE message:
 
@@ -999,9 +1060,11 @@ When modifying multiple similar files, use parallel processing:
    ```
 
 ### SYNTAX VALIDATION GATE
+
 Before completing BUILDER phase, validate all modified files:
 
 1. **Automatic Syntax Check:**
+
    ```bash
    # For JavaScript/TypeScript files (frontend)
    cd frontend && npx eslint <file>
@@ -1029,6 +1092,7 @@ Before completing BUILDER phase, validate all modified files:
 **SYNTAX CHECK GATE**: Must pass before updating phase to VALIDATOR
 
 **EFFICIENCY TIPS:**
+
 - Run tests as you build to catch issues early
 - Use `git status` to auto-populate files_modified list
 - If you need design clarification, add to tracking block instead of full phase switch
@@ -1041,6 +1105,7 @@ Before completing BUILDER phase, validate all modified files:
 **PHASE PROMPT**: "You are in VALIDATOR phase. You MUST run tests AND validate code quality. DO NOT fix code - only document issues. DO NOT create any .md files or reports - document issues in the task file handoff only."
 
 **INTELLIGENCE INJECTION**: Predict likely test failures based on cached patterns:
+
 ```
 ⚠️ Predicted Test Risks:
 - [Test type] failures likely (60% probability) - Similar to T093
@@ -1062,6 +1127,7 @@ predictive_validation:
 ```
 
 **Validation Enhancement:**
+
 ```
 ┌─────────────────────────────────────────────┐
 │ 🔍 Predictive Validation Results           │
@@ -1091,6 +1157,7 @@ Validate all changes for task [TASK_ID]:
 ```
 
 **Test-validator subagent parallelism:**
+
 - Frontend tests + Backend tests (concurrent execution)
 - Unit tests + Integration tests (parallel within each)
 - Linting + Formatting + Type checking (parallel validation)
@@ -1099,6 +1166,7 @@ Validate all changes for task [TASK_ID]:
 - **NO .md FILES**: Return validation results as text response only
 
 **Example parallel execution inside subagent:**
+
 ```bash
 # Runs concurrently:
 frontend: npm run lint & npm run test & npm run format
@@ -1106,26 +1174,31 @@ backend: ruff check & pytest & mypy
 ```
 
 4. **Validation Summary:**
+
    ```markdown
    ## Validation Results
 
    ### Code Quality
+
    - Linting: [PASS/FAIL] - X errors, Y warnings
    - Formatting: [PASS/FAIL] - X files need formatting
    - Type Check: [PASS/FAIL] - X type errors
    - Syntax: [PASS/FAIL] - All files parse correctly
 
    ### Tests
+
    - Unit Tests: X/Y passing
    - Integration Tests: X/Y passing
    - Coverage: X% (target: Y%)
 
    ### Issues Found
+
    1. [Critical] Syntax error in file.js:123
    2. [Warning] Linting error: unused variable
    3. [Info] Code formatting needed in 3 files
 
    ### Pattern Effectiveness
+
    - Cached patterns that prevented errors: X
    - New error patterns discovered: Y
    ```
@@ -1141,6 +1214,7 @@ backend: ruff check & pytest & mypy
 **PARALLEL VALIDATION STRATEGIES:**
 
 1. **Smart Test Execution:**
+
    ```yaml
    test_strategy:
      - Run affected tests first (based on files_modified)
@@ -1149,6 +1223,7 @@ backend: ruff check & pytest & mypy
    ```
 
 2. **Batch Analysis:**
+
    ```yaml
    parallel_analysis:
      - Group similar test failures together
@@ -1165,6 +1240,7 @@ backend: ruff check & pytest & mypy
    ```
 
 **Key outputs:**
+
 - Complete validation report
 - Categorized issues (Critical/Warning/Info)
 - Clear pass/fail status for each check
@@ -1172,20 +1248,24 @@ backend: ruff check & pytest & mypy
 - Complete VALIDATOR → REVIEWER or VALIDATOR → BUILDER handoff
 
 **PATTERN TRACKING**: Update with test patterns used:
+
 ```yaml
 # patterns_used: [...existing, "CMD:TEST:COV", "PAT:TEST:ISOLATION"]
 # errors_encountered: [...existing, "Test failure - pattern FIX:ASYNC:ACT applied"]
 ```
 
 **AUTO-HANDOFF**: If all tests pass and acceptance criteria met:
+
 ```markdown
 ## VALIDATOR → REVIEWER Handoff
+
 **Status: AUTO-PASS** ✅
+
 - All tests passing
 - Coverage: [X%] (meets target)
 - No issues found
 - Cached patterns effective: X/Y
-→ Proceeding to REVIEWER
+  → Proceeding to REVIEWER
 ```
 
 ## 10 · Execute REVIEWER phase
@@ -1208,6 +1288,7 @@ Review implementation for task [TASK_ID]:
 ```
 
 **INTELLIGENCE INJECTION**: Focus review on pattern usage:
+
 ```
 🔍 Review Focus Areas:
 - Pattern applications from cache: [List patterns used]
@@ -1267,6 +1348,7 @@ intelligence_metrics:
 6. Update phase to DOCUMENTER when approved
 
 **Key outputs:**
+
 - Approval status
 - Fixes applied
 - Patterns discovered
@@ -1280,6 +1362,7 @@ intelligence_metrics:
 **PHASE PROMPT**: "You are in DOCUMENTER phase. Update project documentation based on what was learned. Do not modify code. THIS IS THE ONLY PHASE where you should create or update .md files for documentation. CRITICAL: You MUST call apex.reflect at the end."
 
 **INTELLIGENCE INJECTION**: Automatically extract and document pattern usage:
+
 ```
 📚 Learning Capture:
 - Patterns Used: [ID] Pattern Name (★★★☆☆ → ★★★★☆ effectiveness)
@@ -1303,7 +1386,7 @@ intelligence_metrics:
        "id": "T28_S02",
        "title": "[Task title from file]"
      },
-     "outcome": "success",  // or "failure" if task failed
+     "outcome": "success", // or "failure" if task failed
      "claims": {
        "patterns_used": [
          {
@@ -1324,11 +1407,11 @@ intelligence_metrics:
        "trust_updates": [
          {
            "pattern_id": "PAT:API:ERROR_HANDLING",
-           "delta": {"alpha": 1, "beta": 0}  // Success
+           "delta": { "alpha": 1, "beta": 0 } // Success
          },
          {
            "pattern_id": "PAT:TEST:MOCK",
-           "delta": {"alpha": 0, "beta": 1}  // Failed
+           "delta": { "alpha": 0, "beta": 1 } // Failed
          }
        ],
        "cache_effectiveness": {
@@ -1388,9 +1471,9 @@ intelligence_metrics:
    - Process reflection results from apex.reflect
    - Document pattern effectiveness (parallel writes)
    - Update all learning files concurrently:
-     * TASK_LEARNINGS.md
-     * failures.jsonl
-     * Pattern documentation
+     - TASK_LEARNINGS.md
+     - failures.jsonl
+     - Pattern documentation
    - Create follow-up tasks as needed
    - **THIS IS THE ONLY SUBAGENT** that should create/update .md files
 
@@ -1418,6 +1501,7 @@ intelligence_feedback:
 ```
 
 **Auto-generate intelligence update:**
+
 ```json
 {
   "task_id": "T26_S02",
@@ -1436,26 +1520,33 @@ intelligence_feedback:
 ```
 
 5. **Update 09_LEARNING/TASK_LEARNINGS.md:**
+
    ```markdown
    ## T[ID] - [Task Title]
+
    DURATION: Predicted Xh, Actual Yh
    COMPLEXITY: Predicted X, Actual Y
 
    ### Patterns Used
+
    - [PAT:ID] ✅/⚠️ Notes on effectiveness
    - Cache hit rate: X%
 
    ### New Discoveries
+
    - [Description of new pattern or insight]
 
    ### Errors Encountered
+
    - [Error] → [Fix applied]
 
    ### Recommendations for Similar Tasks
+
    - [Key learnings for future]
    ```
 
 6. **Update 09_LEARNING/failures.jsonl:**
+
    ```json
    For each error in errors_encountered:
    {"id": "F[next]", "task": "T[ID]", "error": "[error]",
@@ -1465,14 +1556,15 @@ intelligence_feedback:
 
 7. **Create Follow-up Task for Outstanding Issues:**
    Review all phase handoffs and notes for:
-    - Outstanding issues that were not resolved
-    - Architectural deficits identified
-    - Desirable refactoring or improvements deferred
-    - Any other work items noted for future action
-   
+   - Outstanding issues that were not resolved
+   - Architectural deficits identified
+   - Desirable refactoring or improvements deferred
+   - Any other work items noted for future action
+
    If such items exist, create a **new task file** in appropriate directory with clear reference to original task.
 
 **Final steps - YOU MUST DO THESE:**
+
 - Call apex.reflect with complete pattern usage data (CRITICAL)
 - Remove the Phase Tracking block from task file
 - Set the Task status to **completed**
@@ -1486,6 +1578,7 @@ intelligence_feedback:
 ✅ **Result**: [Task title] - [Primary achievement]
 
 📊 **Key Metrics**:
+
 - Complexity Score: X/10 (predicted vs actual)
 - Coverage: [before] → [after] (if applicable)
 - Files: [created], [modified]
@@ -1496,6 +1589,7 @@ intelligence_feedback:
 💬 **Summary**: [Comprehensive yet concise summary of what was done]
 
 📚 **Pattern Intelligence**:
+
 - Cache Hit Rate: X% (Y patterns from cache, Z new lookups)
 - Pattern Effectiveness: ↑A improved, ↓B declined via apex.reflect
 - New Patterns: C documented via apex.reflect
@@ -1505,6 +1599,7 @@ intelligence_feedback:
 ⏭️ **Next steps**: [Follow-up task created or recommended actions]
 
 **Suggestions** for the User:
+
 - 🛠️ Commit the changes to git
 - 🧹 Use `/clear` to clear the context before starting the next Task
 - 📋 Review follow-up task: `T[ID]_*.md` (if created)

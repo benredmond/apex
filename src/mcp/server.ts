@@ -16,7 +16,10 @@ import { ApexStdioTransport } from "./transports/stdio.js";
 import { toMCPError } from "./errors.js";
 import { PatternRepository } from "../storage/repository.js";
 import { PatternDatabase } from "../storage/database.js";
-import { getMetricsResource, readMetricsResource } from "./resources/metrics.js";
+import {
+  getMetricsResource,
+  readMetricsResource,
+} from "./resources/metrics.js";
 
 export interface ApexMCPServerOptions {
   name?: string;
@@ -68,12 +71,12 @@ export class ApexMCPServer {
   private async initializePatternSystem(): Promise<void> {
     try {
       // Use the actual patterns database
-      const dbPath = process.env.APEX_PATTERNS_DB || 'patterns.db';
+      const dbPath = process.env.APEX_PATTERNS_DB || "patterns.db";
       console.error(`[APEX MCP] Using database: ${dbPath}`);
-      
+
       // Create repository with actual database
       this.repository = new PatternRepository({ dbPath });
-      
+
       // Initialize the repository (loads patterns)
       await this.repository.initialize();
       console.error(`[APEX MCP] Repository initialized`);
@@ -94,10 +97,10 @@ export class ApexMCPServer {
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
       try {
         const resources = this.resourceManager.list();
-        
+
         // Add static resources like metrics
         const metricsResource = getMetricsResource();
-        
+
         return {
           resources: [
             ...resources.map((r) => ({
@@ -194,7 +197,7 @@ export class ApexMCPServer {
   async startStdio(): Promise<void> {
     // Initialize pattern system before starting
     await this.initializePatternSystem();
-    
+
     this.transport = new ApexStdioTransport();
     await this.transport.connect(this.server);
     await this.transport.start();

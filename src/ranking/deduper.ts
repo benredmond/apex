@@ -8,7 +8,7 @@ export class Deduper {
   private policyRefs: Set<string> = new Set();
   private antiRefs: Set<string> = new Set();
   private testRefs: Set<string> = new Set();
-  
+
   /**
    * Check if pattern ID has been seen
    */
@@ -43,11 +43,11 @@ export class Deduper {
   trackReferences(
     policyRefs?: string[],
     antiRefs?: string[],
-    testRefs?: string[]
+    testRefs?: string[],
   ): void {
-    policyRefs?.forEach(ref => this.policyRefs.add(ref));
-    antiRefs?.forEach(ref => this.antiRefs.add(ref));
-    testRefs?.forEach(ref => this.testRefs.add(ref));
+    policyRefs?.forEach((ref) => this.policyRefs.add(ref));
+    antiRefs?.forEach((ref) => this.antiRefs.add(ref));
+    testRefs?.forEach((ref) => this.testRefs.add(ref));
   }
 
   /**

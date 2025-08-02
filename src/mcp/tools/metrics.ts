@@ -31,7 +31,7 @@ export interface LookupMetrics {
 
 export class MetricsCollector {
   private metrics: LookupMetrics;
-  
+
   constructor() {
     this.metrics = {
       requests_total: 0,
@@ -59,85 +59,88 @@ export class MetricsCollector {
       },
     };
   }
-  
+
   /**
    * Record a new request with its signals
    */
   recordRequest(request: Record<string, any>): void {
     this.metrics.requests_total++;
-    
+
     // Track which signals were provided
     if (request.task) this.metrics.signals_provided.task++;
     if (request.language) this.metrics.signals_provided.language++;
     if (request.framework) this.metrics.signals_provided.framework++;
     if (request.current_file) this.metrics.signals_provided.current_file++;
-    if (request.recent_errors?.length > 0) this.metrics.signals_provided.recent_errors++;
+    if (request.recent_errors?.length > 0)
+      this.metrics.signals_provided.recent_errors++;
     if (request.repo_path) this.metrics.signals_provided.repo_path++;
   }
-  
+
   /**
    * Record cache hit
    */
   recordCacheHit(): void {
     this.metrics.cache_hits++;
   }
-  
+
   /**
    * Record cache miss
    */
   recordCacheMiss(): void {
     this.metrics.cache_misses++;
   }
-  
+
   /**
    * Record request latency
    */
   recordLatency(latencyMs: number): void {
     this.metrics.total_latency_ms += latencyMs;
   }
-  
+
   /**
    * Record an error
    */
-  recordError(type: 'validation' | 'lookup' | 'ranking' | 'other'): void {
+  recordError(type: "validation" | "lookup" | "ranking" | "other"): void {
     this.metrics.errors[type]++;
   }
-  
+
   /**
    * Record patterns returned
    */
   recordPatternsReturned(count: number): void {
     this.metrics.patterns_returned.total += count;
-    
+
     // Update max if needed
     if (count > this.metrics.patterns_returned.max_per_request) {
       this.metrics.patterns_returned.max_per_request = count;
     }
-    
+
     // Recalculate average
-    const totalRequests = this.metrics.requests_total - 
+    const totalRequests =
+      this.metrics.requests_total -
       Object.values(this.metrics.errors).reduce((a, b) => a + b, 0);
-    
+
     if (totalRequests > 0) {
-      this.metrics.patterns_returned.avg_per_request = 
+      this.metrics.patterns_returned.avg_per_request =
         this.metrics.patterns_returned.total / totalRequests;
     }
   }
-  
+
   /**
    * Get current metrics
    */
   getMetrics(): LookupMetrics & { avg_latency_ms: number } {
-    const avgLatency = this.metrics.requests_total > 0
-      ? this.metrics.total_latency_ms / this.metrics.requests_total
-      : 0;
-    
+    const avgLatency =
+      this.metrics.requests_total > 0
+        ? this.metrics.total_latency_ms / this.metrics.requests_total
+        : 0;
+
     return {
       ...this.metrics,
       avg_latency_ms: Math.round(avgLatency),
     };
   }
-  
+
   /**
    * Reset all metrics
    */

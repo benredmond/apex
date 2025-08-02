@@ -3,27 +3,27 @@
  * [PAT:PROTOCOL:MCP_SERVER] ★★★★☆ (4 uses, 100% success)
  */
 
-import { z } from 'zod';
-import { nanoid } from 'nanoid';
-import { PatternRepository } from '../../storage/repository.js';
-import { BetaBernoulliTrustModel } from '../../trust/beta-bernoulli.js';
-import { JSONStorageAdapter } from '../../trust/storage-adapter.js';
-import { EvidenceValidator } from '../../reflection/validator.js';
-import { ReflectionStorage } from '../../reflection/storage.js';
-import { PatternMiner } from '../../reflection/miner.js';
-import { PatternInserter } from '../../reflection/pattern-inserter.js';
+import { z } from "zod";
+import { nanoid } from "nanoid";
+import { PatternRepository } from "../../storage/repository.js";
+import { BetaBernoulliTrustModel } from "../../trust/beta-bernoulli.js";
+import { JSONStorageAdapter } from "../../trust/storage-adapter.js";
+import { EvidenceValidator } from "../../reflection/validator.js";
+import { ReflectionStorage } from "../../reflection/storage.js";
+import { PatternMiner } from "../../reflection/miner.js";
+import { PatternInserter } from "../../reflection/pattern-inserter.js";
 import {
   ReflectRequestSchema,
   ReflectRequest,
   ReflectResponse,
   ValidationErrorCode,
   TrustUpdate,
-} from '../../reflection/types.js';
+} from "../../reflection/types.js";
 import {
   InvalidParamsError,
   InternalError,
   ToolExecutionError,
-} from '../errors.js';
+} from "../errors.js";
 
 // Metrics tracking
 interface IReflectionMetrics {
@@ -54,10 +54,10 @@ class ReflectionMetrics {
     } else {
       this.metrics.failed++;
     }
-    
+
     // Update average latency
     const prevTotal = this.metrics.total - 1;
-    this.metrics.averageLatency = 
+    this.metrics.averageLatency =
       (this.metrics.averageLatency * prevTotal + latency) / this.metrics.total;
   }
 
@@ -94,13 +94,13 @@ export class ReflectionService {
       allowedRepoUrls?: string[];
       gitRepoPath?: string;
       enableMining?: boolean;
-    }
+    },
   ) {
     this.repository = repository;
     this.patternInserter = new PatternInserter(dbPath);
-    
+
     // Initialize trust model
-    const trustAdapter = new JSONStorageAdapter('pattern_trust.json');
+    const trustAdapter = new JSONStorageAdapter("pattern_trust.json");
     this.trustModel = new BetaBernoulliTrustModel(trustAdapter);
 
     // Initialize validator
@@ -131,8 +131,8 @@ export class ReflectionService {
       const validationResult = ReflectRequestSchema.safeParse(rawRequest);
       if (!validationResult.success) {
         this.metrics.recordValidationError();
-        const errors = validationResult.error.issues.map(issue => ({
-          path: issue.path.join('.'),
+        const errors = validationResult.error.issues.map((issue) => ({
+          path: issue.path.join("."),
           code: ValidationErrorCode.MALFORMED_EVIDENCE,
           message: issue.message,
         }));
@@ -149,23 +149,26 @@ export class ReflectionService {
           validation.valid,
           validation.errors,
           startTime,
-          false
+          false,
         );
       }
 
       // Full processing
       const response = await this.processReflection(request, startTime);
-      
+
       this.metrics.recordRequest(response.ok, Date.now() - startTime);
-      
+
       return response;
     } catch (error) {
       this.metrics.recordRequest(false, Date.now() - startTime);
-      
-      if (error instanceof InvalidParamsError || error instanceof ToolExecutionError) {
+
+      if (
+        error instanceof InvalidParamsError ||
+        error instanceof ToolExecutionError
+      ) {
         throw error;
       }
-      
+
       throw new InternalError(`Reflection processing failed: ${error}`);
     }
   }
@@ -175,10 +178,10 @@ export class ReflectionService {
    */
   private async processReflection(
     request: ReflectRequest,
-    startTime: number
+    startTime: number,
   ): Promise<ReflectResponse> {
     const validatedAt = Date.now();
-    
+
     // Validate evidence
     const validation = await this.validator.validateRequest(request);
     if (!validation.valid) {
@@ -186,7 +189,7 @@ export class ReflectionService {
         false,
         validation.errors,
         startTime,
-        false
+        false,
       );
     }
 
@@ -199,43 +202,86 @@ export class ReflectionService {
       minedPatterns = await this.miner.minePatterns(request.artifacts.commits);
     }
 
+    // [FIX:SQLITE:SYNC] ★☆☆☆☆ (1 use, 100% success) - Pre-load pattern data for synchronous transaction
+    // Pre-load pattern data for trust updates to avoid async operations in transaction
+    const patternDataMap = new Map<
+      string,
+      { alpha: number; beta: number; id: string }
+    >();
+    for (const update of request.claims.trust_updates) {
+      const pattern = await this.repository.get(update.pattern_id);
+      if (pattern) {
+        patternDataMap.set(update.pattern_id, {
+          id: pattern.id,
+          alpha: pattern.alpha || 1,
+          beta: pattern.beta || 1,
+        });
+      }
+    }
 
     // Process synchronously within transaction
     // Note: better-sqlite3 transactions must be synchronous
     let trustResults: any[] = [];
-    let draftIds: Array<{ draft_id: string; kind: 'NEW_PATTERN' | 'ANTI_PATTERN' }> = [];
-    
+    let draftIds: Array<{
+      draft_id: string;
+      kind: "NEW_PATTERN" | "ANTI_PATTERN";
+    }> = [];
+
     const result = this.storage.transaction(() => {
       // Store reflection (idempotent)
       const { id, existed } = this.storage.storeReflection(request);
-      
+
       if (existed && !request.options.auto_mine) {
         // Already processed this reflection
         return {
           ok: true,
           persisted: false,
           draftIds: [],
-          message: 'Reflection already processed',
+          message: "Reflection already processed",
         };
       }
 
-      // Note: Trust updates need to be applied after transaction
-      // because repository.update is async
-      
+      // [FIX:SQLITE:SYNC] ★☆☆☆☆ - Apply trust updates synchronously inside transaction
+      // Apply trust updates synchronously within the transaction
+      trustResults = this.applyTrustUpdatesSync(
+        request.claims.trust_updates,
+        patternDataMap,
+      );
+
+      // Update patterns table with new trust values
+      for (const [patternId, data] of patternDataMap) {
+        const trustScore = this.trustModel.calculateTrust(
+          data.alpha - 1,
+          data.beta - 1,
+        );
+        this.storage.updatePatternTrust(
+          patternId,
+          data.alpha,
+          data.beta,
+          trustScore.value,
+        );
+      }
+
       // Insert new patterns directly into patterns table
-      
+
       if (request.claims.new_patterns) {
         for (const pattern of request.claims.new_patterns) {
-          const patternId = this.patternInserter.insertNewPattern(pattern, 'NEW_PATTERN');
-          draftIds.push({ draft_id: patternId, kind: 'NEW_PATTERN' });
+          const patternId = this.patternInserter.insertNewPattern(
+            pattern,
+            "NEW_PATTERN",
+          );
+          draftIds.push({ draft_id: patternId, kind: "NEW_PATTERN" });
           this.metrics.recordPatternDiscovered();
         }
       }
 
       if (request.claims.anti_patterns) {
         for (const pattern of request.claims.anti_patterns) {
-          const patternId = this.patternInserter.insertNewPattern(pattern, 'ANTI_PATTERN');
-          draftIds.push({ draft_id: patternId, kind: 'ANTI_PATTERN' });
+          const patternId = this.patternInserter.insertNewPattern(
+            pattern,
+            "ANTI_PATTERN",
+          );
+          draftIds.push({ draft_id: patternId, kind: "ANTI_PATTERN" });
         }
       }
 
@@ -243,15 +289,18 @@ export class ReflectionService {
       for (const usage of request.claims.patterns_used) {
         this.storage.storeAuditEvent({
           task_id: request.task.id,
-          kind: 'pattern_used',
+          kind: "pattern_used",
           pattern_id: usage.pattern_id,
         });
       }
 
       // Insert mined patterns directly
       for (const pattern of minedPatterns) {
-        const patternId = this.patternInserter.insertNewPattern(pattern, 'NEW_PATTERN');
-        draftIds.push({ draft_id: patternId, kind: 'NEW_PATTERN' });
+        const patternId = this.patternInserter.insertNewPattern(
+          pattern,
+          "NEW_PATTERN",
+        );
+        draftIds.push({ draft_id: patternId, kind: "NEW_PATTERN" });
         this.metrics.recordPatternDiscovered();
       }
 
@@ -259,14 +308,15 @@ export class ReflectionService {
         ok: true,
         persisted: true,
         draftIds,
+        trustResults, // Include trust results from synchronous update
       };
     });
 
     const persistMs = Date.now() - persistStarted;
 
-    // Apply trust updates after transaction (async operations)
+    // [FIX:SQLITE:SYNC] ★☆☆☆☆ - Trust updates now handled inside transaction
     if (result.persisted) {
-      trustResults = await this.applyTrustUpdates(request.claims.trust_updates);
+      trustResults = result.trustResults || [];
       draftIds = result.draftIds || [];
     }
 
@@ -287,19 +337,26 @@ export class ReflectionService {
       },
       rejected: [],
       drafts_created: draftIds || [],
-      anti_candidates: antiCandidates.map(c => ({
+      anti_candidates: antiCandidates.map((c) => ({
         title: c.title,
         count_30d: c.count,
       })),
-      explain: request.options.return_explain ? {
-        validators: ['git_lines', 'pr_exists', 'pattern_exists', 'duplicate_trust_guard'],
-        hints: [],
-      } : undefined,
+      explain: request.options.return_explain
+        ? {
+            validators: [
+              "git_lines",
+              "pr_exists",
+              "pattern_exists",
+              "duplicate_trust_guard",
+            ],
+            hints: [],
+          }
+        : undefined,
       meta: {
         received_at: new Date(startTime).toISOString(),
         validated_in_ms: validationMs,
         persisted_in_ms: persistMs,
-        schema_version: '0.3.0',
+        schema_version: "0.3.0",
       },
     };
   }
@@ -307,13 +364,15 @@ export class ReflectionService {
   /**
    * Apply trust updates to patterns
    */
-  private async applyTrustUpdates(updates: TrustUpdate[]): Promise<Array<{
-    pattern_id: string;
-    applied_delta: { alpha: number; beta: number };
-    alpha_after: number;
-    beta_after: number;
-    wilson_lb_after: number;
-  }>> {
+  private async applyTrustUpdates(updates: TrustUpdate[]): Promise<
+    Array<{
+      pattern_id: string;
+      applied_delta: { alpha: number; beta: number };
+      alpha_after: number;
+      beta_after: number;
+      wilson_lb_after: number;
+    }>
+  > {
     const results = [];
 
     for (const update of updates) {
@@ -326,14 +385,14 @@ export class ReflectionService {
       // Apply trust update
       const currentAlpha = pattern.alpha || 1;
       const currentBeta = pattern.beta || 1;
-      
+
       const newAlpha = currentAlpha + update.delta.alpha;
       const newBeta = currentBeta + update.delta.beta;
 
       // Calculate new trust score using the public method
       const trustScore = this.trustModel.calculateTrust(
         newAlpha - 1, // Remove default priors
-        newBeta - 1   // Remove default priors
+        newBeta - 1, // Remove default priors
       );
 
       // Update pattern with new trust values
@@ -362,7 +421,7 @@ export class ReflectionService {
    */
   private applyTrustUpdatesSync(
     updates: TrustUpdate[],
-    patternDataMap: Map<string, { alpha: number; beta: number; id: string }>
+    patternDataMap: Map<string, { alpha: number; beta: number; id: string }>,
   ): Array<{
     pattern_id: string;
     applied_delta: { alpha: number; beta: number };
@@ -382,14 +441,14 @@ export class ReflectionService {
       // Apply trust update
       const currentAlpha = patternData.alpha || 1;
       const currentBeta = patternData.beta || 1;
-      
+
       const newAlpha = currentAlpha + update.delta.alpha;
       const newBeta = currentBeta + update.delta.beta;
 
       // Calculate new trust score using the public method
       const trustScore = this.trustModel.calculateTrust(
         newAlpha - 1, // Remove default priors
-        newBeta - 1   // Remove default priors
+        newBeta - 1, // Remove default priors
       );
 
       // Update pattern data in map for transaction
@@ -418,7 +477,7 @@ export class ReflectionService {
    */
   private createErrorResponse(
     errors: Array<{ path: string; code: string; message: string }>,
-    startTime: number
+    startTime: number,
   ): ReflectResponse {
     return {
       ok: false,
@@ -428,7 +487,7 @@ export class ReflectionService {
       meta: {
         received_at: new Date(startTime).toISOString(),
         validated_in_ms: Date.now() - startTime,
-        schema_version: '0.3.0',
+        schema_version: "0.3.0",
       },
     };
   }
@@ -440,7 +499,7 @@ export class ReflectionService {
     valid: boolean,
     errors: Array<{ path: string; code: string; message: string }>,
     startTime: number,
-    persisted: boolean
+    persisted: boolean,
   ): ReflectResponse {
     return {
       ok: valid,
@@ -448,13 +507,13 @@ export class ReflectionService {
       rejected: errors,
       drafts_created: [],
       explain: {
-        validators: ['schema', 'evidence', 'pattern_exists'],
-        hints: errors.map(e => `Fix ${e.path}: ${e.message}`),
+        validators: ["schema", "evidence", "pattern_exists"],
+        hints: errors.map((e) => `Fix ${e.path}: ${e.message}`),
       },
       meta: {
         received_at: new Date(startTime).toISOString(),
         validated_in_ms: Date.now() - startTime,
-        schema_version: '0.3.0',
+        schema_version: "0.3.0",
       },
     };
   }

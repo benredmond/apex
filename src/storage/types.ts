@@ -1,17 +1,24 @@
 // [PAT:INFRA:TYPESCRIPT_MIGRATION] ★★★☆☆ (2 uses) - Incremental TypeScript adoption
-import { z } from 'zod';
+import { z } from "zod";
 
 // Pattern storage types aligned with APE-23 schema validation
 export interface Pattern {
   id: string;
   schema_version: string;
   pattern_version: string;
-  type: 'CODEBASE' | 'LANG' | 'ANTI' | 'FAILURE' | 'POLICY' | 'TEST' | 'MIGRATION';
+  type:
+    | "CODEBASE"
+    | "LANG"
+    | "ANTI"
+    | "FAILURE"
+    | "POLICY"
+    | "TEST"
+    | "MIGRATION";
   title: string;
   summary: string;
   trust_score: number;
   alpha?: number; // Beta-Bernoulli parameter
-  beta?: number;  // Beta-Bernoulli parameter
+  beta?: number; // Beta-Bernoulli parameter
   created_at: string; // ISO8601
   updated_at: string; // ISO8601
   source_repo?: string;
@@ -73,7 +80,7 @@ export interface LookupQuery {
   task?: string;
   signals?: Record<string, any>;
   k?: number;
-  type?: Pattern['type'][];
+  type?: Pattern["type"][];
   languages?: string[];
   frameworks?: string[];
   tags?: string[];
@@ -83,7 +90,7 @@ export interface LookupQuery {
 }
 
 export interface QueryFacets {
-  type?: Pattern['type'];
+  type?: Pattern["type"];
   languages?: string[];
   frameworks?: string[];
   tags?: string[];
@@ -121,6 +128,40 @@ export interface Migration {
 // File watcher events
 export interface FileChangeEvent {
   path: string;
-  type: 'add' | 'change' | 'unlink';
+  type: "add" | "change" | "unlink";
   timestamp: number;
+}
+
+// Pattern metadata enrichment types (added in migration 002)
+export interface PatternMetadata {
+  pattern_id: string;
+  key: string;
+  value: any; // JSON value
+  created_at: string;
+}
+
+export interface PatternTrigger {
+  pattern_id: string;
+  trigger_type: "error" | "keyword" | "scenario" | "file_glob";
+  trigger_value: string;
+  regex: boolean; // 0=false, 1=true in database
+  priority: number;
+}
+
+export interface PatternVocab {
+  pattern_id: string;
+  term: string;
+  term_type: "verb" | "noun" | "tech" | "concept";
+  weight: number;
+}
+
+// Extended metadata for patterns (stored in pattern_metadata table)
+export interface ExtendedPatternMetadata {
+  complexity?: "low" | "medium" | "high";
+  performance_impact?: "minimal" | "moderate" | "significant";
+  prerequisites?: string[];
+  related_patterns?: string[];
+  common_mistakes?: string[];
+  time_estimate?: string;
+  review_required?: boolean;
 }

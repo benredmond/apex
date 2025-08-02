@@ -1,8 +1,8 @@
 // [BUILD:MODULE:ESM] ★★★☆☆ (3 uses) - ES module with .js extensions
-import chokidar from 'chokidar';
-import { EventEmitter } from 'events';
-import path from 'path';
-import type { FileChangeEvent } from './types.js';
+import chokidar from "chokidar";
+import { EventEmitter } from "events";
+import path from "path";
+import type { FileChangeEvent } from "./types.js";
 
 export class PatternWatcher extends EventEmitter {
   private watcher?: chokidar.FSWatcher;
@@ -10,7 +10,7 @@ export class PatternWatcher extends EventEmitter {
   private debounceMs: number;
   private watchPath: string;
 
-  constructor(watchPath: string = '.apex/patterns', debounceMs: number = 200) {
+  constructor(watchPath: string = ".apex/patterns", debounceMs: number = 200) {
     super();
     this.watchPath = watchPath;
     this.debounceMs = debounceMs;
@@ -21,11 +21,11 @@ export class PatternWatcher extends EventEmitter {
    */
   public start(): void {
     if (this.watcher) {
-      throw new Error('Watcher already started');
+      throw new Error("Watcher already started");
     }
 
-    const patterns = ['**/*.yaml', '**/*.yml', '**/*.json'];
-    const fullPatterns = patterns.map(p => path.join(this.watchPath, p));
+    const patterns = ["**/*.yaml", "**/*.yml", "**/*.json"];
+    const fullPatterns = patterns.map((p) => path.join(this.watchPath, p));
 
     this.watcher = chokidar.watch(fullPatterns, {
       ignoreInitial: false,
@@ -38,11 +38,11 @@ export class PatternWatcher extends EventEmitter {
 
     // Set up event handlers
     this.watcher
-      .on('add', (filePath) => this.handleChange(filePath, 'add'))
-      .on('change', (filePath) => this.handleChange(filePath, 'change'))
-      .on('unlink', (filePath) => this.handleChange(filePath, 'unlink'))
-      .on('error', (error) => this.emit('error', error))
-      .on('ready', () => this.emit('ready'));
+      .on("add", (filePath) => this.handleChange(filePath, "add"))
+      .on("change", (filePath) => this.handleChange(filePath, "change"))
+      .on("unlink", (filePath) => this.handleChange(filePath, "unlink"))
+      .on("error", (error) => this.emit("error", error))
+      .on("ready", () => this.emit("ready"));
   }
 
   /**
@@ -64,7 +64,7 @@ export class PatternWatcher extends EventEmitter {
   /**
    * Handle file change with debouncing
    */
-  private handleChange(filePath: string, type: FileChangeEvent['type']): void {
+  private handleChange(filePath: string, type: FileChangeEvent["type"]): void {
     // Clear existing timer for this file
     const existingTimer = this.debounceTimers.get(filePath);
     if (existingTimer) {
@@ -74,14 +74,14 @@ export class PatternWatcher extends EventEmitter {
     // Set new debounced timer
     const timer = setTimeout(() => {
       this.debounceTimers.delete(filePath);
-      
+
       const event: FileChangeEvent = {
         path: filePath,
         type,
         timestamp: Date.now(),
       };
 
-      this.emit('change', event);
+      this.emit("change", event);
     }, this.debounceMs);
 
     this.debounceTimers.set(filePath, timer);
@@ -102,11 +102,11 @@ export class PatternWatcher extends EventEmitter {
   public waitForFile(filePath: string, timeout: number = 1000): Promise<void> {
     return new Promise((resolve, reject) => {
       let resolved = false;
-      
+
       const timer = setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          this.removeListener('change', handler);
+          this.removeListener("change", handler);
           reject(new Error(`Timeout waiting for file: ${filePath}`));
         }
       }, timeout);
@@ -115,12 +115,12 @@ export class PatternWatcher extends EventEmitter {
         if (event.path === filePath && !resolved) {
           resolved = true;
           clearTimeout(timer);
-          this.removeListener('change', handler);
+          this.removeListener("change", handler);
           resolve();
         }
       };
 
-      this.on('change', handler);
+      this.on("change", handler);
     });
   }
 }

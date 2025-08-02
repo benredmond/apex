@@ -1,6 +1,6 @@
-import { gzip } from 'zlib';
-import { promisify } from 'util';
-import { PatternPack } from './types.js';
+import { gzip } from "zlib";
+import { promisify } from "util";
+import { PatternPack } from "./types.js";
 
 const gzipAsync = promisify(gzip);
 
@@ -15,7 +15,7 @@ export class PackSerializer {
   serialize(pack: PatternPack): string {
     // Sort keys recursively for canonical output
     const canonical = this.canonicalize(pack);
-    
+
     // Minify (no whitespace)
     return JSON.stringify(canonical);
   }
@@ -31,16 +31,14 @@ export class PackSerializer {
   /**
    * Get size metrics including optional gzip
    */
-  async getMetrics(
-    pack: PatternPack
-  ): Promise<{
+  async getMetrics(pack: PatternPack): Promise<{
     json: string;
     bytes: number;
     gzipBytes?: number;
   }> {
     const json = this.serialize(pack);
-    const bytes = Buffer.byteLength(json, 'utf8');
-    
+    const bytes = Buffer.byteLength(json, "utf8");
+
     // Calculate gzip size for monitoring (not used for budget)
     let gzipBytes: number | undefined;
     try {
@@ -49,7 +47,7 @@ export class PackSerializer {
     } catch (error) {
       // Gzip is optional, ignore errors
     }
-    
+
     return { json, bytes, gzipBytes };
   }
 
@@ -57,22 +55,22 @@ export class PackSerializer {
    * Recursively sort object keys for canonical representation
    */
   private canonicalize(obj: any): any {
-    if (obj === null || typeof obj !== 'object') {
+    if (obj === null || typeof obj !== "object") {
       return obj;
     }
-    
+
     if (Array.isArray(obj)) {
-      return obj.map(item => this.canonicalize(item));
+      return obj.map((item) => this.canonicalize(item));
     }
-    
+
     // Sort object keys
     const sorted: any = {};
     const keys = Object.keys(obj).sort();
-    
+
     for (const key of keys) {
       sorted[key] = this.canonicalize(obj[key]);
     }
-    
+
     return sorted;
   }
 
@@ -82,10 +80,10 @@ export class PackSerializer {
   estimateSize(value: any): number {
     // Quick estimation without full serialization
     if (value === null) return 4; // "null"
-    if (typeof value === 'boolean') return value ? 4 : 5; // "true" or "false"
-    if (typeof value === 'number') return value.toString().length;
-    if (typeof value === 'string') return value.length + 2; // +2 for quotes
-    
+    if (typeof value === "boolean") return value ? 4 : 5; // "true" or "false"
+    if (typeof value === "number") return value.toString().length;
+    if (typeof value === "string") return value.length + 2; // +2 for quotes
+
     if (Array.isArray(value)) {
       let size = 2; // brackets
       for (let i = 0; i < value.length; i++) {
@@ -94,8 +92,8 @@ export class PackSerializer {
       }
       return size;
     }
-    
-    if (typeof value === 'object') {
+
+    if (typeof value === "object") {
       let size = 2; // braces
       const keys = Object.keys(value);
       for (let i = 0; i < keys.length; i++) {
@@ -105,7 +103,7 @@ export class PackSerializer {
       }
       return size;
     }
-    
+
     return 0;
   }
 }

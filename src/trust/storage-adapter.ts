@@ -3,9 +3,9 @@
  * Bridges the trust model with existing pattern storage
  */
 
-import { PatternStorage, StoredPattern } from './types.js';
-import fs from 'fs-extra';
-import path from 'path';
+import { PatternStorage, StoredPattern } from "./types.js";
+import fs from "fs-extra";
+import path from "path";
 
 /**
  * JSON file-based storage adapter
@@ -15,7 +15,7 @@ export class JSONStorageAdapter implements PatternStorage {
   private metadataPath: string;
   private cache: Map<string, StoredPattern>;
 
-  constructor(metadataPath: string = '.apex/PATTERN_METADATA.json') {
+  constructor(metadataPath: string = ".apex/PATTERN_METADATA.json") {
     this.metadataPath = metadataPath;
     this.cache = new Map();
   }
@@ -29,7 +29,7 @@ export class JSONStorageAdapter implements PatternStorage {
     try {
       const metadata = await this.loadMetadata();
       const pattern = metadata.patterns[patternId];
-      
+
       if (!pattern) {
         return null;
       }
@@ -37,7 +37,7 @@ export class JSONStorageAdapter implements PatternStorage {
       // Convert to StoredPattern format
       const storedPattern: StoredPattern = {
         id: patternId,
-        type: pattern.type || 'UNKNOWN',
+        type: pattern.type || "UNKNOWN",
         trust: {
           alpha: pattern.trust?.alpha || 3, // Default from current system
           beta: pattern.trust?.beta || 2,
@@ -54,10 +54,13 @@ export class JSONStorageAdapter implements PatternStorage {
     }
   }
 
-  async updatePattern(patternId: string, updates: Partial<StoredPattern>): Promise<void> {
+  async updatePattern(
+    patternId: string,
+    updates: Partial<StoredPattern>,
+  ): Promise<void> {
     try {
       const metadata = await this.loadMetadata();
-      
+
       if (!metadata.patterns[patternId]) {
         metadata.patterns[patternId] = {
           id: patternId,
@@ -73,9 +76,12 @@ export class JSONStorageAdapter implements PatternStorage {
           ...metadata.patterns[patternId].trust,
           ...updates.trust,
         };
-        
+
         // Also update success/uses for backward compatibility
-        if (updates.trust.alpha !== undefined && updates.trust.beta !== undefined) {
+        if (
+          updates.trust.alpha !== undefined &&
+          updates.trust.beta !== undefined
+        ) {
           const total = updates.trust.alpha + updates.trust.beta - 5; // Subtract default priors
           const successes = updates.trust.alpha - 3;
           metadata.patterns[patternId].uses = Math.max(0, total);
@@ -105,9 +111,11 @@ export class JSONStorageAdapter implements PatternStorage {
     }
   }
 
-  async batchGetPatterns(patternIds: string[]): Promise<Map<string, StoredPattern>> {
+  async batchGetPatterns(
+    patternIds: string[],
+  ): Promise<Map<string, StoredPattern>> {
     const patterns = new Map<string, StoredPattern>();
-    
+
     // Try to get all from cache first
     const uncachedIds: string[] = [];
     for (const id of patternIds) {
@@ -125,13 +133,13 @@ export class JSONStorageAdapter implements PatternStorage {
     // Load uncached patterns
     try {
       const metadata = await this.loadMetadata();
-      
+
       for (const id of uncachedIds) {
         const pattern = metadata.patterns[id];
         if (pattern) {
           const storedPattern: StoredPattern = {
             id,
-            type: pattern.type || 'UNKNOWN',
+            type: pattern.type || "UNKNOWN",
             trust: {
               alpha: pattern.trust?.alpha || 3,
               beta: pattern.trust?.beta || 2,
@@ -139,22 +147,24 @@ export class JSONStorageAdapter implements PatternStorage {
               decayApplied: pattern.trust?.decayApplied || false,
             },
           };
-          
+
           patterns.set(id, storedPattern);
           this.cache.set(id, storedPattern);
         }
       }
     } catch (error) {
-      console.error('Error batch loading patterns:', error);
+      console.error("Error batch loading patterns:", error);
     }
 
     return patterns;
   }
 
-  async batchUpdatePatterns(updates: Map<string, Partial<StoredPattern>>): Promise<void> {
+  async batchUpdatePatterns(
+    updates: Map<string, Partial<StoredPattern>>,
+  ): Promise<void> {
     try {
       const metadata = await this.loadMetadata();
-      
+
       for (const [patternId, update] of updates) {
         if (!metadata.patterns[patternId]) {
           metadata.patterns[patternId] = {
@@ -171,9 +181,12 @@ export class JSONStorageAdapter implements PatternStorage {
             ...metadata.patterns[patternId].trust,
             ...update.trust,
           };
-          
+
           // Update success/uses for compatibility
-          if (update.trust.alpha !== undefined && update.trust.beta !== undefined) {
+          if (
+            update.trust.alpha !== undefined &&
+            update.trust.beta !== undefined
+          ) {
             const total = update.trust.alpha + update.trust.beta - 5;
             const successes = update.trust.alpha - 3;
             metadata.patterns[patternId].uses = Math.max(0, total);
@@ -210,11 +223,11 @@ export class JSONStorageAdapter implements PatternStorage {
       if (!exists) {
         return this.createEmptyMetadata();
       }
-      
-      const content = await fs.readFile(this.metadataPath, 'utf-8');
+
+      const content = await fs.readFile(this.metadataPath, "utf-8");
       return JSON.parse(content);
     } catch (error) {
-      console.error('Error loading metadata:', error);
+      console.error("Error loading metadata:", error);
       return this.createEmptyMetadata();
     }
   }
@@ -227,7 +240,7 @@ export class JSONStorageAdapter implements PatternStorage {
 
   private createEmptyMetadata(): any {
     return {
-      version: '1.0',
+      version: "1.0",
       lastUpdated: new Date().toISOString(),
       patterns: {},
       statistics: {
@@ -242,27 +255,29 @@ export class JSONStorageAdapter implements PatternStorage {
 
   private updateStatistics(metadata: any): void {
     const patterns = Object.values(metadata.patterns) as any[];
-    
+
     metadata.statistics.totalPatterns = patterns.length;
-    metadata.statistics.activePatterns = patterns.filter(p => 
-      p.uses >= 3 && (p.successes / p.uses) >= 0.8
+    metadata.statistics.activePatterns = patterns.filter(
+      (p) => p.uses >= 3 && p.successes / p.uses >= 0.8,
     ).length;
-    metadata.statistics.pendingPatterns = patterns.filter(p => 
-      p.uses < 3 || (p.successes / p.uses) < 0.8
+    metadata.statistics.pendingPatterns = patterns.filter(
+      (p) => p.uses < 3 || p.successes / p.uses < 0.8,
     ).length;
-    
+
     const totalUsage = patterns.reduce((sum, p) => sum + (p.uses || 0), 0);
     metadata.statistics.totalUsageCount = totalUsage;
-    
+
     if (patterns.length > 0) {
-      const avgTrust = patterns.reduce((sum, p) => {
-        const alpha = p.trust?.alpha || 3;
-        const beta = p.trust?.beta || 2;
-        return sum + (alpha / (alpha + beta));
-      }, 0) / patterns.length;
-      metadata.statistics.averageTrustScore = Math.round(avgTrust * 1000) / 1000;
+      const avgTrust =
+        patterns.reduce((sum, p) => {
+          const alpha = p.trust?.alpha || 3;
+          const beta = p.trust?.beta || 2;
+          return sum + alpha / (alpha + beta);
+        }, 0) / patterns.length;
+      metadata.statistics.averageTrustScore =
+        Math.round(avgTrust * 1000) / 1000;
     }
-    
+
     metadata.lastUpdated = new Date().toISOString();
   }
 
@@ -288,7 +303,10 @@ export class MemoryStorageAdapter implements PatternStorage {
     return this.patterns.get(patternId) || null;
   }
 
-  async updatePattern(patternId: string, updates: Partial<StoredPattern>): Promise<void> {
+  async updatePattern(
+    patternId: string,
+    updates: Partial<StoredPattern>,
+  ): Promise<void> {
     const existing = this.patterns.get(patternId);
     if (existing) {
       Object.assign(existing, updates);
@@ -300,7 +318,9 @@ export class MemoryStorageAdapter implements PatternStorage {
     }
   }
 
-  async batchGetPatterns(patternIds: string[]): Promise<Map<string, StoredPattern>> {
+  async batchGetPatterns(
+    patternIds: string[],
+  ): Promise<Map<string, StoredPattern>> {
     const result = new Map<string, StoredPattern>();
     for (const id of patternIds) {
       const pattern = this.patterns.get(id);
@@ -311,7 +331,9 @@ export class MemoryStorageAdapter implements PatternStorage {
     return result;
   }
 
-  async batchUpdatePatterns(updates: Map<string, Partial<StoredPattern>>): Promise<void> {
+  async batchUpdatePatterns(
+    updates: Map<string, Partial<StoredPattern>>,
+  ): Promise<void> {
     for (const [id, update] of updates) {
       await this.updatePattern(id, update);
     }

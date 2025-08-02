@@ -33,15 +33,15 @@ export class BudgetManager {
    */
   fieldSize(key: string, value: string | number | boolean): number {
     let size = this.stringSize(key) + 1; // +1 for colon
-    
-    if (typeof value === 'string') {
+
+    if (typeof value === "string") {
       size += this.stringSize(value);
-    } else if (typeof value === 'number') {
+    } else if (typeof value === "number") {
       size += value.toString().length;
-    } else if (typeof value === 'boolean') {
+    } else if (typeof value === "boolean") {
       size += value ? 4 : 5; // "true" or "false"
     }
-    
+
     return size;
   }
 
@@ -91,9 +91,11 @@ export class BudgetManager {
    * Check if validation is needed
    */
   needsValidation(): boolean {
-    return this.approximateMode && 
-           (this.operationCount % this.validationInterval === 0 ||
-            this.getRemaining() < this.budget * 0.1); // or < 10% remaining
+    return (
+      this.approximateMode &&
+      (this.operationCount % this.validationInterval === 0 ||
+        this.getRemaining() < this.budget * 0.1)
+    ); // or < 10% remaining
   }
 
   /**

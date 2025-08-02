@@ -3,28 +3,28 @@
  * [PAT:INFRA:TYPESCRIPT_MIGRATION] ★★★☆☆ (2 uses) - TypeScript-first approach
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
 // Evidence types for verification
-export const EvidenceRefSchema = z.discriminatedUnion('kind', [
+export const EvidenceRefSchema = z.discriminatedUnion("kind", [
   z.object({
-    kind: z.literal('git_lines'),
+    kind: z.literal("git_lines"),
     file: z.string(),
     sha: z.string().regex(/^[a-f0-9]{40}$/),
     start: z.number().positive(),
     end: z.number().positive(),
   }),
   z.object({
-    kind: z.literal('commit'),
+    kind: z.literal("commit"),
     sha: z.string().regex(/^[a-f0-9]{40}$/),
   }),
   z.object({
-    kind: z.literal('pr'),
+    kind: z.literal("pr"),
     number: z.number().positive(),
     repo: z.string().optional(),
   }),
   z.object({
-    kind: z.literal('ci_run'),
+    kind: z.literal("ci_run"),
     id: z.string(),
     provider: z.string(),
   }),
@@ -46,17 +46,21 @@ export type PatternUsage = z.infer<typeof PatternUsageSchema>;
 export const NewPatternSchema = z.object({
   title: z.string().min(1).max(200),
   summary: z.string().min(1).max(1000),
-  scope: z.object({
-    languages: z.array(z.string()).optional(),
-    frameworks: z.array(z.string()).optional(),
-    paths: z.array(z.string()).optional(),
-  }).optional(),
-  snippets: z.array(z.object({
-    label: z.string().optional(),
-    language: z.string().optional(),
-    source_ref: EvidenceRefSchema,
-    snippet_id: z.string(),
-  })),
+  scope: z
+    .object({
+      languages: z.array(z.string()).optional(),
+      frameworks: z.array(z.string()).optional(),
+      paths: z.array(z.string()).optional(),
+    })
+    .optional(),
+  snippets: z.array(
+    z.object({
+      label: z.string().optional(),
+      language: z.string().optional(),
+      source_ref: EvidenceRefSchema,
+      snippet_id: z.string(),
+    }),
+  ),
   evidence: z.array(EvidenceRefSchema),
 });
 
@@ -97,18 +101,26 @@ export const ReflectRequestSchema = z.object({
     title: z.string(),
   }),
   brief_id: z.string().optional(),
-  outcome: z.enum(['success', 'partial', 'failure']),
-  artifacts: z.object({
-    pr: z.object({ 
-      number: z.number().positive(), 
-      repo: z.string() 
-    }).optional(),
-    commits: z.array(z.string().regex(/^[a-f0-9]{40}$/)).optional(),
-    ci_runs: z.array(z.object({ 
-      id: z.string(), 
-      provider: z.string() 
-    })).optional(),
-  }).optional(),
+  outcome: z.enum(["success", "partial", "failure"]),
+  artifacts: z
+    .object({
+      pr: z
+        .object({
+          number: z.number().positive(),
+          repo: z.string(),
+        })
+        .optional(),
+      commits: z.array(z.string().regex(/^[a-f0-9]{40}$/)).optional(),
+      ci_runs: z
+        .array(
+          z.object({
+            id: z.string(),
+            provider: z.string(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
   claims: z.object({
     patterns_used: z.array(PatternUsageSchema),
     new_patterns: z.array(NewPatternSchema).optional(),
@@ -116,11 +128,13 @@ export const ReflectRequestSchema = z.object({
     learnings: z.array(LearningSchema).optional(),
     trust_updates: z.array(TrustUpdateSchema),
   }),
-  options: z.object({
-    dry_run: z.boolean().default(false),
-    auto_mine: z.boolean().default(false),
-    return_explain: z.boolean().default(true),
-  }).default({}),
+  options: z
+    .object({
+      dry_run: z.boolean().default(false),
+      auto_mine: z.boolean().default(false),
+      return_explain: z.boolean().default(true),
+    })
+    .default({}),
 });
 
 export type ReflectRequest = z.infer<typeof ReflectRequestSchema>;
@@ -129,7 +143,7 @@ export type ReflectRequest = z.infer<typeof ReflectRequestSchema>;
 export interface ReflectResponse {
   ok: boolean;
   persisted: boolean;
-  outcome?: 'success' | 'partial' | 'failure';
+  outcome?: "success" | "partial" | "failure";
   accepted?: {
     patterns_used: PatternUsage[];
     new_patterns: NewPattern[];
@@ -150,7 +164,7 @@ export interface ReflectResponse {
   }>;
   drafts_created: Array<{
     draft_id: string;
-    kind: 'NEW_PATTERN' | 'ANTI_PATTERN';
+    kind: "NEW_PATTERN" | "ANTI_PATTERN";
   }>;
   anti_candidates?: Array<{
     title: string;
@@ -170,15 +184,15 @@ export interface ReflectResponse {
 
 // Error codes for validation
 export enum ValidationErrorCode {
-  LINE_RANGE_NOT_FOUND = 'LINE_RANGE_NOT_FOUND',
-  PR_NOT_FOUND = 'PR_NOT_FOUND',
-  CI_RUN_NOT_FOUND = 'CI_RUN_NOT_FOUND',
-  SNIPPET_HASH_MISMATCH = 'SNIPPET_HASH_MISMATCH',
-  PATTERN_NOT_FOUND = 'PATTERN_NOT_FOUND',
-  DUPLICATE_TRUST_UPDATE = 'DUPLICATE_TRUST_UPDATE',
-  MALFORMED_EVIDENCE = 'MALFORMED_EVIDENCE',
-  SIZE_LIMIT_EXCEEDED = 'SIZE_LIMIT_EXCEEDED',
-  INTERNAL_ERROR = 'INTERNAL_ERROR',
+  LINE_RANGE_NOT_FOUND = "LINE_RANGE_NOT_FOUND",
+  PR_NOT_FOUND = "PR_NOT_FOUND",
+  CI_RUN_NOT_FOUND = "CI_RUN_NOT_FOUND",
+  SNIPPET_HASH_MISMATCH = "SNIPPET_HASH_MISMATCH",
+  PATTERN_NOT_FOUND = "PATTERN_NOT_FOUND",
+  DUPLICATE_TRUST_UPDATE = "DUPLICATE_TRUST_UPDATE",
+  MALFORMED_EVIDENCE = "MALFORMED_EVIDENCE",
+  SIZE_LIMIT_EXCEEDED = "SIZE_LIMIT_EXCEEDED",
+  INTERNAL_ERROR = "INTERNAL_ERROR",
 }
 
 // Storage types
@@ -186,16 +200,16 @@ export interface ReflectionRecord {
   id?: number;
   task_id: string;
   brief_id?: string;
-  outcome: 'success' | 'partial' | 'failure';
+  outcome: "success" | "partial" | "failure";
   json: string;
   created_at: string;
 }
 
 export interface PatternDraft {
   draft_id: string;
-  kind: 'NEW_PATTERN' | 'ANTI_PATTERN';
+  kind: "NEW_PATTERN" | "ANTI_PATTERN";
   json: string;
-  status: 'DRAFT' | 'APPROVED' | 'REJECTED';
+  status: "DRAFT" | "APPROVED" | "REJECTED";
   created_at: string;
 }
 

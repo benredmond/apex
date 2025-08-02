@@ -3,18 +3,18 @@
  * [PAT:VALIDATION:SCHEMA] ★★★★★ (40+ uses) - Comprehensive validation patterns
  */
 
-import { spawn } from 'child_process';
-import { promisify } from 'util';
-import { createHash } from 'crypto';
-import * as path from 'path';
-import { PatternRepository } from '../storage/repository.js';
-import { 
-  EvidenceRef, 
-  PatternUsage, 
+import { spawn } from "child_process";
+import { promisify } from "util";
+import { createHash } from "crypto";
+import * as path from "path";
+import { PatternRepository } from "../storage/repository.js";
+import {
+  EvidenceRef,
+  PatternUsage,
   TrustUpdate,
   ValidationErrorCode,
-  ReflectRequest 
-} from './types.js';
+  ReflectRequest,
+} from "./types.js";
 
 const execAsync = promisify(spawn);
 
@@ -32,10 +32,13 @@ export class EvidenceValidator {
   private validationCache: Map<string, { result: boolean; timestamp: number }>;
   private fileContentCache: Map<string, { content: string; timestamp: number }>;
 
-  constructor(repository: PatternRepository, config: Partial<ValidatorConfig> = {}) {
+  constructor(
+    repository: PatternRepository,
+    config: Partial<ValidatorConfig> = {},
+  ) {
     this.repository = repository;
     this.config = {
-      allowedRepoUrls: ['https://github.com/'],
+      allowedRepoUrls: ["https://github.com/"],
       gitRepoPath: process.cwd(),
       cacheEnabled: true,
       cacheTTL: 5 * 60 * 1000, // 5 minutes
@@ -57,7 +60,7 @@ export class EvidenceValidator {
 
     // Validate pattern IDs exist
     for (const [index, usage] of request.claims.patterns_used.entries()) {
-      validators.push('pattern_exists');
+      validators.push("pattern_exists");
       const pattern = await this.repository.get(usage.pattern_id);
       if (!pattern) {
         errors.push({
@@ -74,14 +77,14 @@ export class EvidenceValidator {
           errors.push({
             path: `claims.patterns_used[${index}].evidence[${evidenceIndex}]`,
             code: isValid.code || ValidationErrorCode.MALFORMED_EVIDENCE,
-            message: isValid.message || 'Invalid evidence',
+            message: isValid.message || "Invalid evidence",
           });
         }
       }
     }
 
     // Validate no duplicate trust updates
-    validators.push('duplicate_trust_guard');
+    validators.push("duplicate_trust_guard");
     const trustPatternIds = new Set<string>();
     for (const [index, update] of request.claims.trust_updates.entries()) {
       if (trustPatternIds.has(update.pattern_id)) {
@@ -96,23 +99,23 @@ export class EvidenceValidator {
 
     // Validate PR if provided
     if (request.artifacts?.pr) {
-      validators.push('pr_exists');
+      validators.push("pr_exists");
       const prValid = await this.validatePR(
         request.artifacts.pr.repo,
-        request.artifacts.pr.number
+        request.artifacts.pr.number,
       );
       if (!prValid.valid) {
         errors.push({
-          path: 'artifacts.pr',
+          path: "artifacts.pr",
           code: ValidationErrorCode.PR_NOT_FOUND,
-          message: prValid.message || 'Invalid PR',
+          message: prValid.message || "Invalid PR",
         });
       }
     }
 
     // Validate commits if provided
     if (request.artifacts?.commits) {
-      validators.push('git_commits');
+      validators.push("git_commits");
       for (const [index, sha] of request.artifacts.commits.entries()) {
         const commitValid = await this.validateCommit(sha);
         if (!commitValid.valid) {
@@ -140,7 +143,7 @@ export class EvidenceValidator {
     message?: string;
   }> {
     const cacheKey = this.getEvidenceCacheKey(evidence);
-    
+
     // Check cache
     if (this.config.cacheEnabled) {
       const cached = this.validationCache.get(cacheKey);
@@ -152,29 +155,29 @@ export class EvidenceValidator {
     let result: { valid: boolean; code?: string; message?: string };
 
     switch (evidence.kind) {
-      case 'git_lines':
+      case "git_lines":
         result = await this.validateGitLines(
           evidence.file,
           evidence.sha,
           evidence.start,
-          evidence.end
+          evidence.end,
         );
         break;
 
-      case 'commit':
+      case "commit":
         result = await this.validateCommit(evidence.sha);
         break;
 
-      case 'pr':
-        result = await this.validatePR(evidence.repo || '', evidence.number);
+      case "pr":
+        result = await this.validatePR(evidence.repo || "", evidence.number);
         break;
 
-      case 'ci_run':
+      case "ci_run":
         // Basic validation for now - could enhance with API calls later
         result = {
           valid: evidence.id.length > 0 && evidence.provider.length > 0,
           code: ValidationErrorCode.CI_RUN_NOT_FOUND,
-          message: 'Invalid CI run',
+          message: "Invalid CI run",
         };
         break;
 
@@ -182,7 +185,7 @@ export class EvidenceValidator {
         result = {
           valid: false,
           code: ValidationErrorCode.MALFORMED_EVIDENCE,
-          message: 'Unknown evidence type',
+          message: "Unknown evidence type",
         };
     }
 
@@ -204,32 +207,32 @@ export class EvidenceValidator {
     file: string,
     sha: string,
     start: number,
-    end: number
+    end: number,
   ): Promise<{ valid: boolean; code?: string; message?: string }> {
     // Validate SHA format
     if (!/^[a-f0-9]{40}$/.test(sha)) {
       return {
         valid: false,
         code: ValidationErrorCode.MALFORMED_EVIDENCE,
-        message: 'Invalid SHA format',
+        message: "Invalid SHA format",
       };
     }
 
     // Validate file path to prevent traversal attacks
     const normalizedPath = path.normalize(file);
     const resolvedPath = path.resolve(this.config.gitRepoPath, normalizedPath);
-    
+
     if (!resolvedPath.startsWith(this.config.gitRepoPath)) {
       return {
         valid: false,
         code: ValidationErrorCode.MALFORMED_EVIDENCE,
-        message: 'Invalid file path - potential path traversal attempt',
+        message: "Invalid file path - potential path traversal attempt",
       };
     }
 
     try {
       // Check if SHA exists in repo
-      const shaExists = await this.gitCommand(['cat-file', '-e', sha]);
+      const shaExists = await this.gitCommand(["cat-file", "-e", sha]);
       if (!shaExists) {
         return {
           valid: false,
@@ -241,20 +244,20 @@ export class EvidenceValidator {
       // Get file content at SHA - use normalized path with caching
       const contentCacheKey = `${sha}:${normalizedPath}`;
       let content: string;
-      
+
       if (this.config.cacheEnabled) {
         const cached = this.fileContentCache.get(contentCacheKey);
         if (cached && Date.now() - cached.timestamp < this.config.cacheTTL) {
           content = cached.content;
         } else {
-          content = await this.gitCommand(['show', `${sha}:${normalizedPath}`]);
+          content = await this.gitCommand(["show", `${sha}:${normalizedPath}`]);
           this.fileContentCache.set(contentCacheKey, {
             content,
             timestamp: Date.now(),
           });
         }
       } else {
-        content = await this.gitCommand(['show', `${sha}:${normalizedPath}`]);
+        content = await this.gitCommand(["show", `${sha}:${normalizedPath}`]);
       }
       if (!content) {
         return {
@@ -265,7 +268,7 @@ export class EvidenceValidator {
       }
 
       // Check line range
-      const lines = content.split('\n');
+      const lines = content.split("\n");
       if (start < 1 || end > lines.length || start > end) {
         return {
           valid: false,
@@ -297,12 +300,12 @@ export class EvidenceValidator {
       return {
         valid: false,
         code: ValidationErrorCode.MALFORMED_EVIDENCE,
-        message: 'Invalid SHA format',
+        message: "Invalid SHA format",
       };
     }
 
     try {
-      await this.gitCommand(['cat-file', '-e', sha]);
+      await this.gitCommand(["cat-file", "-e", sha]);
       return {
         valid: true,
       };
@@ -320,11 +323,11 @@ export class EvidenceValidator {
    */
   private async validatePR(
     repo: string,
-    number: number
+    number: number,
   ): Promise<{ valid: boolean; code?: string; message?: string }> {
     // Check if repo URL starts with any allowed pattern
-    const isAllowed = this.config.allowedRepoUrls.some(allowed =>
-      repo.startsWith(allowed)
+    const isAllowed = this.config.allowedRepoUrls.some((allowed) =>
+      repo.startsWith(allowed),
     );
 
     if (!isAllowed) {
@@ -341,7 +344,7 @@ export class EvidenceValidator {
       return {
         valid: false,
         code: ValidationErrorCode.PR_NOT_FOUND,
-        message: 'Invalid repository URL format',
+        message: "Invalid repository URL format",
       };
     }
 
@@ -353,30 +356,32 @@ export class EvidenceValidator {
    */
   private async gitCommand(args: string[]): Promise<string> {
     return new Promise((resolve, reject) => {
-      const git = spawn('git', args, {
+      const git = spawn("git", args, {
         cwd: this.config.gitRepoPath,
       });
 
-      let stdout = '';
-      let stderr = '';
+      let stdout = "";
+      let stderr = "";
 
-      git.stdout?.on('data', (data) => {
+      git.stdout?.on("data", (data) => {
         stdout += data.toString();
       });
 
-      git.stderr?.on('data', (data) => {
+      git.stderr?.on("data", (data) => {
         stderr += data.toString();
       });
 
-      git.on('close', (code) => {
+      git.on("close", (code) => {
         if (code === 0) {
           resolve(stdout.trim());
         } else {
-          reject(new Error(stderr.trim() || `Git command failed with code ${code}`));
+          reject(
+            new Error(stderr.trim() || `Git command failed with code ${code}`),
+          );
         }
       });
 
-      git.on('error', (error) => {
+      git.on("error", (error) => {
         reject(error);
       });
     });
@@ -386,9 +391,9 @@ export class EvidenceValidator {
    * Generate cache key for evidence
    */
   private getEvidenceCacheKey(evidence: EvidenceRef): string {
-    const hash = createHash('sha256');
+    const hash = createHash("sha256");
     hash.update(JSON.stringify(evidence));
-    return `evidence_${hash.digest('hex')}`;
+    return `evidence_${hash.digest("hex")}`;
   }
 
   /**
