@@ -58,9 +58,6 @@ export class ApexMCPServer {
     // Initialize resource manager
     this.resourceManager = new ResourceManager();
 
-    // Initialize pattern repository
-    this.initializePatternSystem();
-
     // Set up handlers
     this.setupHandlers();
   }
@@ -184,11 +181,6 @@ export class ApexMCPServer {
         throw toMCPError(error);
       }
     });
-
-    // Register tool implementations
-    registerTools(this.server).catch((error) => {
-      console.error("[APEX MCP] Failed to register tools:", error);
-    });
   }
 
   /**
@@ -197,6 +189,15 @@ export class ApexMCPServer {
   async startStdio(): Promise<void> {
     // Initialize pattern system before starting
     await this.initializePatternSystem();
+
+    // Register tool implementations after initialization
+    try {
+      await registerTools(this.server);
+      console.error("[APEX MCP] Tools registered successfully");
+    } catch (error) {
+      console.error("[APEX MCP] Failed to register tools:", error);
+      throw error;
+    }
 
     this.transport = new ApexStdioTransport();
     await this.transport.connect(this.server);

@@ -1,4 +1,6 @@
 import { z } from "zod";
+// [PAT:IMPORT:ESM] ★★★★☆ (67 uses, 89% success) - From cache
+import { MCP_SCHEMA_VERSION } from "../../config/constants.js";
 
 // [PAT:PROTOCOL:MCP_SERVER] ★★★☆☆ (1 use) - Strict validation patterns
 export const PatternIdSchema = z
@@ -95,7 +97,7 @@ export const DeprecationSchema = z.object({
 // Base pattern schema with all common fields
 export const BasePatternSchema = z.object({
   // Versioning
-  schema_version: z.string().default("0.3.0"),
+  schema_version: z.string().default(MCP_SCHEMA_VERSION),
   pattern_version: SemverSchema,
 
   // Identification
