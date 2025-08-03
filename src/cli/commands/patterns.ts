@@ -134,7 +134,7 @@ export function createPatternsCommand(): Command {
 
         for (let i = 0; i < iterations; i++) {
           const start = process.hrtime.bigint();
-          await repo.search("pattern", 20);
+          await repo.searchText("pattern", 20);
           const end = process.hrtime.bigint();
           searchTimes.push(Number(end - start) / 1e6);
         }
@@ -180,7 +180,7 @@ export function createPatternsCommand(): Command {
     .action(async (query: string, options: { limit: string }) => {
       try {
         const repo = await getRepository();
-        const results = await repo.search(query, parseInt(options.limit));
+        const results = await repo.searchText(query, parseInt(options.limit));
 
         if (results.length === 0) {
           console.log(chalk.yellow("No patterns found"));

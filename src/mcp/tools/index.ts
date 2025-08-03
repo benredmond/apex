@@ -464,6 +464,18 @@ export function getToolsList(): Tool[] {
                         beta: { type: "number", minimum: 0 },
                       },
                     },
+                    outcome: {
+                      type: "string",
+                      enum: [
+                        "worked-perfectly",
+                        "worked-with-tweaks",
+                        "partial-success",
+                        "failed-minor-issues",
+                        "failed-completely",
+                      ],
+                      description:
+                        "Natural language outcome: worked-perfectly (no changes), worked-with-tweaks (adapted), partial-success (somewhat helpful), failed-minor-issues (mostly failed), failed-completely (didn't work)",
+                    },
                   },
                 },
               },

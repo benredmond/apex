@@ -15,6 +15,9 @@ import {
   ValidationErrorCode,
   ReflectRequest,
 } from "./types.js";
+import { SnippetMatcher } from "./snippet-matcher.js";
+import { OutcomeProcessor } from "./outcome-processor.js";
+import { GitResolver } from "./git-resolver.js";
 
 const execAsync = promisify(spawn);
 
@@ -31,6 +34,8 @@ export class EvidenceValidator {
   private repository: PatternRepository;
   private validationCache: Map<string, { result: boolean; timestamp: number }>;
   private fileContentCache: Map<string, { content: string; timestamp: number }>;
+  private snippetMatcher: SnippetMatcher;
+  private gitResolver: GitResolver;
 
   constructor(
     repository: PatternRepository,
@@ -46,6 +51,15 @@ export class EvidenceValidator {
     };
     this.validationCache = new Map();
     this.fileContentCache = new Map();
+    this.snippetMatcher = new SnippetMatcher({
+      cacheEnabled: this.config.cacheEnabled,
+      cacheTTL: this.config.cacheTTL,
+    });
+    this.gitResolver = new GitResolver({
+      cacheEnabled: this.config.cacheEnabled,
+      cacheTTL: this.config.cacheTTL,
+      gitRepoPath: this.config.gitRepoPath,
+    });
   }
 
   /**
@@ -61,7 +75,7 @@ export class EvidenceValidator {
     // Validate pattern IDs exist
     for (const [index, usage] of request.claims.patterns_used.entries()) {
       validators.push("pattern_exists");
-      const pattern = await this.repository.get(usage.pattern_id);
+      const pattern = await this.repository.getByIdOrAlias(usage.pattern_id);
       if (!pattern) {
         errors.push({
           path: `claims.patterns_used[${index}].pattern_id`,
@@ -87,14 +101,39 @@ export class EvidenceValidator {
     validators.push("duplicate_trust_guard");
     const trustPatternIds = new Set<string>();
     for (const [index, update] of request.claims.trust_updates.entries()) {
-      if (trustPatternIds.has(update.pattern_id)) {
+      try {
+        // Process outcome to delta if needed
+        const processed = OutcomeProcessor.processTrustUpdate(update);
+
+        // Check for duplicates
+        if (trustPatternIds.has(processed.pattern_id)) {
+          errors.push({
+            path: `claims.trust_updates[${index}]`,
+            code: ValidationErrorCode.DUPLICATE_TRUST_UPDATE,
+            message: `Duplicate trust update for pattern ${processed.pattern_id}`,
+          });
+        }
+        trustPatternIds.add(processed.pattern_id);
+
+        // Validate pattern exists
+        validators.push("pattern_exists");
+        const pattern = await this.repository.getByIdOrAlias(
+          processed.pattern_id,
+        );
+        if (!pattern) {
+          errors.push({
+            path: `claims.trust_updates[${index}].pattern_id`,
+            code: ValidationErrorCode.PATTERN_NOT_FOUND,
+            message: `Pattern ${processed.pattern_id} not found`,
+          });
+        }
+      } catch (error) {
         errors.push({
           path: `claims.trust_updates[${index}]`,
-          code: ValidationErrorCode.DUPLICATE_TRUST_UPDATE,
-          message: `Duplicate trust update for pattern ${update.pattern_id}`,
+          code: ValidationErrorCode.MALFORMED_EVIDENCE,
+          message: error.message,
         });
       }
-      trustPatternIds.add(update.pattern_id);
     }
 
     // Validate PR if provided
@@ -161,6 +200,7 @@ export class EvidenceValidator {
           evidence.sha,
           evidence.start,
           evidence.end,
+          evidence.snippet_hash,
         );
         break;
 
@@ -201,20 +241,30 @@ export class EvidenceValidator {
   }
 
   /**
-   * Validate git lines exist at specific SHA
+   * Validate git lines exist at specific SHA with optional snippet hash fallback
+   * Implements two-stage validation strategy
    */
   private async validateGitLines(
     file: string,
     sha: string,
     start: number,
     end: number,
-  ): Promise<{ valid: boolean; code?: string; message?: string }> {
-    // Validate SHA format
-    if (!/^[a-f0-9]{40}$/.test(sha)) {
+    snippetHash?: string,
+  ): Promise<{
+    valid: boolean;
+    code?: string;
+    message?: string;
+    confidence?: number;
+  }> {
+    // Resolve git ref to full SHA
+    let resolvedSha: string;
+    try {
+      resolvedSha = await this.gitResolver.resolveRef(sha);
+    } catch (error) {
       return {
         valid: false,
         code: ValidationErrorCode.MALFORMED_EVIDENCE,
-        message: "Invalid SHA format",
+        message: error.message,
       };
     }
 
@@ -231,18 +281,18 @@ export class EvidenceValidator {
     }
 
     try {
-      // Check if SHA exists in repo
-      const shaExists = await this.gitCommand(["cat-file", "-e", sha]);
+      // Check if SHA exists in repo (already resolved)
+      const shaExists = await this.gitCommand(["cat-file", "-e", resolvedSha]);
       if (!shaExists) {
         return {
           valid: false,
           code: ValidationErrorCode.LINE_RANGE_NOT_FOUND,
-          message: `SHA ${sha} not found in repository`,
+          message: `SHA ${resolvedSha} not found in repository`,
         };
       }
 
       // Get file content at SHA - use normalized path with caching
-      const contentCacheKey = `${sha}:${normalizedPath}`;
+      const contentCacheKey = `${resolvedSha}:${normalizedPath}`;
       let content: string;
 
       if (this.config.cacheEnabled) {
@@ -250,34 +300,90 @@ export class EvidenceValidator {
         if (cached && Date.now() - cached.timestamp < this.config.cacheTTL) {
           content = cached.content;
         } else {
-          content = await this.gitCommand(["show", `${sha}:${normalizedPath}`]);
+          content = await this.gitCommand([
+            "show",
+            `${resolvedSha}:${normalizedPath}`,
+          ]);
           this.fileContentCache.set(contentCacheKey, {
             content,
             timestamp: Date.now(),
           });
         }
       } else {
-        content = await this.gitCommand(["show", `${sha}:${normalizedPath}`]);
+        content = await this.gitCommand([
+          "show",
+          `${resolvedSha}:${normalizedPath}`,
+        ]);
       }
       if (!content) {
         return {
           valid: false,
           code: ValidationErrorCode.LINE_RANGE_NOT_FOUND,
-          message: `File ${file} not found at SHA ${sha}`,
+          message: `File ${file} not found at SHA ${resolvedSha}`,
         };
       }
 
-      // Check line range
+      // Stage 1: Try line-based validation (fast path)
       const lines = content.split("\n");
-      if (start < 1 || end > lines.length || start > end) {
-        return {
-          valid: false,
-          code: ValidationErrorCode.LINE_RANGE_NOT_FOUND,
-          message: `Invalid line range ${start}-${end} for file with ${lines.length} lines`,
-        };
+      const stage1Valid = start >= 1 && end <= lines.length && start <= end;
+
+      if (stage1Valid) {
+        // Lines are valid - verify content if snippet hash provided
+        if (snippetHash) {
+          const snippetContent = this.snippetMatcher.extractContent(
+            content,
+            start,
+            end,
+          );
+          if (snippetContent) {
+            const computedHash =
+              this.snippetMatcher.generateSnippetHash(snippetContent);
+            if (computedHash === snippetHash) {
+              return { valid: true, confidence: 1.0 };
+            }
+            // Hash mismatch - fall through to Stage 2
+          }
+        } else {
+          // No snippet hash - trust line numbers
+          return { valid: true, confidence: 1.0 };
+        }
       }
 
-      return { valid: true };
+      // Stage 2: Content-based fallback validation
+      if (snippetHash) {
+        const matchResult = this.snippetMatcher.findSnippetByHash(
+          content,
+          snippetHash,
+          start,
+          end,
+        );
+
+        if (matchResult.found) {
+          // Found the snippet at a different location
+          const message = matchResult.multipleMatches
+            ? `Found snippet at ${matchResult.multipleMatches.length} locations, using first match`
+            : `Found snippet at lines ${matchResult.start}-${matchResult.end} (was ${start}-${end})`;
+
+          return {
+            valid: true,
+            confidence: matchResult.confidence,
+            message,
+          };
+        } else {
+          return {
+            valid: false,
+            code: ValidationErrorCode.LINE_RANGE_NOT_FOUND,
+            message: `Snippet not found in file (neither at lines ${start}-${end} nor by content hash)`,
+          };
+        }
+      }
+
+      // No snippet hash and invalid lines
+      return {
+        valid: false,
+        code: ValidationErrorCode.LINE_RANGE_NOT_FOUND,
+        message: `Invalid line range ${start}-${end} for file with ${lines.length} lines`,
+      };
     } catch (error) {
       return {
         valid: false,
@@ -295,17 +401,20 @@ export class EvidenceValidator {
     code?: string;
     message?: string;
   }> {
-    // Validate SHA format
-    if (!/^[a-f0-9]{40}$/.test(sha)) {
+    // Resolve git ref to full SHA
+    let resolvedSha: string;
+    try {
+      resolvedSha = await this.gitResolver.resolveRef(sha);
+    } catch (error) {
       return {
         valid: false,
         code: ValidationErrorCode.MALFORMED_EVIDENCE,
-        message: "Invalid SHA format",
+        message: error.message,
       };
     }
 
     try {
-      await this.gitCommand(["cat-file", "-e", sha]);
+      await this.gitCommand(["cat-file", "-e", resolvedSha]);
       return {
         valid: true,
       };
@@ -313,7 +422,7 @@ export class EvidenceValidator {
       return {
         valid: false,
         code: ValidationErrorCode.MALFORMED_EVIDENCE,
-        message: `Commit ${sha} not found in repository`,
+        message: `Commit ${resolvedSha} not found in repository`,
       };
     }
   }
@@ -402,5 +511,7 @@ export class EvidenceValidator {
   clearCache(): void {
     this.validationCache.clear();
     this.fileContentCache.clear();
+    this.snippetMatcher.clearCache();
+    this.gitResolver.clearCache();
   }
 }

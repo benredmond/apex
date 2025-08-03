@@ -267,7 +267,8 @@ export class PatternLookupService {
       // Query repository with facets
       let patternPack;
       try {
-        patternPack = await this.repository.lookup({
+        // [FIX:API:METHOD_CONSISTENCY] ★★☆☆☆ - Use new search() method
+        patternPack = await this.repository.search({
           task: request.task,
           languages: facets.languages,
           frameworks: facets.frameworks,

@@ -3,15 +3,18 @@
  * All patterns start with low trust scores and build up based on usage
  */
 
-import Database from "better-sqlite3";
-import { Pattern } from "../storage/types.js";
+// [BUILD:MODULE:ESM] ★★★☆☆ - ES module pattern
+import type { Migration } from "./types.js";
+import type Database from "better-sqlite3";
 import crypto from "crypto";
 
-export async function migrateDraftsToPatterns(dbPath: string): Promise<void> {
-  const db = new Database(dbPath);
+export const migration: Migration = {
+  id: "001-consolidate-patterns",
+  version: 1,
+  name: "Consolidate pattern drafts into patterns table",
 
-  try {
-    // Start transaction
+  up: (db: Database.Database) => {
+    // [PAT:dA0w9N1I9-4m] ★★★☆☆ - Synchronous transaction
     db.transaction(() => {
       // 1. Add columns to patterns table if they don't exist
       const columns = (db.pragma("table_info(patterns)") as any[]).map(
@@ -127,14 +130,32 @@ export async function migrateDraftsToPatterns(dbPath: string): Promise<void> {
 
       console.log("Migration completed successfully");
     })();
-  } finally {
-    db.close();
-  }
-}
+  },
 
-// Export for use in CLI or programmatic migration
-export default {
-  id: "001-consolidate-patterns",
-  name: "Consolidate pattern drafts into patterns table",
-  run: migrateDraftsToPatterns,
+  down: (db: Database.Database) => {
+    // [PAT:dA0w9N1I9-4m] ★★★☆☆ - Synchronous transaction
+    db.transaction(() => {
+      // Revert drafts back to DRAFT status
+      db.prepare(
+        `
+        UPDATE pattern_drafts 
+        SET status = 'DRAFT' 
+        WHERE status = 'APPROVED'
+      `,
+      ).run();
+
+      // Note: We don't remove columns from patterns table as SQLite doesn't support
+      // dropping columns easily, and they don't harm if left in place
+
+      // Remove migrated patterns that came from drafts
+      db.prepare(
+        `
+        DELETE FROM patterns 
+        WHERE status = 'draft'
+      `,
+      ).run();
+
+      console.log("Rollback completed successfully");
+    })();
+  },
 };

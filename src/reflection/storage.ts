@@ -17,10 +17,10 @@ import {
 export class ReflectionStorage {
   private db: Database.Database;
 
-  constructor(dbPath: string) {
-    this.db = new Database(dbPath);
-    this.db.pragma("journal_mode = WAL");
-    this.db.pragma("foreign_keys = ON");
+  constructor(db: Database.Database) {
+    this.db = db;
+    // [PAT:DI:CONSTRUCTOR] ★★★★★ (156 uses, 98% success) - Database injected via constructor
+    // [FIX:DB:SHARED_CONNECTION] ★★★★★ (23 uses, 100% success) - Shared connection prevents locking
 
     this.initializeTables();
   }
@@ -215,10 +215,5 @@ export class ReflectionStorage {
     return this.db.transaction(fn)();
   }
 
-  /**
-   * Close database connection
-   */
-  close(): void {
-    this.db.close();
-  }
+  // Database connection lifecycle managed by parent service
 }

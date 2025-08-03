@@ -151,8 +151,10 @@ export class PatternExplainer {
         };
       }
 
-      // Fetch pattern
-      const pattern = await this.repository.get(validatedRequest.pattern_id);
+      // Fetch pattern (supports ID, alias, or title)
+      const pattern = await this.repository.getByIdOrAlias(
+        validatedRequest.pattern_id,
+      );
       if (!pattern) {
         throw new InvalidParamsError(
           `Pattern not found: ${validatedRequest.pattern_id}`,
@@ -191,7 +193,9 @@ export class PatternExplainer {
       // Calculate session boost if context provided
       const sessionBoost = this.calculateSessionBoost(
         pattern.id,
-        validatedRequest.context?.session_patterns as Array<{ pattern_id: string; success: boolean }> | undefined,
+        validatedRequest.context?.session_patterns as
+          | Array<{ pattern_id: string; success: boolean }>
+          | undefined,
       );
 
       // Prepare response

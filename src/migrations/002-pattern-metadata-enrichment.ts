@@ -5,13 +5,17 @@
  * [FIX:SQLITE:SYNC] ★☆☆☆☆ (1 use, 100% success) - Synchronous transactions required
  */
 
-import Database from "better-sqlite3";
+// [BUILD:MODULE:ESM] ★★★☆☆ - ES module pattern
+import type { Migration } from "./types.js";
+import type Database from "better-sqlite3";
 
-export async function enrichPatternMetadata(dbPath: string): Promise<void> {
-  const db = new Database(dbPath);
+export const migration: Migration = {
+  id: "002-pattern-metadata-enrichment",
+  version: 2,
+  name: "Add pattern metadata enrichment tables (triggers, vocab, metadata)",
 
-  try {
-    // Start transaction - MUST be synchronous (no async)
+  up: (db: Database.Database) => {
+    // [PAT:dA0w9N1I9-4m] ★★★☆☆ - Synchronous transaction
     db.transaction(() => {
       console.log("Starting pattern metadata enrichment migration...");
 
@@ -72,14 +76,26 @@ export async function enrichPatternMetadata(dbPath: string): Promise<void> {
         "Pattern metadata enrichment migration completed successfully",
       );
     })();
-  } finally {
-    db.close();
-  }
-}
+  },
 
-// Export for use in migration runner
-export default {
-  id: "002-pattern-metadata-enrichment",
-  name: "Add pattern metadata enrichment tables (triggers, vocab, metadata)",
-  run: enrichPatternMetadata,
+  down: (db: Database.Database) => {
+    // [PAT:dA0w9N1I9-4m] ★★★☆☆ - Synchronous transaction
+    db.transaction(() => {
+      console.log("Rolling back pattern metadata enrichment migration...");
+
+      // Drop tables in reverse order to avoid foreign key constraints
+      db.exec(`
+        DROP INDEX IF EXISTS idx_pattern_metadata_key;
+        DROP INDEX IF EXISTS idx_pattern_vocab_term;
+        DROP INDEX IF EXISTS idx_pattern_triggers_value;
+        DROP INDEX IF EXISTS idx_pattern_triggers_type;
+        
+        DROP TABLE IF EXISTS pattern_vocab;
+        DROP TABLE IF EXISTS pattern_triggers;
+        DROP TABLE IF EXISTS pattern_metadata;
+      `);
+
+      console.log("Rollback completed successfully");
+    })();
+  },
 };

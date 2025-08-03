@@ -12,6 +12,11 @@ export class PatternDatabase {
   private db: Database.Database;
   private statements: Map<string, Database.Statement> = new Map();
 
+  // Getter for database instance (needed for migrations)
+  get database(): Database.Database {
+    return this.db;
+  }
+
   constructor(dbPath: string = ".apex/patterns.db") {
     // Ensure directory exists
     fs.ensureDirSync(path.dirname(dbPath));
@@ -56,7 +61,8 @@ export class PatternDatabase {
         pattern_digest    TEXT NOT NULL,
         json_canonical    BLOB NOT NULL,
         invalid           INTEGER NOT NULL DEFAULT 0,
-        invalid_reason    TEXT
+        invalid_reason    TEXT,
+        alias             TEXT UNIQUE
       );
     `);
 
@@ -218,11 +224,11 @@ export class PatternDatabase {
       INSERT INTO patterns (
         id, schema_version, pattern_version, type, title, summary,
         trust_score, created_at, updated_at, source_repo, tags_csv,
-        pattern_digest, json_canonical, invalid, invalid_reason
+        pattern_digest, json_canonical, invalid, invalid_reason, alias
       ) VALUES (
         @id, @schema_version, @pattern_version, @type, @title, @summary,
         @trust_score, @created_at, @updated_at, @source_repo, @tags_csv,
-        @pattern_digest, @json_canonical, @invalid, @invalid_reason
+        @pattern_digest, @json_canonical, @invalid, @invalid_reason, @alias
       )
       ON CONFLICT(id) DO UPDATE SET
         schema_version = excluded.schema_version,
@@ -237,13 +243,32 @@ export class PatternDatabase {
         pattern_digest = excluded.pattern_digest,
         json_canonical = excluded.json_canonical,
         invalid = excluded.invalid,
-        invalid_reason = excluded.invalid_reason
+        invalid_reason = excluded.invalid_reason,
+        alias = excluded.alias
     `),
     );
 
     this.statements.set(
       "deletePattern",
       this.db.prepare("DELETE FROM patterns WHERE id = ?"),
+    );
+
+    // Alias lookup statements (APE-44)
+    this.statements.set(
+      "getPatternByAlias",
+      this.db.prepare("SELECT * FROM patterns WHERE alias = ? AND invalid = 0"),
+    );
+
+    this.statements.set(
+      "getPatternByTitle",
+      this.db.prepare(
+        "SELECT * FROM patterns WHERE LOWER(title) = LOWER(?) AND invalid = 0",
+      ),
+    );
+
+    this.statements.set(
+      "checkAliasExists",
+      this.db.prepare("SELECT COUNT(*) as count FROM patterns WHERE alias = ?"),
     );
 
     this.statements.set(

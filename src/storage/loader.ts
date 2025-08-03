@@ -110,6 +110,12 @@ export class PatternLoader {
     // Ensure tags is always an array
     normalized.tags = normalized.tags || [];
 
+    // Ensure schema_version has a default
+    normalized.schema_version = normalized.schema_version || "1.0.0";
+
+    // Ensure pattern_version has a default
+    normalized.pattern_version = normalized.pattern_version || "1.0.0";
+
     return normalized;
   }
 

@@ -5,6 +5,7 @@
 
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import Database from "better-sqlite3";
 import { PatternRepository } from "../../storage/repository.js";
 import { BetaBernoulliTrustModel } from "../../trust/beta-bernoulli.js";
 import { JSONStorageAdapter } from "../../trust/storage-adapter.js";
@@ -19,6 +20,7 @@ import {
   ValidationErrorCode,
   TrustUpdate,
 } from "../../reflection/types.js";
+import { OutcomeProcessor } from "../../reflection/outcome-processor.js";
 import {
   InvalidParamsError,
   InternalError,
@@ -86,6 +88,7 @@ export class ReflectionService {
   private miner: PatternMiner | null;
   private metrics: ReflectionMetrics;
   private patternInserter: PatternInserter;
+  private db: Database.Database; // [PAT:dA0w9N1I9-4m] ★★★★★ (7 uses, 100% success) - Single DB instance
 
   constructor(
     repository: PatternRepository,
@@ -97,7 +100,15 @@ export class ReflectionService {
     },
   ) {
     this.repository = repository;
-    this.patternInserter = new PatternInserter(dbPath);
+
+    // [PAT:ARCHITECTURE:DATABASE_CONNECTION_SHARING] ★★★☆☆ (1 use, 100% success) - Create single DB connection
+    this.db = new Database(dbPath);
+    this.db.pragma("journal_mode = WAL");
+    this.db.pragma("foreign_keys = ON");
+
+    // [PAT:ARCHITECTURE:DATABASE_CONNECTION_SHARING] ★★★☆☆ (1 use, 100% success) - Inject shared DB into services
+    this.patternInserter = new PatternInserter(this.db);
+    this.storage = new ReflectionStorage(this.db);
 
     // Initialize trust model
     const trustAdapter = new JSONStorageAdapter("pattern_trust.json");
@@ -108,9 +119,6 @@ export class ReflectionService {
       allowedRepoUrls: config?.allowedRepoUrls,
       gitRepoPath: config?.gitRepoPath,
     });
-
-    // Initialize storage
-    this.storage = new ReflectionStorage(dbPath);
 
     // Initialize miner if enabled
     this.miner = config?.enableMining ? new PatternMiner() : null;
@@ -131,11 +139,36 @@ export class ReflectionService {
       const validationResult = ReflectRequestSchema.safeParse(rawRequest);
       if (!validationResult.success) {
         this.metrics.recordValidationError();
-        const errors = validationResult.error.issues.map((issue) => ({
-          path: issue.path.join("."),
-          code: ValidationErrorCode.MALFORMED_EVIDENCE,
-          message: issue.message,
-        }));
+        const errors = validationResult.error.issues.map((issue) => {
+          let message = issue.message;
+
+          // Enhance error message for invalid outcomes
+          if (
+            issue.path.join(".").includes("outcome") &&
+            issue.code === "invalid_enum_value"
+          ) {
+            const invalidValue = issue.received;
+            const suggestion = OutcomeProcessor.suggestOutcome(
+              String(invalidValue),
+            );
+            const descriptions = OutcomeProcessor.getOutcomeDescriptions();
+
+            message = `Invalid outcome '${invalidValue}'. Valid outcomes are:\n`;
+            message += Object.entries(descriptions)
+              .map(([outcome, desc]) => `  - ${outcome}: ${desc}`)
+              .join("\n");
+
+            if (suggestion) {
+              message += `\n\nDid you mean '${suggestion}'?`;
+            }
+          }
+
+          return {
+            path: issue.path.join("."),
+            code: ValidationErrorCode.MALFORMED_EVIDENCE,
+            message,
+          };
+        });
 
         return this.createErrorResponse(errors, startTime);
       }
@@ -202,14 +235,14 @@ export class ReflectionService {
       minedPatterns = await this.miner.minePatterns(request.artifacts.commits);
     }
 
-    // [FIX:SQLITE:SYNC] ★☆☆☆☆ (1 use, 100% success) - Pre-load pattern data for synchronous transaction
+    // [FIX:SQLITE:SYNC] ★★★★★ (5 uses, 100% success) - Pre-load pattern data for synchronous transaction
     // Pre-load pattern data for trust updates to avoid async operations in transaction
     const patternDataMap = new Map<
       string,
       { alpha: number; beta: number; id: string }
     >();
     for (const update of request.claims.trust_updates) {
-      const pattern = await this.repository.get(update.pattern_id);
+      const pattern = await this.repository.getByIdOrAlias(update.pattern_id);
       if (pattern) {
         patternDataMap.set(update.pattern_id, {
           id: pattern.id,
@@ -241,7 +274,7 @@ export class ReflectionService {
         };
       }
 
-      // [FIX:SQLITE:SYNC] ★☆☆☆☆ - Apply trust updates synchronously inside transaction
+      // [FIX:SQLITE:SYNC] ★★★★★ (5 uses, 100% success) - Apply trust updates synchronously inside transaction
       // Apply trust updates synchronously within the transaction
       trustResults = this.applyTrustUpdatesSync(
         request.claims.trust_updates,
@@ -314,7 +347,7 @@ export class ReflectionService {
 
     const persistMs = Date.now() - persistStarted;
 
-    // [FIX:SQLITE:SYNC] ★☆☆☆☆ - Trust updates now handled inside transaction
+    // [FIX:SQLITE:SYNC] ★★★★★ (5 uses, 100% success) - Trust updates now handled inside transaction
     if (result.persisted) {
       trustResults = result.trustResults || [];
       draftIds = result.draftIds || [];
@@ -377,7 +410,7 @@ export class ReflectionService {
 
     for (const update of updates) {
       // Get current pattern
-      const pattern = await this.repository.get(update.pattern_id);
+      const pattern = await this.repository.getByIdOrAlias(update.pattern_id);
       if (!pattern) {
         continue;
       }
@@ -432,8 +465,11 @@ export class ReflectionService {
     const results = [];
 
     for (const update of updates) {
+      // Process outcome to delta if needed
+      const processed = OutcomeProcessor.processTrustUpdate(update);
+
       // Get current pattern from map
-      const patternData = patternDataMap.get(update.pattern_id);
+      const patternData = patternDataMap.get(processed.pattern_id);
       if (!patternData) {
         continue;
       }
@@ -442,8 +478,8 @@ export class ReflectionService {
       const currentAlpha = patternData.alpha || 1;
       const currentBeta = patternData.beta || 1;
 
-      const newAlpha = currentAlpha + update.delta.alpha;
-      const newBeta = currentBeta + update.delta.beta;
+      const newAlpha = currentAlpha + processed.delta.alpha;
+      const newBeta = currentBeta + processed.delta.beta;
 
       // Calculate new trust score using the public method
       const trustScore = this.trustModel.calculateTrust(
@@ -452,7 +488,7 @@ export class ReflectionService {
       );
 
       // Update pattern data in map for transaction
-      patternDataMap.set(update.pattern_id, {
+      patternDataMap.set(processed.pattern_id, {
         ...patternData,
         alpha: newAlpha,
         beta: newBeta,
@@ -461,8 +497,8 @@ export class ReflectionService {
       this.metrics.recordTrustUpdate();
 
       results.push({
-        pattern_id: update.pattern_id,
-        applied_delta: update.delta,
+        pattern_id: processed.pattern_id,
+        applied_delta: processed.delta,
         alpha_after: newAlpha,
         beta_after: newBeta,
         wilson_lb_after: trustScore.wilsonLower,
@@ -530,5 +566,14 @@ export class ReflectionService {
    */
   clearCache(): void {
     this.validator.clearCache();
+  }
+
+  /**
+   * Close database connection
+   */
+  close(): void {
+    if (this.db) {
+      this.db.close();
+    }
   }
 }

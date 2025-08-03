@@ -8,6 +8,8 @@ import { PatternWatcher } from "./watcher.js";
 import type {
   Pattern,
   LookupQuery,
+  SearchQuery,
+  ListOptions,
   QueryFacets,
   PatternPack,
   ValidationResult,
@@ -143,9 +145,126 @@ export class PatternRepository {
     return pattern;
   }
 
+  /**
+   * Get pattern by ID, alias, or title (APE-44)
+   * Tries in order: exact ID match, alias match, case-insensitive title match
+   */
+  public async getByIdOrAlias(identifier: string): Promise<Pattern | null> {
+    // Try exact ID match first (fastest)
+    let pattern = await this.get(identifier);
+    if (pattern) return pattern;
+
+    // Try alias match (indexed lookup)
+    const aliasRow = this.db
+      .getStatement("getPatternByAlias")
+      .get(identifier) as any;
+    if (aliasRow) {
+      pattern = this.rowToPattern(aliasRow);
+      this.cache.setPattern(pattern.id, pattern);
+      return pattern;
+    }
+
+    // Try case-insensitive title match (slower)
+    const titleRow = this.db
+      .getStatement("getPatternByTitle")
+      .get(identifier) as any;
+    if (titleRow) {
+      pattern = this.rowToPattern(titleRow);
+      this.cache.setPattern(pattern.id, pattern);
+      return pattern;
+    }
+
+    return null;
+  }
+
   // Query methods
 
+  /**
+   * List patterns with simple filtering and pagination
+   * [FIX:API:METHOD_CONSISTENCY] ★★☆☆☆ - Standard list method
+   */
+  public async list(options: ListOptions = {}): Promise<Pattern[]> {
+    const {
+      limit = 50,
+      offset = 0,
+      orderBy = "trust_score",
+      order = "desc",
+      filter = {},
+    } = options;
+
+    // Build query
+    let sql = `
+      SELECT * FROM patterns
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    // Apply filters
+    if (filter.type && filter.type.length > 0) {
+      sql += ` AND type IN (${filter.type.map(() => "?").join(", ")})`;
+      params.push(...filter.type);
+    }
+
+    if (filter.minTrust !== undefined) {
+      sql += " AND trust_score >= ?";
+      params.push(filter.minTrust);
+    }
+
+    if (filter.tags && filter.tags.length > 0) {
+      sql += ` AND id IN (
+        SELECT pattern_id FROM pattern_tags
+        WHERE tag IN (${filter.tags.map(() => "?").join(", ")})
+      )`;
+      params.push(...filter.tags);
+    }
+
+    if (filter.valid !== undefined) {
+      sql += " AND invalid = ?";
+      params.push(filter.valid ? 0 : 1);
+    }
+
+    // Apply ordering
+    const validOrderBy = [
+      "trust_score",
+      "usage_count",
+      "created_at",
+      "updated_at",
+    ];
+    const safeOrderBy = validOrderBy.includes(orderBy)
+      ? orderBy
+      : "trust_score";
+    const safeOrder = order === "asc" ? "ASC" : "DESC";
+    sql += ` ORDER BY ${safeOrderBy} ${safeOrder}`;
+
+    // Apply pagination
+    sql += " LIMIT ? OFFSET ?";
+    params.push(limit, offset);
+
+    // Execute query
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...params) as any[];
+
+    // Convert rows to patterns
+    return rows.map((row) => this.rowToPattern(row));
+  }
+
+  /**
+   * Semantic search with facets (renamed from lookup)
+   * [FIX:API:METHOD_CONSISTENCY] ★★☆☆☆ - Standard search method
+   */
+  public async search(query: SearchQuery): Promise<PatternPack> {
+    // Delegate to lookup for now (maintains exact behavior)
+    return this.lookup(query as LookupQuery);
+  }
+
+  /**
+   * @deprecated Use search() for semantic queries or list() for simple enumeration
+   * [FIX:BREAKING:MIGRATION] ★★★★☆ - Deprecation with backward compatibility
+   */
   public async lookup(query: LookupQuery): Promise<PatternPack> {
+    console.warn(
+      "PatternRepository.lookup() is deprecated. Use search() for semantic queries or list() for simple enumeration.",
+    );
     const { k = 20, ...facets } = query;
 
     // Build query facets
@@ -197,7 +316,13 @@ export class PatternRepository {
     };
   }
 
-  public async search(text: string, limit: number = 20): Promise<Pattern[]> {
+  /**
+   * Text-based search (distinct from semantic search)
+   */
+  public async searchText(
+    text: string,
+    limit: number = 20,
+  ): Promise<Pattern[]> {
     const rows = this.db
       .getStatement("searchPatterns")
       .all(text, limit) as any[];
@@ -269,9 +394,16 @@ export class PatternRepository {
   }
 
   public async migrate(): Promise<void> {
-    // In real implementation, would load migrations from files
-    const migrations = [];
-    await this.db.runMigrations(migrations);
+    // Import migration system dynamically to avoid circular dependencies
+    const { MigrationLoader, MigrationRunner } = await import(
+      "../migrations/index.js"
+    );
+
+    const loader = new MigrationLoader();
+    const runner = new MigrationRunner(this.db.database);
+
+    const migrations = await loader.loadMigrations();
+    await runner.runMigrations(migrations);
   }
 
   // Private helper methods
@@ -309,6 +441,7 @@ export class PatternRepository {
         tags_csv: pattern.tags.join(","),
         invalid: pattern.invalid ? 1 : 0,
         invalid_reason: pattern.invalid_reason || null,
+        alias: pattern.alias || null, // APE-44: Support for human-readable aliases
       });
 
       // Insert facet data

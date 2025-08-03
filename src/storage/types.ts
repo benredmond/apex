@@ -27,6 +27,7 @@ export interface Pattern {
   json_canonical: string;
   invalid?: boolean;
   invalid_reason?: string;
+  alias?: string; // Human-readable URL-safe alias (APE-44)
 }
 
 export interface PatternLanguage {
@@ -76,7 +77,21 @@ export interface Snippet {
 }
 
 // Query interfaces
-export interface LookupQuery {
+// [FIX:API:METHOD_CONSISTENCY] ★★☆☆☆ - Standardized query interfaces
+export interface ListOptions {
+  limit?: number;
+  offset?: number;
+  orderBy?: "trust_score" | "usage_count" | "created_at" | "updated_at";
+  order?: "asc" | "desc";
+  filter?: {
+    type?: Pattern["type"][];
+    minTrust?: number;
+    tags?: string[];
+    valid?: boolean;
+  };
+}
+
+export interface SearchQuery {
   task?: string;
   signals?: Record<string, any>;
   k?: number;
@@ -88,6 +103,9 @@ export interface LookupQuery {
   task_types?: string[];
   envs?: string[];
 }
+
+// Deprecated: Use SearchQuery instead
+export interface LookupQuery extends SearchQuery {}
 
 export interface QueryFacets {
   type?: Pattern["type"];

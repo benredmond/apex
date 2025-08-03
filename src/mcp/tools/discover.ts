@@ -185,8 +185,9 @@ export class PatternDiscoverer {
         ];
       }
 
-      // Query patterns using lookup with facets
-      const lookupResult = await this.repository.lookup({
+      // Query patterns using search with facets
+      // [FIX:API:METHOD_CONSISTENCY] ★★☆☆☆ - Use new search() method
+      const lookupResult = await this.repository.search({
         task: queryComponents.ftsQuery, // Use FTS query as task
         type: queryComponents.facets.types as Pattern["type"][],
         // Note: categories would need to be mapped to tags

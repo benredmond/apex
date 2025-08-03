@@ -6,17 +6,33 @@
 import { z } from "zod";
 
 // Evidence types for verification
+// SHA validation - now supports flexible refs
+const flexibleShaSchema = z.string().refine(
+  (val) => {
+    // Allow 7-40 char hex strings (short to full SHAs)
+    if (/^[a-f0-9]{7,40}$/.test(val)) return true;
+    // Allow valid git refs (HEAD, branches, tags, etc)
+    if (/^[a-zA-Z0-9@{}_.\/-]+$/.test(val) && val.length <= 255) return true;
+    return false;
+  },
+  {
+    message:
+      "Must be a valid git SHA (7-40 hex chars) or git reference (HEAD, branch, tag)",
+  },
+);
+
 export const EvidenceRefSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("git_lines"),
     file: z.string(),
-    sha: z.string().regex(/^[a-f0-9]{40}$/),
+    sha: flexibleShaSchema,
     start: z.number().positive(),
     end: z.number().positive(),
+    snippet_hash: z.string().optional(), // SHA-256 of normalized content for fallback validation
   }),
   z.object({
     kind: z.literal("commit"),
-    sha: z.string().regex(/^[a-f0-9]{40}$/),
+    sha: flexibleShaSchema,
   }),
   z.object({
     kind: z.literal("pr"),
@@ -83,14 +99,34 @@ export const LearningSchema = z.object({
 
 export type Learning = z.infer<typeof LearningSchema>;
 
-// Trust update request
-export const TrustUpdateSchema = z.object({
-  pattern_id: z.string(),
-  delta: z.object({
-    alpha: z.number().nonnegative(),
-    beta: z.number().nonnegative(),
-  }),
-});
+// Pattern outcome vocabulary for natural language trust updates
+export const PatternOutcomeSchema = z.enum([
+  "worked-perfectly",
+  "worked-with-tweaks",
+  "partial-success",
+  "failed-minor-issues",
+  "failed-completely",
+]);
+
+export type PatternOutcome = z.infer<typeof PatternOutcomeSchema>;
+
+// Trust update request - supports both delta and outcome formats
+export const TrustUpdateSchema = z
+  .object({
+    pattern_id: z.string(),
+    // Option 1: Traditional delta (backward compatible)
+    delta: z
+      .object({
+        alpha: z.number().nonnegative(),
+        beta: z.number().nonnegative(),
+      })
+      .optional(),
+    // Option 2: Natural outcome (new)
+    outcome: PatternOutcomeSchema.optional(),
+  })
+  .refine((data) => data.delta || data.outcome, {
+    message: "Must provide either delta or outcome",
+  });
 
 export type TrustUpdate = z.infer<typeof TrustUpdateSchema>;
 
