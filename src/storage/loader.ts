@@ -5,6 +5,8 @@ import fs from "fs-extra";
 import path from "path";
 import { z } from "zod";
 import type { Pattern } from "./types.js";
+// [PAT:IMPORT:ESM] ★★★★☆ (67 uses, 89% success) - From cache
+import { PATTERN_SCHEMA_VERSION } from "../config/constants.js";
 
 // Import pattern schemas from APE-23
 // For now, we'll define a basic schema - in real implementation would import from schemas
@@ -111,9 +113,10 @@ export class PatternLoader {
     normalized.tags = normalized.tags || [];
 
     // Ensure schema_version has a default
-    normalized.schema_version = normalized.schema_version || "1.0.0";
+    normalized.schema_version =
+      normalized.schema_version || PATTERN_SCHEMA_VERSION;
 
-    // Ensure pattern_version has a default
+    // Ensure pattern_version has a default (individual pattern version, not schema)
     normalized.pattern_version = normalized.pattern_version || "1.0.0";
 
     return normalized;

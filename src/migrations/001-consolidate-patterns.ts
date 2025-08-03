@@ -7,6 +7,8 @@
 import type { Migration } from "./types.js";
 import type Database from "better-sqlite3";
 import crypto from "crypto";
+// [PAT:IMPORT:ESM] ★★★★☆ (67 uses, 89% success) - From cache
+import { PATTERN_SCHEMA_VERSION } from "../config/constants.js";
 
 export const migration: Migration = {
   id: "001-consolidate-patterns",
@@ -96,8 +98,8 @@ export const migration: Migration = {
 
           insertStmt.run(
             patternId,
-            "1.0.0", // schema version
-            "1.0.0", // pattern version
+            PATTERN_SCHEMA_VERSION, // schema version from config
+            "1.0.0", // pattern version (individual pattern version, not schema)
             type,
             patternData.title,
             patternData.summary,

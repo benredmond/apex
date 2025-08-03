@@ -13,6 +13,8 @@ import { EvidenceValidator } from "../../reflection/validator.js";
 import { ReflectionStorage } from "../../reflection/storage.js";
 import { PatternMiner } from "../../reflection/miner.js";
 import { PatternInserter } from "../../reflection/pattern-inserter.js";
+// [PAT:IMPORT:ESM] ★★★★☆ (67 uses, 89% success) - From cache
+import { MCP_SCHEMA_VERSION } from "../../config/constants.js";
 import {
   ReflectRequestSchema,
   ReflectRequest,
@@ -389,7 +391,7 @@ export class ReflectionService {
         received_at: new Date(startTime).toISOString(),
         validated_in_ms: validationMs,
         persisted_in_ms: persistMs,
-        schema_version: "0.3.0",
+        schema_version: MCP_SCHEMA_VERSION,
       },
     };
   }
@@ -523,7 +525,7 @@ export class ReflectionService {
       meta: {
         received_at: new Date(startTime).toISOString(),
         validated_in_ms: Date.now() - startTime,
-        schema_version: "0.3.0",
+        schema_version: MCP_SCHEMA_VERSION,
       },
     };
   }
@@ -549,7 +551,7 @@ export class ReflectionService {
       meta: {
         received_at: new Date(startTime).toISOString(),
         validated_in_ms: Date.now() - startTime,
-        schema_version: "0.3.0",
+        schema_version: MCP_SCHEMA_VERSION,
       },
     };
   }

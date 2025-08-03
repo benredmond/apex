@@ -4,6 +4,8 @@ import { fileURLToPath } from "url";
 import path from "path";
 import fs from "fs-extra";
 import type { Pattern, Migration } from "./types.js";
+// [PAT:IMPORT:ESM] ★★★★☆ (67 uses, 89% success) - From cache
+import { DATABASE_SCHEMA_VERSION } from "../config/constants.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -176,7 +178,7 @@ export class PatternDatabase {
         value TEXT NOT NULL
       );
 
-      INSERT OR IGNORE INTO schema_meta(key, value) VALUES ('schema_version', '0.3');
+      INSERT OR IGNORE INTO schema_meta(key, value) VALUES ('schema_version', '${DATABASE_SCHEMA_VERSION}');
     `);
 
     // Migrations table

@@ -8,6 +8,8 @@ import { nanoid } from "nanoid";
 import Database from "better-sqlite3";
 import { NewPattern, AntiPattern } from "./types.js";
 import { Pattern } from "../storage/types.js";
+// [PAT:IMPORT:ESM] ★★★★☆ (67 uses, 89% success) - From cache
+import { PATTERN_SCHEMA_VERSION } from "../config/constants.js";
 
 export class PatternInserter {
   private db: Database.Database;
@@ -109,8 +111,8 @@ export class PatternInserter {
 
     const info = stmt.run(
       patternId,
-      "1.0.0", // schema version
-      "1.0.0", // pattern version
+      PATTERN_SCHEMA_VERSION, // schema version from config
+      "1.0.0", // pattern version (individual pattern version, not schema)
       type,
       title,
       summary,
