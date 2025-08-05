@@ -27,6 +27,8 @@ import type {
   PatternTrigger,
   PatternVocab,
 } from "../../storage/types.js";
+import { QueryProcessor } from "../../search/query-processor.js";
+import { FuzzyMatcher } from "../../search/fuzzy-matcher.js";
 import type { PatternPack } from "../../ranking/types.js";
 
 // Request validation schema
@@ -109,6 +111,8 @@ export class PatternDiscoverer {
   private cache: Map<string, DiscoverResponse>;
   private cacheOptions: { maxSize: number; ttlMs: number };
   private rateLimiter: RateLimiter;
+  private queryProcessor: QueryProcessor;
+  private fuzzyMatcher: FuzzyMatcher;
 
   constructor(repository: PatternRepository) {
     this.repository = repository;
@@ -119,6 +123,8 @@ export class PatternDiscoverer {
       ttlMs: 5 * 60 * 1000, // 5 minutes
     };
     this.rateLimiter = new RateLimiter();
+    this.queryProcessor = new QueryProcessor();
+    this.fuzzyMatcher = new FuzzyMatcher();
   }
 
   async discover(rawRequest: unknown): Promise<DiscoverResponse> {
@@ -159,7 +165,14 @@ export class PatternDiscoverer {
         };
       }
 
-      // Extract enhanced signals from query
+      // Process query with enhanced search capabilities
+      const processedQuery = this.queryProcessor.processQuery(request.query, {
+        enableSynonyms: true,
+        enableFuzzy: true,
+        performanceMode: false, // Full feature mode
+      });
+
+      // Extract enhanced signals for backward compatibility
       const signals = extractEnhancedSignals(
         request.query,
         request.context?.current_errors,
@@ -168,34 +181,75 @@ export class PatternDiscoverer {
         },
       );
 
-      // Build query components
-      const queryComponents = buildQueryFromSignals(signals);
+      // Map signal types to actual pattern types
+      const typeMapping: Record<string, Pattern["type"]> = {
+        fix: "CODEBASE",
+        code: "CODEBASE",
+        pattern: "CODEBASE",
+        refactor: "CODEBASE",
+        command: "CODEBASE",
+        test: "TEST",
+        policy: "POLICY",
+        anti: "ANTI",
+        failure: "FAILURE",
+        migration: "MIGRATION",
+        lang: "LANG",
+      };
 
       // Apply additional filters
+      let searchTypes: Pattern["type"][] = signals.suggestedTypes
+        .map((t) => typeMapping[t])
+        .filter(Boolean);
+      let searchTags = signals.suggestedCategories;
+
       if (request.filters?.types) {
-        queryComponents.facets.types = [
-          ...(queryComponents.facets.types || []),
-          ...request.filters.types,
-        ];
+        // Filter to only valid pattern types
+        const validTypes = request.filters.types
+          .map((t) => typeMapping[t.toLowerCase()] || t)
+          .filter((t) =>
+            [
+              "CODEBASE",
+              "LANG",
+              "ANTI",
+              "FAILURE",
+              "POLICY",
+              "TEST",
+              "MIGRATION",
+            ].includes(t),
+          ) as Pattern["type"][];
+        searchTypes = [...searchTypes, ...validTypes];
       }
       if (request.filters?.categories) {
-        queryComponents.facets.categories = [
-          ...(queryComponents.facets.categories || []),
-          ...request.filters.categories,
-        ];
+        searchTags = [...searchTags, ...request.filters.categories] as any;
       }
 
-      // Query patterns using search with facets
-      // [FIX:API:METHOD_CONSISTENCY] ★★☆☆☆ - Use new search() method
+      // Use enhanced FTS query for search
+      // [PAT:SEARCH:FTS] ★★★★★ - Enhanced FTS5 search
       const lookupResult = await this.repository.search({
-        task: queryComponents.ftsQuery, // Use FTS query as task
-        type: queryComponents.facets.types as Pattern["type"][],
-        // Note: categories would need to be mapped to tags
-        tags: queryComponents.facets.categories, // Use categories as tags
-        k: 100, // Get more for scoring
+        task: processedQuery.ftsQuery, // Use processed FTS query
+        type:
+          searchTypes.length > 0
+            ? (searchTypes as Pattern["type"][])
+            : undefined,
+        tags: searchTags,
+        k: 100, // Get more for scoring and fuzzy matching
       });
 
-      const searchResults = lookupResult.patterns;
+      let searchResults = lookupResult.patterns;
+
+      // Apply fuzzy matching if enabled
+      // [PAT:SEARCH:FUZZY] ★★★★☆ - Fuzzy matching for typo tolerance
+      if (searchResults.length < 5 && processedQuery.expandedTerms.length > 0) {
+        searchResults = this.queryProcessor.applyFuzzyMatching(
+          searchResults,
+          request.query,
+          {
+            threshold: 0.6,
+            maxResults: request.max_results * 2,
+            fields: ["title", "summary", "tags"],
+          },
+        );
+      }
 
       // Load metadata for scoring
       const patternIds = searchResults.map((p) => p.id);
@@ -208,34 +262,23 @@ export class PatternDiscoverer {
         ftsScores.set(pattern.id, 1 - index / searchResults.length);
       });
 
-      // Calculate facet matches
+      // Calculate facet matches based on search criteria
       const facetMatches = new Map<string, number>();
       for (const pattern of searchResults) {
         let matches = 0;
-        if (queryComponents.facets.types?.includes(pattern.type)) matches++;
-        // Category matching would need to be implemented via tags or metadata
+        if (searchTypes?.includes(pattern.type)) matches++;
+        // Tag matching
+        if (pattern.tags && searchTags) {
+          const patternTagsLower = pattern.tags.map((t) => t.toLowerCase());
+          const searchTagsLower = searchTags.map((t) => t.toLowerCase());
+          if (patternTagsLower.some((t) => searchTagsLower.includes(t)))
+            matches++;
+        }
         facetMatches.set(pattern.id, matches);
       }
 
-      // Check trigger matches
+      // Check trigger matches (empty for now as triggers aren't loaded)
       const triggerMatches = new Map<string, string[]>();
-      for (const pattern of searchResults) {
-        const triggers = metadata.triggers.get(pattern.id) || [];
-        const matches: string[] = [];
-
-        for (const trigger of triggers) {
-          // Check if trigger matches our query triggers
-          for (const queryTrigger of queryComponents.triggers) {
-            if (trigger.trigger_value.includes(queryTrigger.split(":")[1])) {
-              matches.push(trigger.trigger_value);
-            }
-          }
-        }
-
-        if (matches.length > 0) {
-          triggerMatches.set(pattern.id, matches);
-        }
-      }
 
       // Score patterns
       const scored = this.scorer.scorePatterns(
@@ -263,10 +306,20 @@ export class PatternDiscoverer {
         metadata: this.extractRelevantMetadata(score.pattern.id, metadata),
       }));
 
+      // Detect typos and suggest corrections if few results
+      let corrections: string[] = [];
+      if (patterns.length < 3) {
+        const allTitles = searchResults.map((p) => p.title);
+        corrections = this.queryProcessor.detectTypos(request.query, allTitles);
+      }
+
       const response: DiscoverResponse = {
         patterns,
         query_interpretation: {
-          keywords: signals.keywords,
+          keywords:
+            processedQuery.expandedTerms.length > 0
+              ? processedQuery.expandedTerms
+              : signals.keywords,
           inferred_types: signals.suggestedTypes,
           inferred_categories: signals.suggestedCategories,
           detected_technologies: [...signals.languages, ...signals.frameworks],

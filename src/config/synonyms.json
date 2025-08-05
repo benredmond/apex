@@ -1,0 +1,143 @@
+{
+  "auth": [
+    "authentication",
+    "authorization",
+    "login",
+    "oauth",
+    "jwt",
+    "sso",
+    "session",
+    "token"
+  ],
+  "db": [
+    "database",
+    "storage",
+    "persistence",
+    "sql",
+    "nosql",
+    "mongodb",
+    "postgres",
+    "mysql",
+    "sqlite"
+  ],
+  "api": [
+    "endpoint",
+    "route",
+    "service",
+    "rest",
+    "graphql",
+    "grpc",
+    "websocket",
+    "http"
+  ],
+  "test": [
+    "testing",
+    "spec",
+    "jest",
+    "mocha",
+    "vitest",
+    "cypress",
+    "playwright",
+    "unit",
+    "integration"
+  ],
+  "async": [
+    "asynchronous",
+    "promise",
+    "await",
+    "callback",
+    "concurrent",
+    "parallel"
+  ],
+  "error": [
+    "exception",
+    "bug",
+    "failure",
+    "crash",
+    "fault",
+    "issue",
+    "problem"
+  ],
+  "perf": [
+    "performance",
+    "optimization",
+    "speed",
+    "latency",
+    "throughput",
+    "efficiency"
+  ],
+  "ui": [
+    "interface",
+    "frontend",
+    "component",
+    "widget",
+    "element",
+    "view",
+    "screen"
+  ],
+  "config": [
+    "configuration",
+    "settings",
+    "options",
+    "preferences",
+    "env",
+    "environment"
+  ],
+  "deploy": [
+    "deployment",
+    "release",
+    "publish",
+    "production",
+    "staging",
+    "ci",
+    "cd"
+  ],
+  "sec": [
+    "security",
+    "vulnerability",
+    "exploit",
+    "encryption",
+    "auth",
+    "cors",
+    "xss",
+    "csrf"
+  ],
+  "log": [
+    "logging",
+    "logger",
+    "trace",
+    "debug",
+    "info",
+    "warn",
+    "error",
+    "console"
+  ],
+  "cache": ["caching", "memoize", "buffer", "store", "redis", "memcached"],
+  "queue": [
+    "queuing",
+    "job",
+    "worker",
+    "background",
+    "async",
+    "rabbitmq",
+    "sqs"
+  ],
+  "search": ["find", "query", "lookup", "discover", "filter", "match"],
+  "pattern": [
+    "template",
+    "blueprint",
+    "convention",
+    "practice",
+    "approach",
+    "solution"
+  ],
+  "fix": ["repair", "patch", "resolve", "solution", "workaround", "correction"],
+  "typescript": ["ts", "types", "typing", "interface", "generics"],
+  "javascript": ["js", "ecmascript", "es6", "es2015", "node", "nodejs"],
+  "react": ["jsx", "hooks", "component", "state", "props", "redux"],
+  "import": ["require", "module", "export", "dependency", "package"],
+  "mock": ["stub", "fake", "spy", "simulate", "test-double"],
+  "sync": ["synchronous", "blocking", "sequential"],
+  "init": ["initialize", "setup", "bootstrap", "start", "create"],
+  "migrate": ["migration", "upgrade", "schema", "database", "version"]
+}
