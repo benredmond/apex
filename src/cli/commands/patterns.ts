@@ -8,6 +8,14 @@ import {
   createPatternRepository,
   PatternRepository,
 } from "../../storage/index.js";
+import { FormatterFactory } from "./shared/formatters.js";
+import { getSharedMCPClient } from "./shared/mcp-client.js";
+import {
+  validateOptions,
+  displayValidationErrors,
+  validatePatternId,
+} from "./shared/validators.js";
+import { PerformanceTimer, withProgress } from "./shared/progress.js";
 
 let repository: PatternRepository | null = null;
 
@@ -221,6 +229,221 @@ export function createPatternsCommand(): Command {
         console.log(JSON.stringify(pattern, null, 2));
       } catch (error) {
         console.error(chalk.red("Get failed:"), error);
+        process.exit(1);
+      }
+    });
+
+  // [PAT:CLI:COMMANDER] ★★★★☆ (245 uses, 92% success) - New subcommands
+  patterns
+    .command("list")
+    .description("List patterns with filtering and formatting options")
+    .option("--pack <name>", "Filter by pack name")
+    .option("--trust-min <score>", "Minimum trust score (0-1)", parseFloat)
+    .option("-f, --format <type>", "Output format (json|table|yaml)", "table")
+    .option("-l, --limit <number>", "Maximum results", "50")
+    .action(async (options) => {
+      // [FIX:ASYNC:ERROR] ★★★★★ (234 uses, 98% success) - Proper error handling
+      try {
+        const timer = new PerformanceTimer();
+
+        // Validate options
+        const validation = validateOptions(options);
+        if (!validation.valid) {
+          displayValidationErrors(validation.errors);
+          process.exit(1);
+        }
+
+        const repo = await getRepository();
+
+        // Build query for repository
+        const query: any = {
+          limit: parseInt(options.limit),
+        };
+
+        if (validation.validated.trustMin !== undefined) {
+          query.min_trust = validation.validated.trustMin;
+        }
+
+        // Direct repository access for sub-second performance
+        const patterns = await repo.list(query);
+
+        // Filter by pack if specified
+        let filtered = patterns;
+        if (validation.validated.pack) {
+          filtered = patterns.filter(
+            (p: any) =>
+              p.pack === validation.validated.pack ||
+              p.tags?.includes(validation.validated.pack),
+          );
+        }
+
+        // Format and display
+        const formatter = FormatterFactory.create(
+          validation.validated.format || "table",
+        );
+        console.log(formatter.format(filtered));
+
+        // Check performance requirement (< 100ms)
+        if (!timer.meetsRequirement(100)) {
+          console.warn(
+            chalk.yellow(
+              `Warning: List operation took ${timer.elapsed().toFixed(0)}ms (target: < 100ms)`,
+            ),
+          );
+        }
+      } catch (error) {
+        console.error(
+          chalk.red("Error:"),
+          error instanceof Error ? error.message : error,
+        );
+        process.exit(1);
+      }
+    });
+
+  patterns
+    .command("analyze <path>")
+    .description("Analyze code for pattern usage and recommendations")
+    .option("--selector <query>", "Pattern selector query")
+    .option("-f, --format <type>", "Output format (json|table|yaml)", "table")
+    .action(async (path: string, options) => {
+      try {
+        // Use MCP client for analysis
+        const mcpClient = getSharedMCPClient();
+
+        const result = await withProgress(
+          mcpClient.call("analyzePatterns", {
+            path,
+            selector: options.selector,
+          }),
+          "Analyzing patterns...",
+          1000, // 1 second timeout
+        );
+
+        if (!result.success) {
+          console.error(chalk.red("Analysis failed:"), result.error);
+          process.exit(1);
+        }
+
+        const formatter = FormatterFactory.create(options.format);
+        console.log(formatter.format(result.data));
+      } catch (error) {
+        console.error(
+          chalk.red("Error:"),
+          error instanceof Error ? error.message : error,
+        );
+        process.exit(1);
+      }
+    });
+
+  patterns
+    .command("promote <pattern-id>")
+    .description("Promote a pattern from pending to active status")
+    .action(async (patternId: string) => {
+      try {
+        // Validate pattern ID format
+        if (!validatePatternId(patternId)) {
+          console.error(chalk.red(`Invalid pattern ID format: ${patternId}`));
+          console.error(
+            chalk.gray("Pattern IDs should follow format: TYPE:CATEGORY:NAME"),
+          );
+          process.exit(1);
+        }
+
+        const spinner = ora(`Promoting pattern ${patternId}...`).start();
+
+        // Use MCP for transactional promotion
+        const mcpClient = getSharedMCPClient();
+        const result = await mcpClient.call("promotePattern", {
+          id: patternId,
+        });
+
+        if (!result.success) {
+          spinner.fail(`Failed to promote pattern: ${result.error}`);
+          process.exit(1);
+        }
+
+        spinner.succeed(
+          chalk.green(`✓ Pattern ${patternId} promoted successfully`),
+        );
+
+        // Display promotion details if available
+        if (result.data) {
+          console.log(
+            chalk.gray(
+              `  New trust score: ${result.data.trust_score || "N/A"}`,
+            ),
+          );
+          console.log(
+            chalk.gray(`  Usage count: ${result.data.usage_count || 0}`),
+          );
+        }
+      } catch (error) {
+        console.error(
+          chalk.red("Error:"),
+          error instanceof Error ? error.message : error,
+        );
+        process.exit(1);
+      }
+    });
+
+  patterns
+    .command("stats")
+    .description("Display pattern statistics and usage metrics")
+    .option("-f, --format <type>", "Output format (json|table|yaml)", "table")
+    .action(async (options) => {
+      try {
+        const timer = new PerformanceTimer();
+        const repo = await getRepository();
+
+        // Calculate statistics from all patterns
+        const allPatterns = await repo.list({ limit: 10000 });
+
+        const stats = {
+          total_patterns: allPatterns.length,
+          active_patterns: allPatterns.filter((p: any) => p.status === "active")
+            .length,
+          pending_patterns: allPatterns.filter(
+            (p: any) => p.status === "pending",
+          ).length,
+          avg_trust_score:
+            allPatterns.reduce(
+              (sum: number, p: any) => sum + (p.trust_score || 0),
+              0,
+            ) / allPatterns.length,
+          total_uses: allPatterns.reduce(
+            (sum: number, p: any) => sum + (p.usage_count || 0),
+            0,
+          ),
+          overall_success_rate:
+            allPatterns.reduce(
+              (sum: number, p: any) => sum + (p.success_rate || 0),
+              0,
+            ) / allPatterns.length,
+          last_updated: new Date().toISOString(),
+          by_type: {} as Record<string, number>,
+        };
+
+        // Count by type
+        for (const pattern of allPatterns) {
+          const type = (pattern as any).type || "unknown";
+          stats.by_type[type] = (stats.by_type[type] || 0) + 1;
+        }
+
+        // Format and display
+        const formatter = FormatterFactory.create(options.format);
+        console.log(formatter.format(stats));
+
+        // Display performance info in verbose mode
+        if (options.verbose) {
+          console.log(
+            chalk.gray(`\nQuery completed in ${timer.elapsed().toFixed(0)}ms`),
+          );
+        }
+      } catch (error) {
+        console.error(
+          chalk.red("Error:"),
+          error instanceof Error ? error.message : error,
+        );
         process.exit(1);
       }
     });

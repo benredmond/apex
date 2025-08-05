@@ -7,8 +7,10 @@ import ora from "ora";
 import fs from "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createPatternsCommand } from "./commands/patterns.js";
-import { createMigrateCommand } from "./commands/migrate.js";
+import { createPatternsCommand } from "../../dist/cli/commands/patterns.js";
+import { createMigrateCommand } from "../../dist/cli/commands/migrate.js";
+import { createBriefCommand } from "../../dist/cli/commands/brief.js";
+import { createPackCommand } from "../../dist/cli/commands/pack.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -246,7 +248,7 @@ This file captures key learnings from completed tasks to inform future work.
     );
     console.log(
       chalk.cyan(
-        "  2. Create your first task: /create_task \"Your task description\"",
+        '  2. Create your first task: /create_task "Your task description"',
       ),
     );
     console.log(chalk.cyan("  3. Execute it: /task T001\n"));
@@ -271,7 +273,7 @@ program
       const pendingPath = ".apex/CONVENTIONS.pending.md";
 
       if (!fs.existsSync(conventionsPath)) {
-        spinner.fail("APEX not initialized. Run \"apex init\" first.");
+        spinner.fail('APEX not initialized. Run "apex init" first.');
         process.exit(1);
       }
 
@@ -377,7 +379,7 @@ program
       console.log(chalk.green("\n✨ APEX is properly configured!\n"));
     } else {
       console.log(chalk.red("\n⚠️  Some required components are missing."));
-      console.log(chalk.yellow("Run \"apex init\" to fix issues.\n"));
+      console.log(chalk.yellow('Run "apex init" to fix issues.\n'));
     }
   });
 
@@ -386,5 +388,11 @@ program.addCommand(createPatternsCommand());
 
 // Add migrate command
 program.addCommand(createMigrateCommand());
+
+// Add brief command
+program.addCommand(createBriefCommand());
+
+// Add pack command
+program.addCommand(createPackCommand());
 
 program.parse(process.argv);
