@@ -2,12 +2,13 @@ import { z } from "zod";
 // [PAT:IMPORT:ESM] ★★★★☆ (67 uses, 89% success) - From cache
 import { MCP_SCHEMA_VERSION } from "../../config/constants.js";
 
-// [PAT:PROTOCOL:MCP_SERVER] ★★★☆☆ (1 use) - Strict validation patterns
+// [PAT:PROTOCOL:MCP_SERVER] ★★★☆☆ (1 use) - Graceful validation patterns
+// [PAT:VALIDATION:PERMISSIVE] - Accept 2-4 segments for flexibility
 export const PatternIdSchema = z
   .string()
   .regex(
-    /^[A-Z0-9_.-]+:[A-Z0-9_]+:[A-Z0-9_]+:[A-Z0-9_]+$/,
-    "Pattern ID must match format: ORG.TEAM:TYPE:CATEGORY:NAME",
+    /^[A-Z0-9_.-]+(?::[A-Z0-9_.-]+){1,3}$/,
+    "Pattern ID must have 2-4 segments separated by colons",
   );
 
 export const TrustScoreSchema = z
@@ -149,6 +150,8 @@ export const BasePatternSchema = z.object({
   // Metadata
   source_repo: z.string().optional(),
   tags: z.array(z.string()).optional(),
+  keywords: z.array(z.string()).optional(), // Enhanced search keywords
+  search_index: z.string().optional(), // Pre-computed search terms
   applicability: ApplicabilitySchema.optional(),
   deprecated: DeprecationSchema.optional(),
   notes: z.string().optional(),

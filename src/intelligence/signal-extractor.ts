@@ -5,7 +5,8 @@
 
 import type { Pattern } from "../storage/types.js";
 
-type PatternType = "fix" | "code" | "pattern" | "refactor" | "command";
+// Map signal types to actual pattern types
+type SignalPatternType = "fix" | "code" | "pattern" | "refactor" | "command";
 type PatternCategory = "auth" | "api" | "test" | "error" | "db" | "ui";
 
 export interface ExtractedSignals {
@@ -23,7 +24,7 @@ export interface ExtractedSignals {
   libraries: string[]; // e.g., ["axios", "lodash", "zod"]
 
   // Pattern hints
-  suggestedTypes: PatternType[];
+  suggestedTypes: SignalPatternType[];
   suggestedCategories: PatternCategory[];
 
   // Context clues
