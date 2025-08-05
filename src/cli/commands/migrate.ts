@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
+import Database from "better-sqlite3";
 import { PatternDatabase } from "../../storage/database.js";
 import {
   MigrationRunner,
@@ -22,9 +23,9 @@ export function createMigrateCommand(): Command {
       const spinner = ora("Checking migration status...").start();
 
       try {
-        const db = new PatternDatabase();
+        const db = new Database("patterns.db");
         const loader = new MigrationLoader();
-        const runner = new MigrationRunner(db.database);
+        const runner = new MigrationRunner(db);
 
         const migrations = await loader.loadMigrations();
         const status = runner.getStatus(migrations);
@@ -80,9 +81,9 @@ export function createMigrateCommand(): Command {
       const spinner = ora("Loading migrations...").start();
 
       try {
-        const db = new PatternDatabase();
+        const db = new Database("patterns.db");
         const loader = new MigrationLoader();
-        const runner = new MigrationRunner(db.database);
+        const runner = new MigrationRunner(db);
 
         const migrations = await loader.loadMigrations();
         const status = runner.getStatus(migrations);
@@ -130,9 +131,9 @@ export function createMigrateCommand(): Command {
           throw new Error("Count must be a positive number");
         }
 
-        const db = new PatternDatabase();
+        const db = new Database("patterns.db");
         const loader = new MigrationLoader();
-        const runner = new MigrationRunner(db.database);
+        const runner = new MigrationRunner(db);
 
         const migrations = await loader.loadMigrations();
         const status = runner.getStatus(migrations);
@@ -195,9 +196,9 @@ export function createMigrateCommand(): Command {
       const spinner = ora("Validating migrations...").start();
 
       try {
-        const db = new PatternDatabase();
+        const db = new Database("patterns.db");
         const loader = new MigrationLoader();
-        const validator = new MigrationValidator(db["db"]);
+        const validator = new MigrationValidator(db);
 
         const migrations = await loader.loadMigrations();
 

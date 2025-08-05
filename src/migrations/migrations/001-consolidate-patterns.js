@@ -2,27 +2,18 @@
  * Migration to consolidate pattern_drafts into patterns table
  * All patterns start with low trust scores and build up based on usage
  */
-
-// [BUILD:MODULE:ESM] ★★★☆☆ - ES module pattern
-import type { Migration } from "./types.js";
-import type Database from "better-sqlite3";
 import crypto from "crypto";
 // [PAT:IMPORT:ESM] ★★★★☆ (67 uses, 89% success) - From cache
 import { PATTERN_SCHEMA_VERSION } from "../config/constants.js";
-
-export const migration: Migration = {
+export const migration = {
   id: "001-consolidate-patterns",
   version: 1,
   name: "Consolidate pattern drafts into patterns table",
-
-  up: (db: Database.Database) => {
+  up: (db) => {
     // [PAT:dA0w9N1I9-4m] ★★★☆☆ - Synchronous transaction
     db.transaction(() => {
       // 1. Add columns to patterns table if they don't exist
-      const columns = (db.pragma("table_info(patterns)") as any[]).map(
-        (col: any) => col.name,
-      );
-
+      const columns = db.pragma("table_info(patterns)").map((col) => col.name);
       if (!columns.includes("alpha")) {
         db.exec("ALTER TABLE patterns ADD COLUMN alpha REAL DEFAULT 1.0");
       }
@@ -42,30 +33,17 @@ export const migration: Migration = {
       if (!columns.includes("status")) {
         db.exec('ALTER TABLE patterns ADD COLUMN status TEXT DEFAULT "active"');
       }
-
-      // 2. Check if pattern_drafts table exists
-      const tables = db
+      // 2. Get all drafts
+      const drafts = db
         .prepare(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name='pattern_drafts'",
+          `
+        SELECT draft_id, kind, json, created_at 
+        FROM pattern_drafts 
+        WHERE status = 'DRAFT'
+      `,
         )
-        .all() as any[];
-
-      let drafts: any[] = [];
-      if (tables.length > 0) {
-        // Get all drafts only if table exists
-        drafts = db
-          .prepare(
-            `
-          SELECT draft_id, kind, json, created_at 
-          FROM pattern_drafts 
-          WHERE status = 'DRAFT'
-        `,
-          )
-          .all() as any[];
-      }
-
+        .all();
       console.log(`Found ${drafts.length} drafts to migrate`);
-
       // 3. Insert drafts into patterns table
       const insertStmt = db.prepare(`
         INSERT OR IGNORE INTO patterns (
@@ -74,21 +52,16 @@ export const migration: Migration = {
           alpha, beta, usage_count, success_count, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
-
       for (const draft of drafts) {
         try {
           const patternData = JSON.parse(draft.json);
-
           // Generate pattern ID from draft ID or create new one
           const patternId =
             patternData.id || draft.draft_id.replace("draft:", "");
-
           // Determine pattern type
           const type = draft.kind === "ANTI_PATTERN" ? "ANTI" : "CODEBASE";
-
           // Initial trust score for new patterns (Beta(1,1) = 0.5)
           const initialTrustScore = 0.5;
-
           // Create canonical JSON
           const canonicalData = {
             id: patternId,
@@ -99,13 +72,11 @@ export const migration: Migration = {
             evidence: patternData.evidence || [],
           };
           const jsonCanonical = JSON.stringify(canonicalData, null, 2);
-
           // Create digest
           const digest = crypto
             .createHash("sha256")
             .update(jsonCanonical)
             .digest("hex");
-
           insertStmt.run(
             patternId,
             PATTERN_SCHEMA_VERSION, // schema version from config
@@ -122,54 +93,37 @@ export const migration: Migration = {
             1.0, // beta (Beta distribution)
             0, // usage_count
             0, // success_count
-            "draft", // status - mark as draft initially
+            "draft",
           );
-
           console.log(`Migrated pattern: ${patternId}`);
         } catch (error) {
           console.error(`Failed to migrate draft ${draft.draft_id}:`, error);
         }
       }
-
-      // 4. Update pattern_drafts to mark as migrated (only if table exists)
-      if (tables.length > 0) {
-        db.prepare(
-          `
-          UPDATE pattern_drafts 
-          SET status = 'APPROVED' 
-          WHERE status = 'DRAFT'
-        `,
-        ).run();
-      }
-
+      // 4. Update pattern_drafts to mark as migrated
+      db.prepare(
+        `
+        UPDATE pattern_drafts 
+        SET status = 'APPROVED' 
+        WHERE status = 'DRAFT'
+      `,
+      ).run();
       console.log("Migration completed successfully");
     })();
   },
-
-  down: (db: Database.Database) => {
+  down: (db) => {
     // [PAT:dA0w9N1I9-4m] ★★★☆☆ - Synchronous transaction
     db.transaction(() => {
-      // Check if pattern_drafts table exists
-      const tables = db
-        .prepare(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name='pattern_drafts'",
-        )
-        .all() as any[];
-
-      if (tables.length > 0) {
-        // Revert drafts back to DRAFT status only if table exists
-        db.prepare(
-          `
-          UPDATE pattern_drafts 
-          SET status = 'DRAFT' 
-          WHERE status = 'APPROVED'
-        `,
-        ).run();
-      }
-
+      // Revert drafts back to DRAFT status
+      db.prepare(
+        `
+        UPDATE pattern_drafts 
+        SET status = 'DRAFT' 
+        WHERE status = 'APPROVED'
+      `,
+      ).run();
       // Note: We don't remove columns from patterns table as SQLite doesn't support
       // dropping columns easily, and they don't harm if left in place
-
       // Remove migrated patterns that came from drafts
       db.prepare(
         `
@@ -177,7 +131,6 @@ export const migration: Migration = {
         WHERE status = 'draft'
       `,
       ).run();
-
       console.log("Rollback completed successfully");
     })();
   },

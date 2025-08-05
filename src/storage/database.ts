@@ -46,8 +46,8 @@ export class PatternDatabase {
   }
 
   private initializeSchema(): void {
-    // Core pattern table
-    this.db.exec(`
+    // Core pattern table with enhanced search fields
+    const createTableSQL = `
       CREATE TABLE IF NOT EXISTS patterns (
         id                TEXT PRIMARY KEY,
         schema_version    TEXT NOT NULL,
@@ -64,9 +64,15 @@ export class PatternDatabase {
         json_canonical    BLOB NOT NULL,
         invalid           INTEGER NOT NULL DEFAULT 0,
         invalid_reason    TEXT,
-        alias             TEXT UNIQUE
+        alias             TEXT UNIQUE,
+        tags              TEXT,
+        keywords          TEXT,
+        search_index      TEXT
       );
-    `);
+    `;
+
+    // Execute the CREATE TABLE statement
+    this.db.exec(createTableSQL);
 
     // Facet tables
     this.db.exec(`
