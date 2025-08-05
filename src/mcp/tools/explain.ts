@@ -11,6 +11,7 @@ import { BetaBernoulliTrustModel } from "../../trust/beta-bernoulli.js";
 import { JSONStorageAdapter } from "../../trust/storage-adapter.js";
 import { createHash } from "crypto";
 import { lookupMetrics } from "./metrics.js";
+import { extractEnhancedSignals } from "../../intelligence/signal-extractor.js";
 import {
   InvalidParamsError,
   InternalError,
@@ -22,6 +23,7 @@ import type {
   PatternTrigger,
   PatternVocab,
 } from "../../storage/types.js";
+import Database from "better-sqlite3";
 
 // Request validation schema
 const ExplainRequestSchema = z.object({
@@ -77,12 +79,23 @@ interface CodeExample {
   description: string;
 }
 
+interface ErrorResolution {
+  error: string;
+  fix: string;
+  code?: string;
+  pattern_ref?: string;
+}
+
 interface ExplainResponse {
   pattern: PatternInfo;
   explanation: Explanation;
   trust_context: TrustContext;
   examples?: CodeExample[];
   session_boost?: number;
+  error_resolution?: ErrorResolution;
+  complementary_patterns?: string[];
+  conflicting_patterns?: string[];
+  workflow_context?: string;
   request_id: string;
   latency_ms: number;
 }
@@ -120,6 +133,7 @@ export class PatternExplainer {
   private repository: PatternRepository;
   private trustModel: BetaBernoulliTrustModel;
   private cache: ExplanationCache;
+  private db: Database.Database;
 
   constructor(repository: PatternRepository) {
     this.repository = repository;
@@ -129,6 +143,9 @@ export class PatternExplainer {
     this.trustModel = new BetaBernoulliTrustModel(storageAdapter);
 
     this.cache = new ExplanationCache();
+
+    // [FIX:SQLITE:SYNC] ★☆☆☆☆ (2 uses, 100% success) - Initialize database for metadata queries
+    this.db = new Database("patterns.db");
   }
 
   async explain(request: ExplainRequest): Promise<ExplainResponse> {
@@ -162,11 +179,10 @@ export class PatternExplainer {
       }
 
       // [FIX:SQLITE:SYNC] ★☆☆☆☆ (2 uses, 100% success) - Synchronous operations
-      // For now, we'll use empty arrays for metadata until Phase 1 integration is complete
-      // TODO: Query pattern_metadata, pattern_triggers, pattern_vocab tables
-      const metadata: PatternMetadata[] = [];
-      const triggers: PatternTrigger[] = [];
-      const vocab: PatternVocab[] = [];
+      // Query metadata tables (synchronous to avoid SQLite async issues)
+      const metadata = this.getPatternMetadata(pattern.id);
+      const triggers = this.getPatternTriggers(pattern.id);
+      const vocab = this.getPatternVocab(pattern.id);
 
       // Build pattern info
       const patternInfo: PatternInfo = {
@@ -181,14 +197,22 @@ export class PatternExplainer {
       // Calculate trust context
       const trustContext = await this.calculateTrustContext(pattern);
 
-      // Generate contextual explanation
-      const explanation = this.generateExplanation(
+      // Generate contextual explanation with enhanced context awareness
+      const explanationResult = this.generateExplanation(
         pattern,
         metadata,
         triggers,
         vocab,
         validatedRequest.context,
       );
+
+      const {
+        explanation,
+        errorResolution,
+        complementaryPatterns,
+        conflictingPatterns,
+        workflowContext,
+      } = explanationResult;
 
       // Calculate session boost if context provided
       const sessionBoost = this.calculateSessionBoost(
@@ -198,12 +222,16 @@ export class PatternExplainer {
           | undefined,
       );
 
-      // Prepare response
+      // Prepare response with enhanced context fields
       const response: ExplainResponse = {
         pattern: patternInfo,
         explanation,
         trust_context: trustContext,
         session_boost: sessionBoost > 0 ? sessionBoost : undefined,
+        error_resolution: errorResolution,
+        complementary_patterns: complementaryPatterns,
+        conflicting_patterns: conflictingPatterns,
+        workflow_context: workflowContext,
         request_id: requestId,
         latency_ms: Date.now() - startTime,
       };
@@ -287,7 +315,13 @@ export class PatternExplainer {
     triggers: PatternTrigger[],
     vocab: PatternVocab[],
     context?: ExplainRequest["context"],
-  ): Explanation {
+  ): {
+    explanation: Explanation;
+    errorResolution?: ErrorResolution;
+    complementaryPatterns?: string[];
+    conflictingPatterns?: string[];
+    workflowContext?: string;
+  } {
     // Extract guidance from metadata
     const usageGuidance = metadata.find((m) => m.key === "usage_guidance");
     const commonMistakes = metadata.find((m) => m.key === "common_mistakes");
@@ -322,19 +356,94 @@ export class PatternExplainer {
       );
     }
 
-    // Context-aware adjustments
-    if (context?.current_errors && errorTriggers.length > 0) {
-      const relevantError = context.current_errors.find((err) =>
-        errorTriggers.some((t) => err.includes(t.trigger_value)),
-      );
-      if (relevantError) {
-        whenToUse.unshift(
-          `⚠️ Directly addresses your current error: "${relevantError}"`,
-        );
+    // Enhanced Context-aware adjustments
+    let errorResolution: ErrorResolution | undefined;
+    let complementaryPatterns: string[] | undefined;
+    let conflictingPatterns: string[] | undefined;
+    let workflowContext: string | undefined;
+
+    // A. Error-Specific Guidance
+    if (context?.current_errors && context.current_errors.length > 0) {
+      // Extract error signals for better matching
+      const errorSignals = extractEnhancedSignals("", context.current_errors);
+
+      // Find matching error triggers with enhanced matching
+      for (const error of context.current_errors) {
+        const matchingTrigger = errorTriggers.find((t) => {
+          // Exact match or keyword match
+          return (
+            error.includes(t.trigger_value) ||
+            errorSignals.errorKeywords.some((keyword) =>
+              t.trigger_value.toLowerCase().includes(keyword.toLowerCase()),
+            )
+          );
+        });
+
+        if (matchingTrigger) {
+          // Find fix pattern from metadata
+          const fixMetadata = metadata.find(
+            (m) => m.key === `error_fix_${matchingTrigger.trigger_value}`,
+          );
+          const codeExample = metadata.find(
+            (m) => m.key === `error_code_${matchingTrigger.trigger_value}`,
+          );
+
+          errorResolution = {
+            error: this.sanitizeError(error),
+            fix:
+              (fixMetadata?.value as string) ||
+              `Apply ${pattern.id} pattern to resolve this error`,
+            code: codeExample?.value as string,
+            pattern_ref: pattern.id,
+          };
+
+          whenToUse.unshift(
+            `⚠️ Directly addresses your current error: "${this.sanitizeError(error)}"`,
+          );
+          break;
+        }
       }
     }
 
-    return {
+    // B. Session-Aware Recommendations
+    if (context?.session_patterns && context.session_patterns.length > 0) {
+      const { complementary, conflicting } = this.analyzeSessionPatterns(
+        pattern.id,
+        context.session_patterns as Array<{
+          pattern_id: string;
+          success: boolean;
+        }>,
+        metadata,
+      );
+
+      if (complementary.length > 0) {
+        complementaryPatterns = complementary;
+      }
+
+      if (conflicting.length > 0) {
+        conflictingPatterns = conflicting;
+      }
+    }
+
+    // C. Task-Type Customization
+    if (context?.task_type) {
+      workflowContext = this.getWorkflowContext(
+        context.task_type,
+        pattern,
+        vocab,
+      );
+
+      // Adjust when_to_use based on task type
+      if (context.task_type.includes("test")) {
+        whenToUse.unshift("Essential for test implementation and mocking");
+      } else if (context.task_type.includes("fix")) {
+        whenToUse.unshift("Recommended fix pattern for this type of issue");
+      } else if (context.task_type.includes("refactor")) {
+        whenToUse.unshift("Improves code structure and maintainability");
+      }
+    }
+
+    const explanation: Explanation = {
       summary: pattern.summary,
       when_to_use:
         whenToUse.length > 0 ? whenToUse : ["General purpose pattern"],
@@ -343,6 +452,14 @@ export class PatternExplainer {
         "Follow the pattern structure as shown in examples",
       common_mistakes: (commonMistakes?.value as string[]) || [],
       related_patterns: (relatedPatterns?.value as string[]) || [],
+    };
+
+    return {
+      explanation,
+      errorResolution,
+      complementaryPatterns,
+      conflictingPatterns,
+      workflowContext,
     };
   }
 
@@ -401,8 +518,17 @@ export class PatternExplainer {
   }
 
   private getCacheKey(request: ExplainRequest): string {
-    const contextKey = request.context
-      ? createHash("md5").update(JSON.stringify(request.context)).digest("hex")
+    // Enhanced cache key generation - exclude volatile session patterns
+    const cacheContext = request.context
+      ? {
+          task_type: request.context.task_type,
+          current_errors: request.context.current_errors?.slice(0, 3), // Only first 3 errors
+          // Exclude session_patterns as they're too volatile
+        }
+      : null;
+
+    const contextKey = cacheContext
+      ? createHash("md5").update(JSON.stringify(cacheContext)).digest("hex")
       : "no-context";
     return `explain:${request.pattern_id}:${request.verbosity}:${contextKey}`;
   }
@@ -413,5 +539,166 @@ export class PatternExplainer {
     if (trustScore >= 0.5) return "medium";
     if (trustScore >= 0.3) return "low";
     return "very_low";
+  }
+
+  // New helper methods for metadata queries
+  private getPatternMetadata(patternId: string): PatternMetadata[] {
+    // [FIX:SQLITE:SYNC] ★☆☆☆☆ - Synchronous database query
+    const stmt = this.db.prepare(
+      "SELECT * FROM pattern_metadata WHERE pattern_id = ?",
+    );
+    const rows = stmt.all(patternId) as PatternMetadata[];
+    return rows || [];
+  }
+
+  private getPatternTriggers(patternId: string): PatternTrigger[] {
+    // [FIX:SQLITE:SYNC] ★☆☆☆☆ - Synchronous database query
+    const stmt = this.db.prepare(
+      "SELECT * FROM pattern_triggers WHERE pattern_id = ? ORDER BY priority DESC",
+    );
+    const rows = stmt.all(patternId) as PatternTrigger[];
+    return rows || [];
+  }
+
+  private getPatternVocab(patternId: string): PatternVocab[] {
+    // [FIX:SQLITE:SYNC] ★☆☆☆☆ - Synchronous database query
+    const stmt = this.db.prepare(
+      "SELECT * FROM pattern_vocab WHERE pattern_id = ? ORDER BY weight DESC",
+    );
+    const rows = stmt.all(patternId) as PatternVocab[];
+    return rows || [];
+  }
+
+  // Helper to sanitize error messages (remove sensitive paths/data)
+  private sanitizeError(error: string): string {
+    // Remove absolute paths
+    let sanitized = error.replace(/\/[\w\/-]+\/(\w+\.\w+)/g, "$1");
+    // Remove potential secrets (anything that looks like a key/token)
+    sanitized = sanitized.replace(/[a-zA-Z0-9]{32,}/g, "[REDACTED]");
+    // Limit length
+    if (sanitized.length > 200) {
+      sanitized = sanitized.substring(0, 197) + "...";
+    }
+    return sanitized;
+  }
+
+  // Analyze session patterns for complementary/conflicting relationships
+  private analyzeSessionPatterns(
+    currentPatternId: string,
+    sessionPatterns: Array<{ pattern_id: string; success: boolean }>,
+    metadata: PatternMetadata[],
+  ): { complementary: string[]; conflicting: string[] } {
+    const complementary: string[] = [];
+    const conflicting: string[] = [];
+
+    // Define complementary pattern relationships (from semantic-scorer.ts)
+    const complementaryPairs = [
+      { primary: "API", complement: "ERROR_HANDLING" },
+      { primary: "AUTH", complement: "SESSION" },
+      { primary: "TEST", complement: "MOCK" },
+      { primary: "DATABASE", complement: "MIGRATION" },
+      { primary: "ASYNC", complement: "ERROR_HANDLING" },
+    ];
+
+    // Define conflicting patterns
+    const conflictingPairs = [
+      { pattern1: "ASYNC", pattern2: "SYNC" },
+      { pattern1: "CLASS", pattern2: "FUNCTIONAL" },
+      { pattern1: "REST", pattern2: "GRAPHQL" },
+    ];
+
+    // Check for complementary patterns
+    for (const pair of complementaryPairs) {
+      if (currentPatternId.includes(pair.primary)) {
+        const complement = sessionPatterns.find(
+          (p) => p.pattern_id.includes(pair.complement) && p.success,
+        );
+        if (complement) {
+          complementary.push(complement.pattern_id);
+        }
+      } else if (currentPatternId.includes(pair.complement)) {
+        const primary = sessionPatterns.find(
+          (p) => p.pattern_id.includes(pair.primary) && p.success,
+        );
+        if (primary) {
+          complementary.push(primary.pattern_id);
+        }
+      }
+    }
+
+    // Check for conflicting patterns
+    for (const pair of conflictingPairs) {
+      if (currentPatternId.includes(pair.pattern1)) {
+        const conflict = sessionPatterns.find((p) =>
+          p.pattern_id.includes(pair.pattern2),
+        );
+        if (conflict) {
+          conflicting.push(conflict.pattern_id);
+        }
+      } else if (currentPatternId.includes(pair.pattern2)) {
+        const conflict = sessionPatterns.find((p) =>
+          p.pattern_id.includes(pair.pattern1),
+        );
+        if (conflict) {
+          conflicting.push(conflict.pattern_id);
+        }
+      }
+    }
+
+    // Check metadata for explicit relationships
+    const relatedMeta = metadata.find(
+      (m) => m.key === "complementary_patterns",
+    );
+    if (relatedMeta && Array.isArray(relatedMeta.value)) {
+      for (const related of relatedMeta.value as string[]) {
+        if (
+          sessionPatterns.some((p) => p.pattern_id === related && p.success)
+        ) {
+          if (!complementary.includes(related)) {
+            complementary.push(related);
+          }
+        }
+      }
+    }
+
+    return { complementary, conflicting };
+  }
+
+  // Get workflow context based on task type
+  private getWorkflowContext(
+    taskType: string,
+    pattern: Pattern,
+    vocab: PatternVocab[],
+  ): string {
+    const taskLower = taskType.toLowerCase();
+
+    // Check vocab for workflow-specific terms
+    const relevantTerms = vocab.filter(
+      (v) => v.term_type === "verb" || v.term_type === "concept",
+    );
+
+    if (taskLower.includes("test") || taskLower.includes("spec")) {
+      return "Testing phase: This pattern helps ensure reliable test implementation";
+    } else if (taskLower.includes("fix") || taskLower.includes("bug")) {
+      return "Bug fixing phase: Apply this pattern to resolve the issue correctly";
+    } else if (taskLower.includes("refactor")) {
+      return "Refactoring phase: Use this pattern to improve code structure";
+    } else if (
+      taskLower.includes("implement") ||
+      taskLower.includes("feature")
+    ) {
+      return "Implementation phase: Follow this pattern for consistent feature development";
+    } else if (
+      taskLower.includes("optimize") ||
+      taskLower.includes("performance")
+    ) {
+      return "Optimization phase: This pattern can improve performance";
+    } else if (relevantTerms.length > 0) {
+      // Use vocabulary to determine context
+      const topTerm = relevantTerms[0];
+      return `${topTerm.term} context: Pattern optimized for ${topTerm.term} operations`;
+    }
+
+    return "General development context: Pattern applicable across various scenarios";
   }
 }

@@ -14,12 +14,16 @@ import { PatternLookupService } from "./lookup.js";
 import { ReflectionService } from "./reflect.js";
 import { PatternDiscoverer } from "./discover.js";
 import { PatternExplainer } from "./explain.js";
+import { TaskService } from "./task.js";
+import { TaskRepository } from "../../storage/repositories/task-repository.js";
+import { PatternDatabase } from "../../storage/database.js";
 
 let repository: PatternRepository | null = null;
 let lookupService: PatternLookupService | null = null;
 let reflectionService: ReflectionService | null = null;
 let discoverService: PatternDiscoverer | null = null;
 let explainService: PatternExplainer | null = null;
+let taskService: TaskService | null = null;
 
 /**
  * Initialize tool dependencies
@@ -33,6 +37,11 @@ export function initializeTools(repo: PatternRepository): void {
   });
   discoverService = new PatternDiscoverer(repo);
   explainService = new PatternExplainer(repo);
+  
+  // Initialize task service with database
+  const db = new PatternDatabase("patterns.db").getDatabase();
+  const taskRepository = new TaskRepository(db);
+  taskService = new TaskService(taskRepository);
 }
 
 /**
@@ -115,6 +124,105 @@ export async function registerTools(server: Server): Promise<void> {
               {
                 type: "text",
                 text: JSON.stringify(explainResponse),
+              },
+            ],
+          };
+
+        // Task management tools
+        case "apex.task.create":
+          if (!taskService) {
+            throw new Error("Task service not initialized");
+          }
+          const createResponse = await taskService.create(args);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(createResponse),
+              },
+            ],
+          };
+
+        case "apex.task.find":
+          if (!taskService) {
+            throw new Error("Task service not initialized");
+          }
+          const findResponse = await taskService.find(args);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(findResponse),
+              },
+            ],
+          };
+
+        case "apex.task.find_similar":
+          if (!taskService) {
+            throw new Error("Task service not initialized");
+          }
+          const similarResponse = await taskService.findSimilar(args);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(similarResponse),
+              },
+            ],
+          };
+
+        case "apex.task.current":
+          if (!taskService) {
+            throw new Error("Task service not initialized");
+          }
+          const currentResponse = await taskService.getCurrent();
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(currentResponse),
+              },
+            ],
+          };
+
+        case "apex.task.update":
+          if (!taskService) {
+            throw new Error("Task service not initialized");
+          }
+          await taskService.update(args);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({ success: true }),
+              },
+            ],
+          };
+
+        case "apex.task.checkpoint":
+          if (!taskService) {
+            throw new Error("Task service not initialized");
+          }
+          await taskService.checkpoint(args);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({ success: true }),
+              },
+            ],
+          };
+
+        case "apex.task.complete":
+          if (!taskService) {
+            throw new Error("Task service not initialized");
+          }
+          const completeResponse = await taskService.complete(args);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(completeResponse),
               },
             ],
           };
@@ -441,16 +549,131 @@ export function getToolsList(): Tool[] {
                   type: "object",
                   properties: {
                     pattern_id: { type: "string" },
-                    evidence: { type: "array" },
+                    evidence: {
+                      type: "array",
+                      description:
+                        "Evidence array - use 'git_lines' for code references, not 'code_lines'",
+                      items: {
+                        type: "object",
+                        properties: {
+                          kind: {
+                            type: "string",
+                            enum: ["git_lines", "commit", "pr", "ci_run"],
+                            description:
+                              "Type of evidence - use 'git_lines' for code references",
+                          },
+                          file: {
+                            type: "string",
+                            description: "File path (for git_lines)",
+                          },
+                          sha: {
+                            type: "string",
+                            description: "Git SHA or 'HEAD' for uncommitted",
+                          },
+                          start: {
+                            type: "number",
+                            description: "Start line number (for git_lines)",
+                          },
+                          end: {
+                            type: "number",
+                            description: "End line number (for git_lines)",
+                          },
+                        },
+                        required: ["kind"],
+                      },
+                      examples: [
+                        {
+                          kind: "git_lines",
+                          file: "src/api.ts",
+                          sha: "HEAD",
+                          start: 10,
+                          end: 20,
+                        },
+                      ],
+                    },
                     snippet_id: { type: "string" },
                     notes: { type: "string" },
                   },
                   required: ["pattern_id", "evidence"],
                 },
               },
-              new_patterns: { type: "array" },
-              anti_patterns: { type: "array" },
-              learnings: { type: "array" },
+              new_patterns: {
+                type: "array",
+                description: "New patterns discovered during task execution",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string", description: "Pattern title" },
+                    summary: {
+                      type: "string",
+                      description: "Brief description",
+                    },
+                    snippets: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          snippet_id: { type: "string" },
+                          source_ref: {
+                            type: "object",
+                            description:
+                              "Source reference object (not string!)",
+                            properties: {
+                              kind: { type: "string", enum: ["git_lines"] },
+                              file: { type: "string" },
+                              sha: { type: "string" },
+                              start: { type: "number" },
+                              end: { type: "number" },
+                            },
+                          },
+                          language: { type: "string" },
+                          code: { type: "string" },
+                        },
+                      },
+                    },
+                    evidence: { type: "array" },
+                  },
+                },
+              },
+              anti_patterns: {
+                type: "array",
+                description: "Patterns that caused problems",
+                items: {
+                  type: "object",
+                  properties: {
+                    pattern_id: { type: "string" },
+                    reason: { type: "string" },
+                    evidence: { type: "array" },
+                  },
+                },
+              },
+              learnings: {
+                type: "array",
+                description: "Key learnings from task execution",
+                items: {
+                  type: "object",
+                  properties: {
+                    assertion: {
+                      type: "string",
+                      description: "Learning statement",
+                    },
+                    evidence: {
+                      type: "array",
+                      description: "Evidence objects (not strings!)",
+                      items: {
+                        type: "object",
+                        properties: {
+                          kind: { type: "string", enum: ["git_lines"] },
+                          file: { type: "string" },
+                          sha: { type: "string" },
+                          start: { type: "number" },
+                          end: { type: "number" },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
               trust_updates: {
                 type: "array",
                 items: {
@@ -636,6 +859,196 @@ export function getToolsList(): Tool[] {
           },
         },
         required: ["pattern_id"],
+      },
+    },
+    // Task management tools
+    {
+      name: "apex.task.create",
+      description: "Create a new task with auto-generated brief from intent",
+      inputSchema: {
+        type: "object",
+        properties: {
+          identifier: {
+            type: "string",
+            description: "Optional external identifier (e.g., JIRA-1234, APE-50)",
+          },
+          intent: {
+            type: "string",
+            description: "Description of what needs to be done",
+            minLength: 1,
+            maxLength: 1000,
+          },
+          type: {
+            type: "string",
+            enum: ["bug", "feature", "refactor", "test", "docs", "perf"],
+            description: "Type of task",
+          },
+        },
+        required: ["intent"],
+      },
+    },
+    {
+      name: "apex.task.find",
+      description: "Find tasks by various criteria",
+      inputSchema: {
+        type: "object",
+        properties: {
+          tags: {
+            type: "array",
+            items: { type: "string" },
+            description: "Tags to filter by",
+          },
+          themes: {
+            type: "array",
+            items: { type: "string" },
+            description: "Themes to filter by",
+          },
+          components: {
+            type: "array",
+            items: { type: "string" },
+            description: "Components to filter by",
+          },
+          status: {
+            type: "string",
+            enum: ["active", "completed", "failed", "blocked"],
+            description: "Task status to filter by",
+          },
+          limit: {
+            type: "number",
+            minimum: 1,
+            maximum: 100,
+            default: 10,
+            description: "Maximum number of tasks to return",
+          },
+        },
+      },
+    },
+    {
+      name: "apex.task.find_similar",
+      description: "Find tasks similar to a given task or the current active task",
+      inputSchema: {
+        type: "object",
+        properties: {
+          taskId: {
+            type: "string",
+            description: "Task ID to find similar tasks for (defaults to most recent active)",
+          },
+        },
+      },
+    },
+    {
+      name: "apex.task.current",
+      description: "Get all currently active tasks",
+      inputSchema: {
+        type: "object",
+        properties: {},
+      },
+    },
+    {
+      name: "apex.task.update",
+      description: "Update task with execution details",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: {
+            type: "string",
+            description: "Task ID to update",
+          },
+          phase: {
+            type: "string",
+            enum: ["ARCHITECT", "BUILDER", "VALIDATOR", "REVIEWER", "DOCUMENTER"],
+            description: "Current execution phase",
+          },
+          decisions: {
+            type: "array",
+            items: { type: "string" },
+            description: "Key decisions made",
+          },
+          files: {
+            type: "array",
+            items: { type: "string" },
+            description: "Files modified",
+          },
+          errors: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                error: { type: "string" },
+                fix: { type: "string" },
+              },
+              required: ["error"],
+            },
+            description: "Errors encountered and their fixes",
+          },
+          confidence: {
+            type: "number",
+            minimum: 0,
+            maximum: 1,
+            description: "Confidence level (0-1)",
+          },
+          handoff: {
+            type: "string",
+            description: "Phase handoff information",
+          },
+        },
+        required: ["id"],
+      },
+    },
+    {
+      name: "apex.task.checkpoint",
+      description: "Add a checkpoint message to task tracking",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: {
+            type: "string",
+            description: "Task ID",
+          },
+          message: {
+            type: "string",
+            description: "Checkpoint message",
+            minLength: 1,
+            maxLength: 1000,
+          },
+          confidence: {
+            type: "number",
+            minimum: 0,
+            maximum: 1,
+            description: "Optional confidence level",
+          },
+        },
+        required: ["id", "message"],
+      },
+    },
+    {
+      name: "apex.task.complete",
+      description: "Complete a task and generate reflection draft",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: {
+            type: "string",
+            description: "Task ID to complete",
+          },
+          outcome: {
+            type: "string",
+            enum: ["success", "partial", "failure"],
+            description: "Task outcome",
+          },
+          key_learning: {
+            type: "string",
+            description: "Key learning from the task",
+            minLength: 1,
+            maxLength: 500,
+          },
+          patterns_used: {
+            type: "array",
+            items: { type: "string" },
+            description: "Pattern IDs used during task",
+          },
+        },
+        required: ["id", "outcome", "key_learning"],
       },
     },
   ];

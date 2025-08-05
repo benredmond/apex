@@ -64,24 +64,42 @@ export class EvidenceValidator {
 
   /**
    * Validate all evidence in a reflection request
+   * [PAT:ERROR:HANDLING] ★★☆☆☆ - Graceful degradation pattern
    */
   async validateRequest(request: ReflectRequest): Promise<{
     valid: boolean;
     errors: Array<{ path: string; code: string; message: string }>;
+    warnings?: Array<{ path: string; code: string; message: string }>;
+    queued?: Array<{ item: any; reason: string }>;
   }> {
     const errors: Array<{ path: string; code: string; message: string }> = [];
+    const warnings: Array<{ path: string; code: string; message: string }> = [];
+    const queued: Array<{ item: any; reason: string }> = [];
     const validators: string[] = [];
+
+    // Check validation mode from environment
+    const isPermissive = process.env.APEX_REFLECTION_MODE === "permissive";
 
     // Validate pattern IDs exist
     for (const [index, usage] of request.claims.patterns_used.entries()) {
       validators.push("pattern_exists");
       const pattern = await this.repository.getByIdOrAlias(usage.pattern_id);
       if (!pattern) {
-        errors.push({
+        const error = {
           path: `claims.patterns_used[${index}].pattern_id`,
           code: ValidationErrorCode.PATTERN_NOT_FOUND,
           message: `Pattern ${usage.pattern_id} not found`,
-        });
+        };
+
+        if (isPermissive) {
+          warnings.push(error);
+          queued.push({
+            item: usage,
+            reason: `Pattern not found: ${usage.pattern_id}`,
+          });
+        } else {
+          errors.push(error);
+        }
       }
 
       // Validate evidence for each pattern usage
@@ -167,9 +185,19 @@ export class EvidenceValidator {
       }
     }
 
+    // In permissive mode, we're valid if there are no critical errors (only warnings)
+    const valid = isPermissive
+      ? errors.length === 0 ||
+        (errors.length > 0 &&
+          warnings.length > 0 &&
+          errors.every((e) => warnings.some((w) => w.path === e.path)))
+      : errors.length === 0;
+
     return {
-      valid: errors.length === 0,
+      valid,
       errors,
+      ...(warnings.length > 0 && { warnings }),
+      ...(queued.length > 0 && { queued }),
     };
   }
 
@@ -255,12 +283,29 @@ export class EvidenceValidator {
     code?: string;
     message?: string;
     confidence?: number;
+    warning?: string;
   }> {
+    // Check validation mode
+    const isPermissive = process.env.APEX_REFLECTION_MODE === "permissive";
+    const gitRefs = ["HEAD", "main", "master", "origin/main", "origin/master"];
+    const isGitRef = gitRefs.includes(sha);
+
     // Resolve git ref to full SHA
     let resolvedSha: string;
     try {
       resolvedSha = await this.gitResolver.resolveRef(sha);
     } catch (error) {
+      // In permissive mode or for common git refs, continue with warning
+      if (isPermissive || isGitRef) {
+        resolvedSha = sha; // Use original SHA and continue
+        return {
+          valid: true,
+          warning: `SHA ${sha} could not be resolved (${error.message}), continuing anyway`,
+          confidence: 0.5, // Lower confidence when we can't verify
+        };
+      }
+
+      // Strict mode: fail as before
       return {
         valid: false,
         code: ValidationErrorCode.MALFORMED_EVIDENCE,

@@ -33,6 +33,23 @@ export class PatternInserter {
   }
 
   /**
+   * Check if a pattern with the given ID already exists
+   * [PAT:VALIDATION:SCHEMA] ★★★★★ (40 uses, 95% success) - Pre-validation check
+   */
+  private checkDuplicatePattern(patternId: string): {
+    exists: boolean;
+    existingPattern?: any;
+  } {
+    const existing = this.db
+      .prepare("SELECT id, title, type FROM patterns WHERE id = ?")
+      .get(patternId);
+    return {
+      exists: !!existing,
+      existingPattern: existing,
+    };
+  }
+
+  /**
    * Insert a new pattern directly into the patterns table
    * with initial trust score based on Beta(1,1) = 0.5
    */
@@ -41,9 +58,10 @@ export class PatternInserter {
     kind: "NEW_PATTERN" | "ANTI_PATTERN",
   ): string {
     // Generate pattern ID
+    // [FIX:PATTERN:4_SEGMENT_ID] - Generate compliant 4-segment IDs
     const patternId =
       ("id" in pattern && pattern.id) ||
-      `${kind === "ANTI_PATTERN" ? "ANTI" : "PAT"}:${nanoid(12)}`;
+      `APEX.SYSTEM:${kind === "ANTI_PATTERN" ? "ANTI" : "PAT"}:AUTO:${nanoid(8)}`;
 
     // Determine pattern type
     const type = kind === "ANTI_PATTERN" ? "ANTI" : "CODEBASE";
@@ -86,18 +104,36 @@ export class PatternInserter {
 
     const now = new Date().toISOString();
 
-    // Generate alias and ensure uniqueness
-    let baseAlias = this.generateAlias(title);
-    let finalAlias = baseAlias;
-    let counter = 1;
+    // Use originalId as alias if provided, otherwise generate from title
+    let finalAlias: string;
+    if ("originalId" in pattern && (pattern as any).originalId) {
+      // Use the original non-compliant ID as the alias
+      finalAlias = (pattern as any).originalId;
+    } else {
+      // Generate alias from title and ensure uniqueness
+      let baseAlias = this.generateAlias(title);
+      finalAlias = baseAlias;
+      let counter = 1;
 
-    // Check for existing aliases
-    const checkAliasStmt = this.db.prepare(
-      "SELECT COUNT(*) as count FROM patterns WHERE alias = ?",
-    );
-    while ((checkAliasStmt.get(finalAlias) as any).count > 0) {
-      finalAlias = `${baseAlias}-${counter}`;
-      counter++;
+      // Check for existing aliases
+      const checkAliasStmt = this.db.prepare(
+        "SELECT COUNT(*) as count FROM patterns WHERE alias = ?",
+      );
+      while ((checkAliasStmt.get(finalAlias) as any).count > 0) {
+        finalAlias = `${baseAlias}-${counter}`;
+        counter++;
+      }
+    }
+
+    // [PAT:VALIDATION:SCHEMA] ★★★★★ - Pre-check for duplicate pattern
+    const duplicateCheck = this.checkDuplicatePattern(patternId as string);
+    if (duplicateCheck.exists) {
+      // [PAT:ERROR:HANDLING] ★★★★☆ - Clear duplicate detection message
+      console.log(
+        `[PatternInserter] Duplicate pattern detected: ${patternId} (${duplicateCheck.existingPattern?.title})`,
+      );
+      // Return existing pattern ID for idempotency
+      return patternId as string;
     }
 
     // Insert into patterns table
@@ -127,11 +163,15 @@ export class PatternInserter {
       finalAlias, // alias
     );
 
-    // If pattern already existed, return existing ID
+    // If pattern already existed (race condition), return existing ID
+    // [FIX:DB:SHARED_CONNECTION] ★★★★★ - Handle race conditions gracefully
     if (info.changes === 0) {
       const existing = this.db
         .prepare("SELECT id FROM patterns WHERE id = ?")
         .get(patternId) as { id: string };
+      console.log(
+        `[PatternInserter] Race condition handled: Pattern ${patternId} was inserted by another process`,
+      );
       return existing.id;
     }
 

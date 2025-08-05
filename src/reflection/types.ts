@@ -130,48 +130,77 @@ export const TrustUpdateSchema = z
 
 export type TrustUpdate = z.infer<typeof TrustUpdateSchema>;
 
-// Main reflection request
-export const ReflectRequestSchema = z.object({
-  task: z.object({
-    id: z.string(),
-    title: z.string(),
-  }),
-  brief_id: z.string().optional(),
-  outcome: z.enum(["success", "partial", "failure"]),
-  artifacts: z
-    .object({
-      pr: z
-        .object({
-          number: z.number().positive(),
-          repo: z.string(),
-        })
-        .optional(),
-      commits: z.array(z.string().regex(/^[a-f0-9]{40}$/)).optional(),
-      ci_runs: z
-        .array(
-          z.object({
-            id: z.string(),
-            provider: z.string(),
-          }),
-        )
-        .optional(),
-    })
+// Batch pattern for simplified reflection format
+export const BatchPatternSchema = z.object({
+  pattern: z.string().min(1), // ID, alias, or title
+  outcome: PatternOutcomeSchema,
+  evidence: z
+    .union([
+      z.string(), // Simple string description
+      z.array(EvidenceRefSchema), // Full evidence array
+    ])
     .optional(),
-  claims: z.object({
-    patterns_used: z.array(PatternUsageSchema),
-    new_patterns: z.array(NewPatternSchema).optional(),
-    anti_patterns: z.array(AntiPatternSchema).optional(),
-    learnings: z.array(LearningSchema).optional(),
-    trust_updates: z.array(TrustUpdateSchema),
-  }),
-  options: z
-    .object({
-      dry_run: z.boolean().default(false),
-      auto_mine: z.boolean().default(false),
-      return_explain: z.boolean().default(true),
-    })
-    .default({}),
+  notes: z.string().optional(),
 });
+
+export type BatchPattern = z.infer<typeof BatchPatternSchema>;
+
+// Main reflection request
+export const ReflectRequestSchema = z
+  .object({
+    task: z.object({
+      id: z.string(),
+      title: z.string(),
+    }),
+    brief_id: z.string().optional(),
+    outcome: z.enum(["success", "partial", "failure"]),
+    artifacts: z
+      .object({
+        pr: z
+          .object({
+            number: z.number().positive(),
+            repo: z.string(),
+          })
+          .optional(),
+        commits: z.array(z.string().regex(/^[a-f0-9]{40}$/)).optional(),
+        ci_runs: z
+          .array(
+            z.object({
+              id: z.string(),
+              provider: z.string(),
+            }),
+          )
+          .optional(),
+      })
+      .optional(),
+    // Option 1: Traditional format (backward compatible)
+    claims: z
+      .object({
+        patterns_used: z.array(PatternUsageSchema),
+        new_patterns: z.array(NewPatternSchema).optional(),
+        anti_patterns: z.array(AntiPatternSchema).optional(),
+        learnings: z.array(LearningSchema).optional(),
+        trust_updates: z.array(TrustUpdateSchema),
+      })
+      .optional(),
+    // Option 2: Batch mode (new)
+    batch_patterns: z.array(BatchPatternSchema).optional(),
+    options: z
+      .object({
+        dry_run: z.boolean().default(false),
+        auto_mine: z.boolean().default(false),
+        return_explain: z.boolean().default(true),
+      })
+      .default({}),
+  })
+  .refine(
+    (data) =>
+      (data.claims && !data.batch_patterns) ||
+      (!data.claims && data.batch_patterns),
+    {
+      message: "Must provide either claims or batch_patterns",
+    },
+  );
 
 export type ReflectRequest = z.infer<typeof ReflectRequestSchema>;
 
@@ -193,6 +222,15 @@ export interface ReflectResponse {
       wilson_lb_after: number;
     }>;
   };
+  warnings?: Array<{
+    path: string;
+    code: string;
+    message: string;
+  }>;
+  queued?: Array<{
+    item: any;
+    reason: string;
+  }>;
   rejected: Array<{
     path: string;
     code: string;
