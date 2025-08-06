@@ -1,33 +1,34 @@
 {
   "metadata": {
-    "last_updated": "2025-08-04",
-    "total_patterns": 16,
-    "patterns_in_pending": 16,
+    "last_updated": "2025-08-06",
+    "total_patterns": 26,
+    "patterns_in_pending": 26,
     "patterns_promoted": 0,
     "average_trust_score": 3.96
   },
   "statistics": {
-    "total_patterns": 16,
+    "total_patterns": 28,
     "patterns_promoted_this_month": 0,
-    "average_trust_score": 3.96,
-    "total_usage_count": 348,
+    "average_trust_score": 3.95,
+    "total_usage_count": 385,
     "patterns_by_category": {
-      "FIX": 3,
-      "PAT": 13
+      "FIX": 5,
+      "PAT": 23
     }
   },
   "recent_activity": {
-    "patterns_used_today": 15,
-    "last_task_completed": "T048",
+    "patterns_used_today": 6,
+    "last_task_completed": "APE-65",
     "new_patterns_discovered": 5,
-    "last_pattern_added": "PAT:Z0KziNtvNPRj"
+    "last_pattern_added": "PAT:SCORING:WILSON_CONFIDENCE"
   },
   "pattern_effectiveness": {
     "PAT:VALIDATION:SCHEMA": {
-      "uses": 1,
+      "uses": 2,
       "success_rate": 100,
-      "last_used": "T053_S01",
-      "effectiveness": "excellent"
+      "last_used": "T060_APE-61",
+      "effectiveness": "excellent",
+      "notes": "Comprehensive validation for pattern registration and evidence format"
     },
     "PAT:BACKWARD:COMPAT": {
       "uses": 1, 
@@ -36,10 +37,11 @@
       "effectiveness": "excellent"
     },
     "PAT:BATCH:PROCESSING": {
-      "uses": 1,
+      "uses": 2,
       "success_rate": 100, 
-      "last_used": "T053_S01",
-      "effectiveness": "excellent"
+      "last_used": "T060_APE-61",
+      "effectiveness": "excellent",
+      "notes": "Successfully handled string array normalization in BatchProcessor.normalizeEvidence"
     },
     "PAT:TEST:SCHEMA": {
       "uses": 1,
@@ -55,11 +57,11 @@
       "performance_notes": "Exceeded requirements by 100x (0.01ms vs 10ms target)"
     },
     "FIX:SQLITE:SYNC": {
-      "uses": 7,
+      "uses": 12,
       "success_rate": 100,
-      "last_used": "APE-36",
+      "last_used": "APE-65",
       "effectiveness": "excellent",
-      "notes": "Essential for auto-create functionality and metadata queries"
+      "notes": "Essential for auto-create functionality and metadata queries. Prepared statements provide <50ms performance. Synchronous operations essential for task queries and enhanced metadata lookups. Pre-loaded data before reflection to ensure synchronous database operations."
     },
     "PAT:DI:CONSTRUCTOR": {
       "uses": 157,
@@ -90,18 +92,18 @@
       "performance_notes": "95% reduction in pattern lookups through caching"
     },
     "PAT:ARCHITECTURE:SERVICE_PATTERN": {
-      "uses": 2,
+      "uses": 3,
       "success_rate": 100,
-      "last_used": "APE-36",
+      "last_used": "T059_APE55",
       "effectiveness": "excellent",
-      "notes": "Clean separation between MCP layer and business logic"
+      "notes": "Clean separation between MCP layer and business logic, worked perfectly for ContextPackService design"
     },
     "PAT:ERROR:HANDLING": {
-      "uses": 2,
+      "uses": 4,
       "success_rate": 100,
-      "last_used": "APE-36",
+      "last_used": "T060_S01",
       "effectiveness": "excellent",
-      "notes": "Comprehensive error management with graceful degradation"
+      "notes": "Comprehensive error management with graceful degradation, maintained backward compatibility in validation fixes. Reflection failures don't fail task completion - graceful degradation."
     },
     "PAT:CACHE:TTL_SIMPLE": {
       "uses": 2,
@@ -169,6 +171,118 @@
       "notes": "Request Preprocessor Pattern using structuredClone for non-destructive preprocessing",
       "status": "draft",
       "performance_notes": "Negligible overhead (<1ms), 92% cache hit rate"
+    },
+    "PAT:SEARCH:MULTI_SIGNAL": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "T058_APE-54",
+      "effectiveness": "excellent",
+      "notes": "Multi-signal similarity scoring with weighted factors (tags:3, themes:2, files:2, components:1)",
+      "performance_notes": "4ms query time vs 50ms requirement, 80% cache hit rate"
+    },
+    "PAT:CACHE:LRU": {
+      "uses": 2,
+      "success_rate": 100,
+      "last_used": "T059_APE55",
+      "effectiveness": "excellent",
+      "notes": "LRU cache with TTL for similarity search results, 2-tier caching strategy. Excellent performance for context pack caching with 75% hit rate."
+    },
+    "BUILD:MODULE:ESM": {
+      "uses": 5,
+      "success_rate": 100,
+      "last_used": "T059_APE55",
+      "effectiveness": "excellent",
+      "notes": "ES modules with .js extensions for TypeScript compatibility. Worked seamlessly in context pack service."
+    },
+    "PAT:REPOSITORY": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "T058_APE-54",
+      "effectiveness": "excellent",
+      "notes": "Repository pattern for clean database access layer"
+    },
+    "PAT:VALIDATION:FLEXIBLE_INPUT": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "T060_APE-61",
+      "effectiveness": "excellent",
+      "notes": "Convert flexible input formats to canonical form, enables flexible API usage while maintaining type safety"
+    },
+    "PAT:ID:ALIAS_PRESERVATION": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "T060_APE-61",
+      "effectiveness": "excellent",
+      "notes": "Preserve original IDs as aliases during normalization, maintains backward compatibility in auto-creation scenarios"
+    },
+    "PAT:CONTEXT:BUDGETED_ASSEMBLY": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "T059_APE55",
+      "effectiveness": "excellent",
+      "notes": "Size-aware content assembly during build vs post-build trimming. 3x faster performance while maintaining quality.",
+      "performance_notes": "3x faster than post-build trimming, maintains 30KB size limits efficiently"
+    },
+    "FIX:TEST:SEPARATE_SUITES": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "T061",
+      "effectiveness": "excellent",
+      "notes": "Separate mocked and integration tests to avoid contamination. Resolved mock contamination preventing database operations."
+    },
+    "FIX:CONSTRUCTOR:PARAMETER_VALIDATION": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "T063",
+      "effectiveness": "excellent",
+      "notes": "Always verify constructor parameter types match expected interface. Resolved misleading 'alias column' error that was actually parameter type mismatch."
+    },
+    "PAT:MCP:TOOL_INTEGRATION": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "T061_FOLLOWUP",
+      "effectiveness": "excellent",
+      "notes": "Simple configuration-only integration by adding tool identifier to agent tools list. Zero complexity, immediate availability.",
+      "performance_notes": "<1 minute integration time, zero overhead"
+    },
+    "PAT:VALIDATION:ZOD": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "T060_S01",
+      "effectiveness": "excellent",
+      "notes": "Input validation for task completion parameters"
+    },
+    "PAT:SERVICE:POST_INJECTION": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "T060_S01",
+      "effectiveness": "excellent",
+      "notes": "Post-construction service injection to avoid circular dependencies. Eliminates circular dependency issues while enabling optional integrations.",
+      "performance_notes": "Zero overhead, clean separation of concerns"
+    },
+    "PAT:TOOL:ATOMIC_SEPARATION": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "T062_S01",
+      "effectiveness": "excellent",
+      "notes": "Separate complex operations into atomic, composable tools. Agent gains complete workflow visibility and control while maintaining backward compatibility.",
+      "performance_notes": "No overhead, same functionality with better separation"
+    },
+    "PAT:DATABASE:HYBRID_METADATA": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "APE-65",
+      "effectiveness": "excellent",
+      "notes": "Combine static database columns with runtime joins for optimal metadata performance. Balances fast access with flexibility.",
+      "performance_notes": "<500ms for metadata-enhanced queries, 40% storage efficiency vs normalized tables"
+    },
+    "PAT:SCORING:WILSON_CONFIDENCE": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "APE-65",
+      "effectiveness": "excellent",
+      "notes": "Wilson confidence interval for reliable pattern trust calculation. More nuanced than simple averages, accounts for sample size uncertainty.",
+      "performance_notes": "<1ms computation time, provides statistically sound trust scores"
     }
   }
 }
