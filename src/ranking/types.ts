@@ -147,6 +147,15 @@ export interface PackCandidate {
   policy_refs?: string[];
   anti_refs?: string[];
   test_refs?: string[];
+
+  // Enhanced metadata fields (APE-65)
+  trust_score?: number; // Computed from alpha/beta using Wilson score
+  usage_count?: number; // Total times pattern was used
+  success_rate?: number; // Success percentage from reflection outcomes
+  last_used_task?: string; // Most recent task reference
+  key_insight?: string; // Core takeaway for the pattern
+  when_to_use?: string; // Usage context/scenarios
+  common_pitfalls?: string[]; // Array of gotchas to avoid
 }
 
 export interface PackMeta {

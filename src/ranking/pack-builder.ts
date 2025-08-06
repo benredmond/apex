@@ -1,5 +1,5 @@
-import { Pattern } from "../schemas/pattern/index.js";
 import { PatternRepository } from "../storage/repository.js";
+import type { Pattern } from "../storage/types.js";
 import { BudgetManager } from "./budget-manager.js";
 import { Deduper } from "./deduper.js";
 import { SnippetTrimmer } from "./snippet-trimmer.js";
@@ -204,13 +204,10 @@ export class PackBuilder {
         } catch (e) {
           // Fallback to basic pattern structure
           fullPattern = {
-            id: dbPattern.id,
-            type: dbPattern.type,
-            title: dbPattern.title,
-            summary: dbPattern.summary,
+            ...dbPattern,
             snippets: [],
             evidence: [],
-          } as Pattern;
+          } as any;
         }
 
         patterns.push({
@@ -352,10 +349,63 @@ export class PackBuilder {
       summary: this.truncateSummary(pattern.pattern.summary, 120),
     };
 
-    // Add snippet if available
-    if (pattern.pattern.snippets && pattern.pattern.snippets.length > 0) {
+    // Add enhanced metadata fields (APE-65)
+    // Calculate trust score from alpha/beta using Wilson score
+    if (
+      pattern.pattern.alpha !== undefined &&
+      pattern.pattern.beta !== undefined
+    ) {
+      const alpha = pattern.pattern.alpha;
+      const beta = pattern.pattern.beta;
+      candidate.trust_score = this.calculateWilsonScore(alpha, beta);
+    } else if (pattern.pattern.trust_score) {
+      candidate.trust_score = pattern.pattern.trust_score;
+    }
+
+    // Add usage statistics
+    if (pattern.pattern.usage_count !== undefined) {
+      candidate.usage_count = pattern.pattern.usage_count;
+    }
+
+    // Calculate success rate
+    if (
+      pattern.pattern.success_count !== undefined &&
+      pattern.pattern.usage_count
+    ) {
+      candidate.success_rate =
+        pattern.pattern.usage_count > 0
+          ? pattern.pattern.success_count / pattern.pattern.usage_count
+          : 0;
+    }
+
+    // Add contextual guidance
+    if (pattern.pattern.key_insight) {
+      candidate.key_insight = pattern.pattern.key_insight;
+    }
+    if (pattern.pattern.when_to_use) {
+      candidate.when_to_use = pattern.pattern.when_to_use;
+    }
+
+    // Parse common_pitfalls from JSON string
+    if (pattern.pattern.common_pitfalls) {
+      try {
+        const pitfalls = JSON.parse(pattern.pattern.common_pitfalls);
+        if (Array.isArray(pitfalls)) {
+          candidate.common_pitfalls = pitfalls;
+        }
+      } catch {
+        // If not valid JSON, treat as single string
+        candidate.common_pitfalls = [pattern.pattern.common_pitfalls];
+      }
+    }
+
+    // TODO: Add last_used_task from reflections join (requires repository enhancement)
+
+    // Add snippet if available (from parsed JSON)
+    const patternData = pattern.pattern as any;
+    if (patternData.snippets && patternData.snippets.length > 0) {
       const snippet = await this.selectBestSnippet(
-        pattern.pattern,
+        patternData,
         snippetLines,
       );
 
@@ -374,10 +424,29 @@ export class PackBuilder {
   }
 
   /**
+   * Calculate Wilson score from Beta-Bernoulli parameters
+   * Returns lower bound of 95% confidence interval
+   */
+  private calculateWilsonScore(alpha: number, beta: number): number {
+    const n = alpha + beta;
+    if (n === 0) return 0.5;
+
+    const z = 1.96; // 95% confidence
+    const phat = alpha / n;
+    const denominator = 1 + (z * z) / n;
+    const numerator =
+      phat +
+      (z * z) / (2 * n) -
+      z * Math.sqrt((phat * (1 - phat) + (z * z) / (4 * n)) / n);
+
+    return numerator / denominator;
+  }
+
+  /**
    * Select the best snippet from a pattern
    */
   private async selectBestSnippet(
-    pattern: Pattern,
+    pattern: any,
     targetLines: number,
   ): Promise<PackSnippet | null> {
     if (!pattern.snippets || pattern.snippets.length === 0) {
@@ -669,7 +738,8 @@ export class PackBuilder {
     const tests: string[] = [];
 
     // Simple pattern matching in notes or summary
-    const searchText = pattern.notes || pattern.summary || "";
+    const patternData = pattern as any;
+    const searchText = patternData.notes || pattern.summary || "";
 
     const policyMatches = searchText.match(/\[POLICY:[^\]]+\]/g) || [];
     const antiMatches = searchText.match(/\[ANTI:[^\]]+\]/g) || [];
