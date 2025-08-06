@@ -6,6 +6,7 @@ yarn-error.log*
 
 # Testing
 coverage/
+coverage-validation/
 .nyc_output/
 
 # Build outputs
