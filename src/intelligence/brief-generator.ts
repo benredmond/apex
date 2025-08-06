@@ -86,7 +86,7 @@ export class BriefGenerator {
       `),
 
       getInFlightWork: this.db.prepare(`
-        SELECT id, title, status, tags
+        SELECT id, title, status
         FROM tasks
         WHERE status IN ('in_progress', 'blocked')
           AND id != ?

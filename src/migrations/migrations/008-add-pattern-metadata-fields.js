@@ -1,6 +1,6 @@
 /**
  * Migration: Add enhanced metadata fields to patterns table
- * 
+ *
  * Adds fields for richer pattern metadata:
  * - key_insight: Core takeaway for the pattern
  * - when_to_use: Usage context/scenarios
@@ -11,7 +11,7 @@ export const migration008 = {
   id: "008-add-pattern-metadata-fields",
   version: 8,
   name: "Add enhanced metadata fields to patterns table",
-  
+
   up: (db) => {
     // Check if columns already exist before adding
     const tableInfo = db.prepare("PRAGMA table_info(patterns)").all();

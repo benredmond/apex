@@ -404,10 +404,7 @@ export class PackBuilder {
     // Add snippet if available (from parsed JSON)
     const patternData = pattern.pattern as any;
     if (patternData.snippets && patternData.snippets.length > 0) {
-      const snippet = await this.selectBestSnippet(
-        patternData,
-        snippetLines,
-      );
+      const snippet = await this.selectBestSnippet(patternData, snippetLines);
 
       if (snippet) {
         candidate.snippet = snippet;

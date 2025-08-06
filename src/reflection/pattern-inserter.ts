@@ -33,6 +33,86 @@ export class PatternInserter {
   }
 
   /**
+   * Extract keywords from pattern data for search
+   */
+  private extractKeywords(data: any): string {
+    const keywords: Set<string> = new Set();
+
+    // Extract from title
+    if (data.title) {
+      const titleWords = data.title
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((w: string) => w.length > 2);
+      titleWords.forEach((w: string) => keywords.add(w));
+    }
+
+    // Extract from summary
+    if (data.summary) {
+      const summaryWords = data.summary
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((w: string) => w.length > 2);
+      summaryWords.forEach((w: string) => keywords.add(w));
+    }
+
+    // Extract from snippets
+    if (data.snippets && Array.isArray(data.snippets)) {
+      data.snippets.forEach((snippet: any) => {
+        if (snippet.language) {
+          keywords.add(snippet.language.toLowerCase());
+        }
+      });
+    }
+
+    // Extract from pattern ID segments
+    if (data.id) {
+      const idParts = data.id.split(":");
+      idParts.forEach((part: string) => {
+        if (
+          part &&
+          !["APEX", "SYSTEM", "PAT", "FIX", "CODE", "CMD"].includes(part)
+        ) {
+          keywords.add(part.toLowerCase());
+        }
+      });
+    }
+
+    return Array.from(keywords).join(" ");
+  }
+
+  /**
+   * Build search index from all pattern content
+   */
+  private buildSearchIndex(data: any): string {
+    const indexParts: string[] = [];
+
+    // Add title with weight
+    if (data.title) {
+      indexParts.push(data.title);
+      indexParts.push(data.title); // Double weight
+    }
+
+    // Add summary
+    if (data.summary) {
+      indexParts.push(data.summary);
+    }
+
+    // Add snippet content
+    if (data.snippets && Array.isArray(data.snippets)) {
+      data.snippets.forEach((snippet: any) => {
+        if (snippet.content) {
+          indexParts.push(snippet.content);
+        }
+      });
+    }
+
+    return indexParts.join(" ");
+  }
+
+  /**
    * Check if a pattern with the given ID already exists
    * [PAT:VALIDATION:SCHEMA] ★★★★★ (40 uses, 95% success) - Pre-validation check
    */
@@ -119,6 +199,11 @@ export class PatternInserter {
 
     const now = new Date().toISOString();
 
+    // Extract search fields from canonical data
+    const tags = (canonicalData as any).tags?.join(",") || "";
+    const keywords = this.extractKeywords(canonicalData);
+    const searchIndex = this.buildSearchIndex(canonicalData);
+
     // Use originalId as alias if provided, otherwise use id if non-compliant, otherwise generate from title
     let finalAlias: string;
     if ("originalId" in pattern && (pattern as any).originalId) {
@@ -163,8 +248,8 @@ export class PatternInserter {
       INSERT OR IGNORE INTO patterns (
         id, schema_version, pattern_version, type, title, summary,
         trust_score, created_at, updated_at, pattern_digest, json_canonical,
-        alpha, beta, invalid, alias
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        alpha, beta, invalid, alias, tags, keywords, search_index
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const info = stmt.run(
@@ -183,6 +268,9 @@ export class PatternInserter {
       1.0, // beta
       0, // not invalid
       finalAlias, // alias
+      tags, // tags for FTS5 search
+      keywords, // keywords for FTS5 search
+      searchIndex, // search_index for FTS5 search
     );
 
     // If pattern already existed (race condition), return existing ID
