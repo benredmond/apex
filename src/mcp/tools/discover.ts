@@ -349,13 +349,13 @@ export class PatternDiscoverer {
     triggers: Map<string, PatternTrigger[]>;
     vocab: Map<string, PatternVocab[]>;
   }> {
-    const metadata = new Map<string, PatternMetadata[]>();
-    const triggers = new Map<string, PatternTrigger[]>();
-    const vocab = new Map<string, PatternVocab[]>();
-
-    // In a real implementation, these would be loaded from the database
-    // For now, returning empty maps
-    // TODO: Implement database queries for pattern_metadata, pattern_triggers, pattern_vocab tables
+    // [PAT:REPO:METHOD] ★★★★★ - Repository method pattern
+    // Load metadata, triggers, and vocab in parallel for efficiency
+    const [metadata, triggers, vocab] = await Promise.all([
+      this.repository.getMetadata(patternIds),
+      this.repository.getTriggers(patternIds),
+      this.repository.getVocab(patternIds),
+    ]);
 
     return { metadata, triggers, vocab };
   }

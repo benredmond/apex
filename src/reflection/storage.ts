@@ -209,6 +209,22 @@ export class ReflectionStorage {
   }
 
   /**
+   * Update pattern usage statistics (APE-65)
+   */
+  updatePatternUsageStats(patternId: string, wasSuccessful: boolean): void {
+    // Increment usage_count and optionally success_count
+    const stmt = this.db.prepare(`
+      UPDATE patterns 
+      SET 
+        usage_count = COALESCE(usage_count, 0) + 1,
+        success_count = COALESCE(success_count, 0) + ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    stmt.run(wasSuccessful ? 1 : 0, patternId);
+  }
+
+  /**
    * Begin a transaction
    */
   transaction<T>(fn: () => T): T {

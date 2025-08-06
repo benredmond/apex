@@ -113,21 +113,35 @@ export const migration: Migration = {
         // 5. Create indexes for performance (<1.5s query target)
         // Primary indexes for tasks table
         db.exec("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)");
-        db.exec("CREATE INDEX IF NOT EXISTS idx_tasks_type ON tasks(task_type)");
+        db.exec(
+          "CREATE INDEX IF NOT EXISTS idx_tasks_type ON tasks(task_type)",
+        );
         db.exec("CREATE INDEX IF NOT EXISTS idx_tasks_phase ON tasks(phase)");
-        db.exec("CREATE INDEX IF NOT EXISTS idx_tasks_created ON tasks(created_at DESC)");
-        db.exec("CREATE INDEX IF NOT EXISTS idx_tasks_outcome ON tasks(outcome)");
-        db.exec("CREATE INDEX IF NOT EXISTS idx_tasks_identifier ON tasks(identifier)");
+        db.exec(
+          "CREATE INDEX IF NOT EXISTS idx_tasks_created ON tasks(created_at DESC)",
+        );
+        db.exec(
+          "CREATE INDEX IF NOT EXISTS idx_tasks_outcome ON tasks(outcome)",
+        );
+        db.exec(
+          "CREATE INDEX IF NOT EXISTS idx_tasks_identifier ON tasks(identifier)",
+        );
 
         // Composite indexes for common queries
-        db.exec("CREATE INDEX IF NOT EXISTS idx_tasks_status_phase ON tasks(status, phase)");
+        db.exec(
+          "CREATE INDEX IF NOT EXISTS idx_tasks_status_phase ON tasks(status, phase)",
+        );
         db.exec(
           "CREATE INDEX IF NOT EXISTS idx_tasks_type_outcome ON tasks(task_type, outcome)",
         );
 
         // File tracking indexes
-        db.exec("CREATE INDEX IF NOT EXISTS idx_task_files_task ON task_files(task_id)");
-        db.exec("CREATE INDEX IF NOT EXISTS idx_task_files_path ON task_files(file_path)");
+        db.exec(
+          "CREATE INDEX IF NOT EXISTS idx_task_files_task ON task_files(task_id)",
+        );
+        db.exec(
+          "CREATE INDEX IF NOT EXISTS idx_task_files_path ON task_files(file_path)",
+        );
         db.exec(
           "CREATE INDEX IF NOT EXISTS idx_task_files_timestamp ON task_files(timestamp DESC)",
         );

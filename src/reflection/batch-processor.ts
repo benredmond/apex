@@ -127,6 +127,7 @@ export class BatchProcessor {
   /**
    * Normalize evidence to structured format
    * String evidence becomes a 'note' type evidence
+   * [PAT:BATCH:PROCESSING] ★★★★☆ (34 uses, 91% success) - From cache
    */
   static normalizeEvidence(evidence?: string | EvidenceRef[]): EvidenceRef[] {
     // Handle undefined/null
@@ -152,8 +153,28 @@ export class BatchProcessor {
       ];
     }
 
-    // Array evidence passes through
-    return evidence;
+    // Handle array of strings - convert each string to evidence object
+    // [PAT:ERROR:HANDLING] ★★★★★ (156 uses, 100% success) - From cache
+    if (Array.isArray(evidence)) {
+      return evidence.map((item: any) => {
+        if (typeof item === "string") {
+          // Convert string to evidence object
+          return {
+            kind: "git_lines" as const,
+            file: "reflection-note",
+            sha: "HEAD",
+            start: 1,
+            end: 1,
+            snippet_hash: this.hashString(item),
+          };
+        }
+        // Already an evidence object, pass through
+        return item;
+      });
+    }
+
+    // Default fallback (shouldn't reach here with proper typing)
+    return [];
   }
 
   /**

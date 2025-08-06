@@ -78,8 +78,9 @@ export class ApexMCPServer {
       await this.repository.initialize();
       console.error(`[APEX MCP] Repository initialized`);
 
-      // Initialize tools with repository
-      initializeTools(this.repository);
+      // Initialize tools with repository and shared database instance
+      const sharedDb = this.repository.getDatabase();
+      initializeTools(this.repository, sharedDb);
       console.error(`[APEX MCP] Tools initialized`);
     } catch (error) {
       console.error("[APEX MCP] Failed to initialize pattern system:", error);

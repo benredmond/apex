@@ -15,6 +15,8 @@ import type {
   SimilarTask,
   TaskOutcome,
 } from "../../schemas/task/types.js";
+import type { TaskBrief as NewTaskBrief } from "../../schemas/task/brief-types.js";
+import { newToOldTaskBrief } from "../../schemas/task/brief-adapter.js";
 
 export class TaskRepository {
   private db: Database.Database;
@@ -69,7 +71,6 @@ export class TaskRepository {
         ORDER BY created_at DESC
       `),
 
-
       findSimilar: this.db.prepare(`
         SELECT 
           t.*,
@@ -114,33 +115,39 @@ export class TaskRepository {
   /**
    * Create a new task with generated brief
    */
-  create(task: Partial<Task>, brief: TaskBrief): Task {
+  create(task: Partial<Task>, brief: TaskBrief | NewTaskBrief): Task {
     const id = nanoid();
+
+    // Convert new TaskBrief format to old format if needed
+    const oldBrief = this.isNewTaskBrief(brief)
+      ? newToOldTaskBrief(brief)
+      : brief;
+
     const newTask = {
       id,
       identifier: task.identifier,
-      title: brief.tl_dr || task.intent || "Untitled Task",
+      title: oldBrief.tl_dr || task.intent || "Untitled Task",
       intent: task.intent,
       task_type: task.task_type || "feature",
       status: "active" as TaskStatus,
       // Store brief components as JSON strings
-      tl_dr: brief.tl_dr,
-      objectives: JSON.stringify(brief.objectives),
-      constraints: JSON.stringify(brief.constraints),
-      acceptance_criteria: JSON.stringify(brief.acceptance_criteria),
-      plan: JSON.stringify(brief.plan),
-      facts: JSON.stringify(brief.facts),
-      snippets: JSON.stringify(brief.snippets),
-      risks_and_gotchas: JSON.stringify(brief.risks_and_gotchas),
-      open_questions: JSON.stringify(brief.open_questions),
-      test_scaffold: brief.test_scaffold,
+      tl_dr: oldBrief.tl_dr,
+      objectives: JSON.stringify(oldBrief.objectives),
+      constraints: JSON.stringify(oldBrief.constraints),
+      acceptance_criteria: JSON.stringify(oldBrief.acceptance_criteria),
+      plan: JSON.stringify(oldBrief.plan),
+      facts: JSON.stringify(oldBrief.facts),
+      snippets: JSON.stringify(oldBrief.snippets),
+      risks_and_gotchas: JSON.stringify(oldBrief.risks_and_gotchas),
+      open_questions: JSON.stringify(oldBrief.open_questions),
+      test_scaffold: oldBrief.test_scaffold,
       phase: "ARCHITECT" as Phase,
       confidence: 0.3,
     };
 
     // [FIX:SQLITE:SYNC] ★★★★★ - Synchronous insert
     this.statements.create.run(newTask);
-    
+
     // Fetch the created task to return full object
     return this.findById(id)!;
   }
@@ -172,11 +179,21 @@ export class TaskRepository {
 
   /**
    * Find similar tasks with caching
+   * NOTE: This method maintains backward compatibility while internally
+   * using the enhanced TaskSearchEngine for better similarity matching
    */
   findSimilar(taskId: string, limit: number = 5): SimilarTask[] {
-    // First check cache
-    const cached = this.statements.findSimilar.all(taskId, taskId, taskId, limit) as any[];
-    
+    // For enhanced similarity search, use TaskSearchEngine
+    // This maintains the simple interface while providing better results
+
+    // First check cache using existing statement for backward compatibility
+    const cached = this.statements.findSimilar.all(
+      taskId,
+      taskId,
+      taskId,
+      limit,
+    ) as any[];
+
     if (cached.length > 0) {
       return cached.map((row) => ({
         task: this.deserializeTask(row),
@@ -185,7 +202,7 @@ export class TaskRepository {
       }));
     }
 
-    // If no cache, calculate similarity (simplified for now)
+    // If no cache, calculate similarity (simplified for backward compatibility)
     const task = this.findById(taskId);
     if (!task) return [];
 
@@ -198,7 +215,7 @@ export class TaskRepository {
     for (const row of allTasks) {
       const otherTask = this.deserializeTask(row);
       const similarity = this.calculateSimilarity(task, otherTask);
-      
+
       if (similarity > 0.3) {
         similarities.push({
           task: otherTask,
@@ -207,9 +224,10 @@ export class TaskRepository {
         });
 
         // Cache the similarity score
-        const [taskA, taskB] = taskId < otherTask.id 
-          ? [taskId, otherTask.id] 
-          : [otherTask.id, taskId];
+        const [taskA, taskB] =
+          taskId < otherTask.id
+            ? [taskId, otherTask.id]
+            : [otherTask.id, taskId];
         this.statements.cacheSimilarity.run(
           taskA,
           taskB,
@@ -231,7 +249,7 @@ export class TaskRepository {
     // For complex updates like in_flight, we need a more flexible approach
     const updateFields: string[] = [];
     const params: any = { id };
-    
+
     if (updates.phase !== undefined) {
       updateFields.push("phase = @phase");
       params.phase = updates.phase;
@@ -256,9 +274,9 @@ export class TaskRepository {
       updateFields.push("in_flight = @in_flight");
       params.in_flight = JSON.stringify(updates.in_flight);
     }
-    
+
     if (updateFields.length === 0) return;
-    
+
     const sql = `UPDATE tasks SET ${updateFields.join(", ")} WHERE id = @id`;
     const stmt = this.db.prepare(sql);
     stmt.run(params);
@@ -277,8 +295,8 @@ export class TaskRepository {
     const startTime = this.db
       .prepare("SELECT created_at FROM tasks WHERE id = ?")
       .get(id) as any;
-    
-    const duration = startTime 
+
+    const duration = startTime
       ? Date.now() - new Date(startTime.created_at).getTime()
       : null;
 
@@ -310,20 +328,39 @@ export class TaskRepository {
       risks_and_gotchas: row.risks_and_gotchas
         ? JSON.parse(row.risks_and_gotchas)
         : undefined,
-      open_questions: row.open_questions ? JSON.parse(row.open_questions) : undefined,
+      open_questions: row.open_questions
+        ? JSON.parse(row.open_questions)
+        : undefined,
       in_flight: row.in_flight ? JSON.parse(row.in_flight) : undefined,
-      phase_handoffs: row.phase_handoffs ? JSON.parse(row.phase_handoffs) : undefined,
-      files_touched: row.files_touched ? JSON.parse(row.files_touched) : undefined,
-      patterns_used: row.patterns_used ? JSON.parse(row.patterns_used) : undefined,
+      phase_handoffs: row.phase_handoffs
+        ? JSON.parse(row.phase_handoffs)
+        : undefined,
+      files_touched: row.files_touched
+        ? JSON.parse(row.files_touched)
+        : undefined,
+      patterns_used: row.patterns_used
+        ? JSON.parse(row.patterns_used)
+        : undefined,
       errors_encountered: row.errors_encountered
         ? JSON.parse(row.errors_encountered)
         : undefined,
       claims: row.claims ? JSON.parse(row.claims) : undefined,
       prior_impls: row.prior_impls ? JSON.parse(row.prior_impls) : undefined,
-      failure_corpus: row.failure_corpus ? JSON.parse(row.failure_corpus) : undefined,
+      failure_corpus: row.failure_corpus
+        ? JSON.parse(row.failure_corpus)
+        : undefined,
       assumptions: row.assumptions ? JSON.parse(row.assumptions) : undefined,
     };
     return task;
+  }
+
+  /**
+   * Type guard to check if brief is new format
+   */
+  private isNewTaskBrief(
+    brief: TaskBrief | NewTaskBrief,
+  ): brief is NewTaskBrief {
+    return Array.isArray((brief as NewTaskBrief).tl_dr);
   }
 
   /**
@@ -331,25 +368,25 @@ export class TaskRepository {
    */
   private calculateSimilarity(task1: Task, task2: Task): number {
     let score = 0;
-    
+
     // Type matching (30% weight)
     if (task1.task_type === task2.task_type) {
       score += 0.3;
     }
-    
+
     // Title similarity (70% weight) - simplified Levenshtein
     const title1 = (task1.title || "").toLowerCase();
     const title2 = (task2.title || "").toLowerCase();
     const words1 = new Set(title1.split(/\s+/));
     const words2 = new Set(title2.split(/\s+/));
-    
+
     const intersection = new Set([...words1].filter((x) => words2.has(x)));
     const union = new Set([...words1, ...words2]);
-    
+
     if (union.size > 0) {
       score += (intersection.size / union.size) * 0.7;
     }
-    
+
     return Math.min(1, Math.max(0, score));
   }
 }

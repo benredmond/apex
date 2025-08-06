@@ -22,7 +22,7 @@ export class MigrationLoader {
   async loadMigrations(): Promise<Migration[]> {
     const files = await readdir(this.migrationsDir);
     const migrationFiles = files
-      .filter((f) => f.match(/^\d{3}-.*\.(js|ts|mjs)$/))
+      .filter((f) => f.match(/^\d{3}-.*\.(js|ts|mjs)$/) && !f.endsWith(".d.ts"))
       .sort();
 
     const migrations: Migration[] = [];

@@ -23,6 +23,20 @@ describe("PatternRepository", () => {
       patternsDir: path.join(tempDir, "patterns"),
       watchDebounce: 50, // Faster for tests
     });
+    
+    // [FIX:TEST:MIGRATION] - Run migrations to create metadata tables for tests
+    // Import migration runner and migrations
+    const { MigrationRunner } = await import("../../src/migrations/MigrationRunner.js");
+    const { MigrationLoader } = await import("../../src/migrations/MigrationLoader.js");
+    
+    // Get database instance from repository (accessing private field for testing)
+    const db = (repository as any).db.database;
+    
+    // Load and run migrations
+    const loader = new MigrationLoader();
+    const migrations = await loader.loadMigrations();
+    const runner = new MigrationRunner(db);
+    await runner.runMigrations(migrations);
   });
 
   afterEach(async () => {
@@ -519,6 +533,258 @@ describe("PatternRepository", () => {
       expect(pattern).toBeDefined();
       expect(pattern?.id).toBe("better-sqlite3-synchronous-transactions");
       expect(pattern?.title).toBe("Confusing Pattern");
+    });
+  });
+
+  describe("Metadata Loading Methods", () => {
+    beforeEach(async () => {
+      // Create test patterns with metadata
+      const patterns = [
+        {
+          id: "PAT:META:TEST1",
+          schema_version: "0.3",
+          pattern_version: "1.0.0",
+          type: "CODEBASE" as const,
+          title: "Pattern with Metadata",
+          summary: "Test pattern with metadata, triggers, and vocab",
+          trust_score: 0.9,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          tags: ["test", "metadata"],
+          pattern_digest: "hash1",
+          json_canonical: JSON.stringify({ test: "data" }),
+        },
+        {
+          id: "PAT:META:TEST2",
+          schema_version: "0.3",
+          pattern_version: "1.0.0",
+          type: "CODEBASE" as const,
+          title: "Pattern without Metadata",
+          summary: "Test pattern without extra metadata",
+          trust_score: 0.5,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          tags: ["test"],
+          pattern_digest: "hash2",
+          json_canonical: JSON.stringify({ test: "data" }),
+        },
+      ];
+
+      for (const pattern of patterns) {
+        await repository.create(pattern);
+      }
+
+      // Add metadata for TEST1
+      const db = (repository as any).db;
+      db.prepare(`
+        INSERT INTO pattern_metadata (pattern_id, key, value, created_at)
+        VALUES (?, ?, ?, ?)
+      `).run("PAT:META:TEST1", "difficulty", "medium", new Date().toISOString());
+      
+      db.prepare(`
+        INSERT INTO pattern_metadata (pattern_id, key, value, created_at)
+        VALUES (?, ?, ?, ?)
+      `).run("PAT:META:TEST1", "time_estimate", "30min", new Date().toISOString());
+
+      // Add triggers for TEST1
+      db.prepare(`
+        INSERT INTO pattern_triggers (pattern_id, trigger_type, trigger_value, regex, priority)
+        VALUES (?, ?, ?, ?, ?)
+      `).run("PAT:META:TEST1", "error", "TypeError", 0, 100);
+      
+      db.prepare(`
+        INSERT INTO pattern_triggers (pattern_id, trigger_type, trigger_value, regex, priority)
+        VALUES (?, ?, ?, ?, ?)
+      `).run("PAT:META:TEST1", "keyword", "async.*await", 1, 50);
+
+      // Add vocab for TEST1
+      db.prepare(`
+        INSERT INTO pattern_vocab (pattern_id, term, term_type, weight)
+        VALUES (?, ?, ?, ?)
+      `).run("PAT:META:TEST1", "promise", "noun", 0.8);
+      
+      db.prepare(`
+        INSERT INTO pattern_vocab (pattern_id, term, term_type, weight)
+        VALUES (?, ?, ?, ?)
+      `).run("PAT:META:TEST1", "async", "tech", 0.9);
+    });
+
+    describe("getMetadata", () => {
+      it("should load metadata for patterns", async () => {
+        const metadata = await repository.getMetadata(["PAT:META:TEST1", "PAT:META:TEST2"]);
+        
+        // Check TEST1 has metadata
+        expect(metadata.has("PAT:META:TEST1")).toBe(true);
+        const test1Metadata = metadata.get("PAT:META:TEST1")!;
+        expect(test1Metadata).toHaveLength(2);
+        expect(test1Metadata.find(m => m.key === "difficulty")?.value).toBe("medium");
+        expect(test1Metadata.find(m => m.key === "time_estimate")?.value).toBe("30min");
+        
+        // Check TEST2 has no metadata
+        expect(metadata.has("PAT:META:TEST2")).toBe(false);
+      });
+
+      it("should handle empty pattern list", async () => {
+        const metadata = await repository.getMetadata([]);
+        expect(metadata.size).toBe(0);
+      });
+
+      it("should handle non-existent patterns", async () => {
+        const metadata = await repository.getMetadata(["NON:EXISTENT:PATTERN"]);
+        expect(metadata.size).toBe(0);
+      });
+    });
+
+    describe("getTriggers", () => {
+      it("should load triggers for patterns", async () => {
+        const triggers = await repository.getTriggers(["PAT:META:TEST1", "PAT:META:TEST2"]);
+        
+        // Check TEST1 has triggers
+        expect(triggers.has("PAT:META:TEST1")).toBe(true);
+        const test1Triggers = triggers.get("PAT:META:TEST1")!;
+        expect(test1Triggers).toHaveLength(2);
+        
+        // Check triggers are ordered by priority DESC
+        expect(test1Triggers[0].priority).toBe(100);
+        expect(test1Triggers[0].trigger_value).toBe("TypeError");
+        expect(test1Triggers[0].regex).toBe(false);
+        
+        expect(test1Triggers[1].priority).toBe(50);
+        expect(test1Triggers[1].trigger_value).toBe("async.*await");
+        expect(test1Triggers[1].regex).toBe(true);
+        
+        // Check TEST2 has no triggers
+        expect(triggers.has("PAT:META:TEST2")).toBe(false);
+      });
+
+      it("should convert regex field from 0/1 to boolean", async () => {
+        const triggers = await repository.getTriggers(["PAT:META:TEST1"]);
+        const test1Triggers = triggers.get("PAT:META:TEST1")!;
+        
+        expect(typeof test1Triggers[0].regex).toBe("boolean");
+        expect(typeof test1Triggers[1].regex).toBe("boolean");
+      });
+    });
+
+    describe("getVocab", () => {
+      it("should load vocab for patterns", async () => {
+        const vocab = await repository.getVocab(["PAT:META:TEST1", "PAT:META:TEST2"]);
+        
+        // Check TEST1 has vocab
+        expect(vocab.has("PAT:META:TEST1")).toBe(true);
+        const test1Vocab = vocab.get("PAT:META:TEST1")!;
+        expect(test1Vocab).toHaveLength(2);
+        
+        // Check vocab is ordered by weight DESC
+        expect(test1Vocab[0].weight).toBe(0.9);
+        expect(test1Vocab[0].term).toBe("async");
+        expect(test1Vocab[0].term_type).toBe("tech");
+        
+        expect(test1Vocab[1].weight).toBe(0.8);
+        expect(test1Vocab[1].term).toBe("promise");
+        expect(test1Vocab[1].term_type).toBe("noun");
+        
+        // Check TEST2 has no vocab
+        expect(vocab.has("PAT:META:TEST2")).toBe(false);
+      });
+    });
+  });
+
+  describe("Enhanced FTS5 Search", () => {
+    beforeEach(async () => {
+      // Create test patterns with searchable content
+      const patterns = [
+        {
+          id: "PAT:FTS:TEST1",
+          schema_version: "0.3",
+          pattern_version: "1.0.0",
+          type: "CODEBASE" as const,
+          title: "Async/Await Error Handling",
+          summary: "Handle errors in async functions properly",
+          trust_score: 0.9,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          tags: ["async", "error-handling"],
+          keywords: "promise rejection try catch",
+          search_index: "typescript javascript node",
+          pattern_digest: "hash1",
+          json_canonical: JSON.stringify({ test: "data" }),
+        },
+        {
+          id: "PAT:FTS:TEST2",
+          schema_version: "0.3",
+          pattern_version: "1.0.0",
+          type: "TEST" as const,
+          title: "Mock Testing Pattern",
+          summary: "Proper mocking for unit tests",
+          trust_score: 0.8,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          tags: ["testing", "mock"],
+          keywords: "jest vitest stub spy",
+          search_index: "unit integration e2e",
+          pattern_digest: "hash2",
+          json_canonical: JSON.stringify({ test: "data" }),
+        },
+      ];
+
+      for (const pattern of patterns) {
+        await repository.create(pattern);
+      }
+    });
+
+    it("should search patterns using FTS5", async () => {
+      const result = await repository.search({
+        task: "async error handling",
+        k: 10,
+      });
+
+      expect(result.patterns).toHaveLength(1);
+      expect(result.patterns[0].id).toBe("PAT:FTS:TEST1");
+    });
+
+    it("should filter by type in FTS search", async () => {
+      const result = await repository.search({
+        task: "testing",
+        type: "TEST",
+        k: 10,
+      });
+
+      expect(result.patterns).toHaveLength(1);
+      expect(result.patterns[0].id).toBe("PAT:FTS:TEST2");
+    });
+
+    it("should filter by tags in FTS search", async () => {
+      const result = await repository.search({
+        task: "mock",
+        tags: ["testing"],
+        k: 10,
+      });
+
+      expect(result.patterns).toHaveLength(1);
+      expect(result.patterns[0].id).toBe("PAT:FTS:TEST2");
+    });
+
+    it("should fall back to facet search when no text query", async () => {
+      const result = await repository.search({
+        task: "",
+        type: ["TEST"] as Pattern["type"][],
+        k: 10,
+      });
+
+      // Should still find TEST type pattern
+      expect(result.patterns.length).toBeGreaterThan(0);
+      expect(result.patterns.some(p => p.type === "TEST")).toBe(true);
+    });
+
+    it("should handle special FTS characters", async () => {
+      // Should not throw error with quotes
+      const result = await repository.search({
+        task: 'test "with quotes"',
+        k: 10,
+      });
+
+      expect(result).toBeDefined();
     });
   });
 });

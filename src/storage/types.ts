@@ -28,6 +28,13 @@ export interface Pattern {
   invalid?: boolean;
   invalid_reason?: string;
   alias?: string; // Human-readable URL-safe alias (APE-44)
+
+  // Enhanced metadata fields (APE-65)
+  usage_count?: number; // Total times pattern was used
+  success_count?: number; // Number of successful uses
+  key_insight?: string; // Core takeaway for the pattern
+  when_to_use?: string; // Usage context/scenarios
+  common_pitfalls?: string; // JSON array of gotchas to avoid
 }
 
 export interface PatternLanguage {

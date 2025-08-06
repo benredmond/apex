@@ -227,7 +227,7 @@ describe('BatchProcessor', () => {
       
       const result = BatchProcessor.normalizeEvidence(arrayEvidence);
       
-      expect(result).toBe(arrayEvidence);
+      expect(result).toStrictEqual(arrayEvidence);
     });
 
     it('should handle undefined evidence', () => {

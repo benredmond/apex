@@ -6,11 +6,23 @@
 import { z } from "zod";
 
 // Task type enumeration
-export const TaskTypeEnum = z.enum(["bug", "feature", "refactor", "test", "docs", "perf"]);
+export const TaskTypeEnum = z.enum([
+  "bug",
+  "feature",
+  "refactor",
+  "test",
+  "docs",
+  "perf",
+]);
 export type TaskType = z.infer<typeof TaskTypeEnum>;
 
 // Task status enumeration
-export const TaskStatusEnum = z.enum(["active", "completed", "failed", "blocked"]);
+export const TaskStatusEnum = z.enum([
+  "active",
+  "completed",
+  "failed",
+  "blocked",
+]);
 export type TaskStatus = z.infer<typeof TaskStatusEnum>;
 
 // Phase enumeration for 5-phase workflow
@@ -43,6 +55,7 @@ export interface Task {
   constraints?: string[];
   acceptance_criteria?: string[];
   plan?: Array<{ step: string; action: string; files?: string[] }>;
+  decisions?: string[];
   facts?: string[];
   snippets?: Array<{ code: string; language: string; description: string }>;
   risks_and_gotchas?: string[];
@@ -97,6 +110,20 @@ export interface SimilarTask {
   task: Task;
   similarity: number;
   reason: string;
+}
+
+// Task search and tagging interfaces
+export interface TaskSignals {
+  tags: string[]; // Extracted keywords (cache, api, auth, database, redis)
+  themes: string[]; // High-level patterns (performance, security, refactor, bugfix)
+  components: string[]; // System parts affected (user-service, api, cache-layer)
+  filePatterns: string[]; // File overlap patterns
+}
+
+export interface TaskTags {
+  tags: string[];
+  themes: string[];
+  components: string[];
 }
 
 // Request schemas with Zod validation
@@ -155,6 +182,52 @@ export const CompleteRequestSchema = z.object({
   patterns_used: z.array(z.string()).optional(),
 });
 export type CompleteRequest = z.infer<typeof CompleteRequestSchema>;
+
+// Evidence types for APE-57
+export const EvidenceTypeEnum = z.enum([
+  "file",
+  "pattern",
+  "error",
+  "decision",
+  "learning",
+]);
+export type EvidenceType = z.infer<typeof EvidenceTypeEnum>;
+
+export interface EvidenceEntry {
+  id: number;
+  task_id: string;
+  type: EvidenceType;
+  content: string;
+  metadata?: {
+    file?: string;
+    line_start?: number;
+    line_end?: number;
+    pattern_id?: string;
+  };
+  timestamp: string;
+}
+
+// Evidence request schemas
+export const AppendEvidenceRequestSchema = z.object({
+  task_id: z.string(),
+  type: EvidenceTypeEnum,
+  content: z.string(),
+  metadata: z
+    .object({
+      file: z.string().optional(),
+      line_start: z.number().optional(),
+      line_end: z.number().optional(),
+      pattern_id: z.string().optional(),
+    })
+    .optional(),
+});
+export type AppendEvidenceRequest = z.infer<typeof AppendEvidenceRequestSchema>;
+
+export const GetEvidenceRequestSchema = z.object({
+  task_id: z.string(),
+  type: EvidenceTypeEnum.optional(),
+});
+export type GetEvidenceRequest = z.infer<typeof GetEvidenceRequestSchema>;
 
 // Response interfaces
 export interface CreateResponse {

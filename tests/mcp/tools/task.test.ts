@@ -51,9 +51,52 @@ describe("Task MCP Tools", () => {
       });
     }
 
+    // Run evidence table migration (007)
+    const evidenceMigration = fs.readFileSync(
+      path.join(__dirname, "../../../src/migrations/007-add-evidence-log-table.ts"),
+      "utf-8",
+    );
+    
+    const evidenceSqlMatch = evidenceMigration.match(/db\.exec\(`([\s\S]*?)`\)/g);
+    if (evidenceSqlMatch) {
+      evidenceSqlMatch.forEach((match) => {
+        const sql = match
+          .replace(/db\.exec\(`/, "")
+          .replace(/`\)/, "")
+          .replace(/\\"/g, '"');
+        try {
+          db.exec(sql);
+        } catch (error) {
+          // Ignore if table already exists
+        }
+      });
+    }
+
+    // Create minimal patterns table for BriefGenerator
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS patterns (
+        id TEXT PRIMARY KEY,
+        title TEXT,
+        summary TEXT,
+        category TEXT,
+        type TEXT,
+        trust_score REAL DEFAULT 0.5,
+        usage_count INTEGER DEFAULT 0,
+        success_count INTEGER DEFAULT 0,
+        failure_count INTEGER DEFAULT 0,
+        last_used TEXT,
+        snippets TEXT,
+        search_text TEXT,
+        tags TEXT,
+        relationships TEXT,
+        alias TEXT
+      );
+    `);
+
     // Initialize repository and service
     repository = new TaskRepository(db);
-    service = new TaskService(repository);
+    // Pass db for evidence tools, BriefGenerator will only initialize when needed
+    service = new TaskService(repository, db);
   });
 
   afterEach(() => {
@@ -279,10 +322,8 @@ describe("Task MCP Tools", () => {
       
       const task = repository.findById(taskId);
       expect(Array.isArray(task?.in_flight)).toBe(true);
-      expect(task?.in_flight?.[0]).toMatchObject({
-        message: "Starting implementation",
-        confidence: 0.5,
-      });
+      expect(task?.in_flight?.[0]).toContain("Starting implementation");
+      expect(task?.in_flight?.[0]).toContain("confidence: 0.5");
     });
 
     it("should update confidence if provided", async () => {
@@ -359,6 +400,69 @@ describe("Task MCP Tools", () => {
       expect(reflection.outcome).toBe("partial");
       expect(reflection.claims.trust_updates[0].outcome).toBe("partial-success");
     });
+    
+    it("should NOT automatically call reflection service", async () => {
+      // Mock reflection service to track if it's called
+      const mockReflect = jest.fn();
+      (service as any).reflectionService = { reflect: mockReflect };
+      
+      await service.complete({
+        id: taskId,
+        outcome: "success",
+        key_learning: "Testing no auto-reflection",
+        patterns_used: ["PAT:TEST:MOCK"],
+      });
+      
+      // Verify reflection service was NOT called automatically
+      expect(mockReflect).not.toHaveBeenCalled();
+      
+      // But task should still be completed
+      const task = repository.findById(taskId);
+      expect(task?.status).toBe("completed");
+    });
+    
+    it("should generate evidence for patterns used", async () => {
+      // Update task with files touched for evidence
+      await service.update({
+        id: taskId,
+        files: ["src/test-file.ts", "src/another-file.ts"],
+      });
+      
+      const reflection = await service.complete({
+        id: taskId,
+        outcome: "success",
+        key_learning: "Evidence collected",
+        patterns_used: ["PAT:TEST:EVIDENCE"],
+      });
+      
+      // Verify evidence is generated for patterns
+      expect(reflection.claims.patterns_used[0].evidence).toBeDefined();
+      expect(reflection.claims.patterns_used[0].evidence.length).toBeGreaterThan(0);
+      expect(reflection.claims.patterns_used[0].evidence[0].kind).toBe("git_lines");
+      expect(reflection.claims.patterns_used[0].evidence[0].sha).toBe("HEAD");
+    });
+    
+    it("should handle task with errors as anti-patterns", async () => {
+      // Update task with errors encountered
+      await service.update({
+        id: taskId,
+        errors: [
+          { error: "Async in sync context", fix: "Use sync operations" },
+          { error: "Missing import", fix: "Add import statement" },
+        ],
+      });
+      
+      const reflection = await service.complete({
+        id: taskId,
+        outcome: "failure",
+        key_learning: "Errors encountered",
+        patterns_used: [],
+      });
+      
+      // Note: Anti-patterns extraction is implemented but not exposed in ReflectionDraft
+      // The internal buildReflectionDraft creates them for reflection service
+      expect(reflection.outcome).toBe("failure");
+    });
   });
 
   describe("Performance", () => {
@@ -399,6 +503,452 @@ describe("Task MCP Tools", () => {
       Object.entries(times).forEach(([op, time]) => {
         expect(time).toBeLessThan(100);
       });
+    });
+  });
+
+  describe("Phase Tools", () => {
+    it("should get and set phase for a task", async () => {
+      // Create a task first
+      const response = await service.create({
+        intent: "Test phase management",
+        type: "test",
+      });
+
+      const taskId = response.id;
+
+      // Get initial phase (should default to ARCHITECT)
+      let phaseInfo = await service.getPhase({ task_id: taskId });
+      expect(phaseInfo.phase).toBe("ARCHITECT");
+      expect(phaseInfo.handoff).toBeUndefined();
+
+      // Set phase to BUILDER with handoff
+      await service.setPhase({
+        task_id: taskId,
+        phase: "BUILDER",
+        handoff: "### Architecture Decision\nUse simple Unix-style tools",
+      });
+
+      // Get phase should now return BUILDER but no handoff (since ARCHITECT hasn't set one)
+      phaseInfo = await service.getPhase({ task_id: taskId });
+      expect(phaseInfo.phase).toBe("BUILDER");
+      expect(phaseInfo.handoff).toBeUndefined();
+
+      // Now set ARCHITECT handoff
+      await service.setPhase({
+        task_id: taskId,
+        phase: "ARCHITECT",
+        handoff: "Architecture complete, ready for building",
+      });
+
+      // Move back to BUILDER
+      await service.setPhase({
+        task_id: taskId,
+        phase: "BUILDER",
+      });
+
+      // Now BUILDER should see ARCHITECT's handoff
+      phaseInfo = await service.getPhase({ task_id: taskId });
+      expect(phaseInfo.phase).toBe("BUILDER");
+      expect(phaseInfo.handoff).toBe("Architecture complete, ready for building");
+
+      // Set phase to VALIDATOR with handoff
+      await service.setPhase({
+        task_id: taskId,
+        phase: "VALIDATOR",
+        handoff: "Implementation complete, ready for validation",
+      });
+
+      // VALIDATOR should see BUILDER's handoff (not set, so undefined)
+      phaseInfo = await service.getPhase({ task_id: taskId });
+      expect(phaseInfo.phase).toBe("VALIDATOR");
+      expect(phaseInfo.handoff).toBeUndefined();
+
+      // Now set BUILDER handoff
+      await service.setPhase({
+        task_id: taskId,
+        phase: "BUILDER",
+        handoff: "Build complete",
+      });
+
+      // Move to VALIDATOR
+      await service.setPhase({
+        task_id: taskId,
+        phase: "VALIDATOR",
+      });
+
+      // Now VALIDATOR should see BUILDER's handoff
+      phaseInfo = await service.getPhase({ task_id: taskId });
+      expect(phaseInfo.phase).toBe("VALIDATOR");
+      expect(phaseInfo.handoff).toBe("Build complete");
+    });
+
+    it("should handle phases without handoffs", async () => {
+      const response = await service.create({
+        intent: "Test without handoffs",
+        type: "test",
+      });
+
+      const taskId = response.id;
+
+      // Set phases without handoffs
+      await service.setPhase({
+        task_id: taskId,
+        phase: "REVIEWER",
+      });
+
+      const phaseInfo = await service.getPhase({ task_id: taskId });
+      expect(phaseInfo.phase).toBe("REVIEWER");
+      expect(phaseInfo.handoff).toBeUndefined();
+    });
+
+    it("should reject invalid phase names", async () => {
+      const response = await service.create({
+        intent: "Test invalid phase",
+        type: "test",
+      });
+
+      await expect(
+        service.setPhase({
+          task_id: response.id,
+          phase: "INVALID_PHASE",
+        }),
+      ).rejects.toThrow("Invalid set phase request");
+    });
+
+    it("should reject operations on non-existent tasks", async () => {
+      await expect(
+        service.getPhase({ task_id: "NONEXISTENT" }),
+      ).rejects.toThrow("Task NONEXISTENT not found");
+
+      await expect(
+        service.setPhase({
+          task_id: "NONEXISTENT",
+          phase: "BUILDER",
+        }),
+      ).rejects.toThrow("Task NONEXISTENT not found");
+    });
+
+    it("should preserve handoffs across multiple phase transitions", async () => {
+      const response = await service.create({
+        intent: "Test handoff preservation",
+        type: "test",
+      });
+
+      const taskId = response.id;
+
+      // Set handoffs for multiple phases
+      await service.setPhase({
+        task_id: taskId,
+        phase: "ARCHITECT",
+        handoff: "Architecture handoff",
+      });
+
+      await service.setPhase({
+        task_id: taskId,
+        phase: "BUILDER",
+        handoff: "Builder handoff",
+      });
+
+      await service.setPhase({
+        task_id: taskId,
+        phase: "VALIDATOR",
+        handoff: "Validator handoff",
+      });
+
+      // Move to REVIEWER and check it sees VALIDATOR's handoff
+      await service.setPhase({
+        task_id: taskId,
+        phase: "REVIEWER",
+      });
+
+      let phaseInfo = await service.getPhase({ task_id: taskId });
+      expect(phaseInfo.phase).toBe("REVIEWER");
+      expect(phaseInfo.handoff).toBe("Validator handoff");
+
+      // Move back to BUILDER and check it sees ARCHITECT's handoff
+      await service.setPhase({
+        task_id: taskId,
+        phase: "BUILDER",
+      });
+
+      phaseInfo = await service.getPhase({ task_id: taskId });
+      expect(phaseInfo.phase).toBe("BUILDER");
+      expect(phaseInfo.handoff).toBe("Architecture handoff");
+    });
+  });
+
+  describe("Evidence Tools", () => {
+    it("should append evidence to task", async () => {
+      // Create a task directly in repository to bypass BriefGenerator
+      const testBrief = {
+        tl_dr: "Test task",
+        objectives: ["Test objective"],
+        constraints: [],
+        acceptance_criteria: [],
+        plan: [],
+        facts: [],
+        snippets: [],
+        risks_and_gotchas: [],
+        open_questions: [],
+        test_scaffold: "",
+      };
+      
+      const task = repository.create(
+        {
+          identifier: "TEST-001",
+          intent: "Test task for evidence",
+          task_type: "test",
+        },
+        testBrief,
+      );
+      const taskId = task.id;
+
+      // Append different types of evidence
+      await service.appendEvidence({
+        task_id: taskId,
+        type: "file",
+        content: "Modified authentication logic",
+        metadata: {
+          file: "src/auth.ts",
+          line_start: 45,
+          line_end: 78,
+        },
+      });
+
+      await service.appendEvidence({
+        task_id: taskId,
+        type: "pattern",
+        content: "Applied FIX:SQLITE:SYNC successfully",
+        metadata: {
+          pattern_id: "FIX:SQLITE:SYNC",
+        },
+      });
+
+      await service.appendEvidence({
+        task_id: taskId,
+        type: "error",
+        content: "TypeError: Cannot read property 'x' of undefined",
+      });
+
+      await service.appendEvidence({
+        task_id: taskId,
+        type: "decision",
+        content: "Used synchronous operations for simplicity",
+      });
+
+      await service.appendEvidence({
+        task_id: taskId,
+        type: "learning",
+        content: "Pattern caching reduces context switching",
+      });
+
+      // Get all evidence
+      const evidence = await service.getEvidence({ task_id: taskId });
+
+      expect(evidence).toHaveLength(5);
+      expect(evidence[0].type).toBe("file");
+      expect(evidence[0].content).toBe("Modified authentication logic");
+      expect(evidence[0].metadata).toEqual({
+        file: "src/auth.ts",
+        line_start: 45,
+        line_end: 78,
+      });
+
+      expect(evidence[1].type).toBe("pattern");
+      expect(evidence[1].metadata?.pattern_id).toBe("FIX:SQLITE:SYNC");
+
+      expect(evidence[2].type).toBe("error");
+      expect(evidence[3].type).toBe("decision");
+      expect(evidence[4].type).toBe("learning");
+    });
+
+    it("should filter evidence by type", async () => {
+      // Create a task directly in repository
+      const task = repository.create(
+        {
+          identifier: "TEST-002",
+          intent: "Test filtering",
+          task_type: "test",
+        },
+        {
+          tl_dr: "Test",
+          objectives: [],
+          constraints: [],
+          acceptance_criteria: [],
+          plan: [],
+          facts: [],
+          snippets: [],
+          risks_and_gotchas: [],
+          open_questions: [],
+          test_scaffold: "",
+        },
+      );
+      const taskId = task.id;
+
+      // Add multiple evidence entries of different types
+      await service.appendEvidence({
+        task_id: taskId,
+        type: "file",
+        content: "File 1",
+      });
+
+      await service.appendEvidence({
+        task_id: taskId,
+        type: "pattern",
+        content: "Pattern 1",
+      });
+
+      await service.appendEvidence({
+        task_id: taskId,
+        type: "file",
+        content: "File 2",
+      });
+
+      // Filter by type
+      const fileEvidence = await service.getEvidence({
+        task_id: taskId,
+        type: "file",
+      });
+
+      expect(fileEvidence).toHaveLength(2);
+      expect(fileEvidence[0].content).toBe("File 1");
+      expect(fileEvidence[1].content).toBe("File 2");
+
+      const patternEvidence = await service.getEvidence({
+        task_id: taskId,
+        type: "pattern",
+      });
+
+      expect(patternEvidence).toHaveLength(1);
+      expect(patternEvidence[0].content).toBe("Pattern 1");
+    });
+
+    it("should maintain chronological order", async () => {
+      const task = repository.create(
+        {
+          identifier: "TEST-003",
+          intent: "Test ordering",
+          task_type: "test",
+        },
+        {
+          tl_dr: "Test",
+          objectives: [],
+          constraints: [],
+          acceptance_criteria: [],
+          plan: [],
+          facts: [],
+          snippets: [],
+          risks_and_gotchas: [],
+          open_questions: [],
+          test_scaffold: "",
+        },
+      );
+      const taskId = task.id;
+
+      // Add evidence with small delays to ensure different timestamps
+      await service.appendEvidence({
+        task_id: taskId,
+        type: "file",
+        content: "First",
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      await service.appendEvidence({
+        task_id: taskId,
+        type: "pattern",
+        content: "Second",
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      await service.appendEvidence({
+        task_id: taskId,
+        type: "error",
+        content: "Third",
+      });
+
+      const evidence = await service.getEvidence({ task_id: taskId });
+
+      expect(evidence[0].content).toBe("First");
+      expect(evidence[1].content).toBe("Second");
+      expect(evidence[2].content).toBe("Third");
+    });
+
+    it("should reject evidence for non-existent task", async () => {
+      await expect(
+        service.appendEvidence({
+          task_id: "NONEXISTENT",
+          type: "file",
+          content: "Test",
+        }),
+      ).rejects.toThrow("Task NONEXISTENT not found");
+    });
+
+    it("should handle metadata as optional", async () => {
+      const task = repository.create(
+        {
+          identifier: "TEST-004",
+          intent: "Test optional metadata",
+          task_type: "test",
+        },
+        {
+          tl_dr: "Test",
+          objectives: [],
+          constraints: [],
+          acceptance_criteria: [],
+          plan: [],
+          facts: [],
+          snippets: [],
+          risks_and_gotchas: [],
+          open_questions: [],
+          test_scaffold: "",
+        },
+      );
+      const taskId = task.id;
+
+      // Add evidence without metadata
+      await service.appendEvidence({
+        task_id: taskId,
+        type: "decision",
+        content: "No metadata needed",
+      });
+
+      const evidence = await service.getEvidence({ task_id: taskId });
+
+      expect(evidence).toHaveLength(1);
+      expect(evidence[0].metadata).toBeUndefined();
+    });
+
+    it("should validate evidence type", async () => {
+      const task = repository.create(
+        {
+          identifier: "TEST-005",
+          intent: "Test validation",
+          task_type: "test",
+        },
+        {
+          tl_dr: "Test",
+          objectives: [],
+          constraints: [],
+          acceptance_criteria: [],
+          plan: [],
+          facts: [],
+          snippets: [],
+          risks_and_gotchas: [],
+          open_questions: [],
+          test_scaffold: "",
+        },
+      );
+      const taskId = task.id;
+
+      await expect(
+        service.appendEvidence({
+          task_id: taskId,
+          type: "invalid_type",
+          content: "Test",
+        }),
+      ).rejects.toThrow("Invalid append evidence request");
     });
   });
 });

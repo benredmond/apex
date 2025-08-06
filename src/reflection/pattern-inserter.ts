@@ -59,9 +59,24 @@ export class PatternInserter {
   ): string {
     // Generate pattern ID
     // [FIX:PATTERN:4_SEGMENT_ID] - Generate compliant 4-segment IDs
-    const patternId =
-      ("id" in pattern && pattern.id) ||
-      `APEX.SYSTEM:${kind === "ANTI_PATTERN" ? "ANTI" : "PAT"}:AUTO:${nanoid(8)}`;
+    // [FIX:PATTERN:AUTO_INSERT] ★★★☆☆ (2 uses, 100% success) - From cache
+    let patternId: string;
+
+    // Check for explicit id field first
+    if ("id" in pattern && pattern.id) {
+      // Use the provided ID directly
+      const idParts = ((pattern as any).id as string)?.split(":");
+      // If it's already 4-segment, use as-is
+      if (idParts.length >= 4) {
+        patternId = (pattern as any).id as string;
+      } else {
+        // Otherwise, generate compliant 4-segment ID
+        patternId = `APEX.SYSTEM:${kind === "ANTI_PATTERN" ? "ANTI" : "PAT"}:AUTO:${nanoid(8)}`;
+      }
+    } else {
+      // Generate new 4-segment ID
+      patternId = `APEX.SYSTEM:${kind === "ANTI_PATTERN" ? "ANTI" : "PAT"}:AUTO:${nanoid(8)}`;
+    }
 
     // Determine pattern type
     const type = kind === "ANTI_PATTERN" ? "ANTI" : "CODEBASE";
@@ -104,11 +119,18 @@ export class PatternInserter {
 
     const now = new Date().toISOString();
 
-    // Use originalId as alias if provided, otherwise generate from title
+    // Use originalId as alias if provided, otherwise use id if non-compliant, otherwise generate from title
     let finalAlias: string;
     if ("originalId" in pattern && (pattern as any).originalId) {
       // Use the original non-compliant ID as the alias
       finalAlias = (pattern as any).originalId;
+    } else if (
+      "id" in pattern &&
+      pattern.id &&
+      ((pattern as any).id as string)?.split(":").length < 4
+    ) {
+      // If the provided id is non-compliant (less than 4 segments), use it as alias
+      finalAlias = (pattern as any).id as string;
     } else {
       // Generate alias from title and ensure uniqueness
       let baseAlias = this.generateAlias(title);

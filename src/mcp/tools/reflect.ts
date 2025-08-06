@@ -427,9 +427,10 @@ export class ReflectionService {
             evidence: p.evidence,
             notes: p.notes,
           }));
-        
-        const expandedClaims =
-          BatchProcessor.expandBatchPatterns(batchPatterns as any);
+
+        const expandedClaims = BatchProcessor.expandBatchPatterns(
+          batchPatterns as any,
+        );
         request = {
           ...request,
           claims: expandedClaims,
@@ -567,7 +568,7 @@ export class ReflectionService {
         );
       }
 
-      // Update patterns table with new trust values
+      // Update patterns table with new trust values and usage stats (APE-65)
       for (const [patternId, data] of patternDataMap) {
         const trustScore = this.trustModel.calculateTrust(
           data.alpha - 1,
@@ -579,6 +580,23 @@ export class ReflectionService {
           data.beta,
           trustScore.value,
         );
+
+        // Update usage statistics based on trust updates
+        const trustUpdate = request.claims.trust_updates?.find(
+          (u) => u.pattern_id === patternId,
+        );
+        if (trustUpdate) {
+          // Determine if pattern was successful based on outcome
+          const wasSuccessful = trustUpdate.outcome
+            ? [
+                "worked-perfectly",
+                "worked-with-tweaks",
+                "partial-success",
+              ].includes(trustUpdate.outcome)
+            : (trustUpdate.delta?.alpha ?? 0) >= 0.5;
+
+          this.storage.updatePatternUsageStats(patternId, wasSuccessful);
+        }
       }
 
       // Insert new patterns directly into patterns table
@@ -786,13 +804,24 @@ export class ReflectionService {
 
           // Create the pattern using PatternInserter
           // Pass the original ID to be used as alias
-          const patternBase = {
+          // Create the pattern object based on ID segments
+          // Only include id field if it's a proper pattern ID (2+ segments)
+          const idParts = processed.pattern_id.split(":");
+          const patternBase: any = {
             title: title,
             summary: `Auto-created ${isAntiPattern ? "anti-pattern" : "pattern"} from reflection`,
             snippets: [],
             evidence: [],
-            originalId: processed.pattern_id, // Pass original ID for alias
-          } as NewPattern & { originalId?: string };
+          };
+
+          // Only add id field for patterns with 2+ segments
+          // Single-segment patterns should not have an id field
+          if (idParts.length >= 2) {
+            patternBase.id = processed.pattern_id;
+          }
+
+          // Always include originalId for alias creation
+          patternBase.originalId = processed.pattern_id;
 
           // Let PatternInserter generate the compliant 4-segment ID
           // The original ID will be preserved as an alias

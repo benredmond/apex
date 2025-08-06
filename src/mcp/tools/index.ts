@@ -17,6 +17,9 @@ import { PatternExplainer } from "./explain.js";
 import { TaskService } from "./task.js";
 import { TaskRepository } from "../../storage/repositories/task-repository.js";
 import { PatternDatabase } from "../../storage/database.js";
+import type Database from "better-sqlite3";
+import { ContextTool } from "./context.js";
+import { ContextPackService } from "../../intelligence/context-pack-service.js";
 
 let repository: PatternRepository | null = null;
 let lookupService: PatternLookupService | null = null;
@@ -24,24 +27,37 @@ let reflectionService: ReflectionService | null = null;
 let discoverService: PatternDiscoverer | null = null;
 let explainService: PatternExplainer | null = null;
 let taskService: TaskService | null = null;
+let contextTool: ContextTool | null = null;
 
 /**
- * Initialize tool dependencies
+ * Initialize tool dependencies with shared database instance
  */
-export function initializeTools(repo: PatternRepository): void {
+export function initializeTools(
+  repo: PatternRepository,
+  sharedDb?: Database.Database,
+): void {
   repository = repo;
   lookupService = new PatternLookupService(repo);
+
+  // Get shared database instance - either provided or extract from repository
+  const db = sharedDb || repo.getDatabase();
+
   reflectionService = new ReflectionService(repo, "patterns.db", {
     gitRepoPath: process.cwd(),
     enableMining: true,
   });
   discoverService = new PatternDiscoverer(repo);
   explainService = new PatternExplainer(repo);
-  
-  // Initialize task service with database
-  const db = new PatternDatabase("patterns.db").getDatabase();
+
+  // Initialize task service with shared database instance
   const taskRepository = new TaskRepository(db);
-  taskService = new TaskService(taskRepository);
+  taskService = new TaskService(taskRepository, db);
+  // Inject reflection service into task service for integration
+  (taskService as any).reflectionService = reflectionService;
+
+  // Initialize context pack service with shared database instance
+  const contextPackService = new ContextPackService(taskRepository, repo, db);
+  contextTool = new ContextTool(contextPackService);
 }
 
 /**
@@ -129,7 +145,7 @@ export async function registerTools(server: Server): Promise<void> {
           };
 
         // Task management tools
-        case "apex.task.create":
+        case "apex_task_create":
           if (!taskService) {
             throw new Error("Task service not initialized");
           }
@@ -143,7 +159,7 @@ export async function registerTools(server: Server): Promise<void> {
             ],
           };
 
-        case "apex.task.find":
+        case "apex_task_find":
           if (!taskService) {
             throw new Error("Task service not initialized");
           }
@@ -157,7 +173,7 @@ export async function registerTools(server: Server): Promise<void> {
             ],
           };
 
-        case "apex.task.find_similar":
+        case "apex_task_find_similar":
           if (!taskService) {
             throw new Error("Task service not initialized");
           }
@@ -171,7 +187,7 @@ export async function registerTools(server: Server): Promise<void> {
             ],
           };
 
-        case "apex.task.current":
+        case "apex_task_current":
           if (!taskService) {
             throw new Error("Task service not initialized");
           }
@@ -185,7 +201,7 @@ export async function registerTools(server: Server): Promise<void> {
             ],
           };
 
-        case "apex.task.update":
+        case "apex_task_update":
           if (!taskService) {
             throw new Error("Task service not initialized");
           }
@@ -199,7 +215,7 @@ export async function registerTools(server: Server): Promise<void> {
             ],
           };
 
-        case "apex.task.checkpoint":
+        case "apex_task_checkpoint":
           if (!taskService) {
             throw new Error("Task service not initialized");
           }
@@ -213,7 +229,7 @@ export async function registerTools(server: Server): Promise<void> {
             ],
           };
 
-        case "apex.task.complete":
+        case "apex_task_complete":
           if (!taskService) {
             throw new Error("Task service not initialized");
           }
@@ -223,6 +239,76 @@ export async function registerTools(server: Server): Promise<void> {
               {
                 type: "text",
                 text: JSON.stringify(completeResponse),
+              },
+            ],
+          };
+
+        case "apex_task_context":
+          if (!contextTool) {
+            throw new Error("Context tool not initialized");
+          }
+          const contextResponse = await contextTool.getTaskContext(args);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(contextResponse),
+              },
+            ],
+          };
+
+        case "apex_task_append_evidence":
+          if (!taskService) {
+            throw new Error("Task service not initialized");
+          }
+          await taskService.appendEvidence(args);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({ success: true }),
+              },
+            ],
+          };
+
+        case "apex_task_get_evidence":
+          if (!taskService) {
+            throw new Error("Task service not initialized");
+          }
+          const evidenceResponse = await taskService.getEvidence(args);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(evidenceResponse),
+              },
+            ],
+          };
+
+        case "apex_task_get_phase":
+          if (!taskService) {
+            throw new Error("Task service not initialized");
+          }
+          const phaseResponse = await taskService.getPhase(args);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(phaseResponse),
+              },
+            ],
+          };
+
+        case "apex_task_set_phase":
+          if (!taskService) {
+            throw new Error("Task service not initialized");
+          }
+          await taskService.setPhase(args);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({ success: true }),
               },
             ],
           };
@@ -863,14 +949,15 @@ export function getToolsList(): Tool[] {
     },
     // Task management tools
     {
-      name: "apex.task.create",
+      name: "apex_task_create",
       description: "Create a new task with auto-generated brief from intent",
       inputSchema: {
         type: "object",
         properties: {
           identifier: {
             type: "string",
-            description: "Optional external identifier (e.g., JIRA-1234, APE-50)",
+            description:
+              "Optional external identifier (e.g., JIRA-1234, APE-50)",
           },
           intent: {
             type: "string",
@@ -888,7 +975,7 @@ export function getToolsList(): Tool[] {
       },
     },
     {
-      name: "apex.task.find",
+      name: "apex_task_find",
       description: "Find tasks by various criteria",
       inputSchema: {
         type: "object",
@@ -924,20 +1011,22 @@ export function getToolsList(): Tool[] {
       },
     },
     {
-      name: "apex.task.find_similar",
-      description: "Find tasks similar to a given task or the current active task",
+      name: "apex_task_find_similar",
+      description:
+        "Find tasks similar to a given task or the current active task",
       inputSchema: {
         type: "object",
         properties: {
           taskId: {
             type: "string",
-            description: "Task ID to find similar tasks for (defaults to most recent active)",
+            description:
+              "Task ID to find similar tasks for (defaults to most recent active)",
           },
         },
       },
     },
     {
-      name: "apex.task.current",
+      name: "apex_task_current",
       description: "Get all currently active tasks",
       inputSchema: {
         type: "object",
@@ -945,7 +1034,7 @@ export function getToolsList(): Tool[] {
       },
     },
     {
-      name: "apex.task.update",
+      name: "apex_task_update",
       description: "Update task with execution details",
       inputSchema: {
         type: "object",
@@ -956,7 +1045,13 @@ export function getToolsList(): Tool[] {
           },
           phase: {
             type: "string",
-            enum: ["ARCHITECT", "BUILDER", "VALIDATOR", "REVIEWER", "DOCUMENTER"],
+            enum: [
+              "ARCHITECT",
+              "BUILDER",
+              "VALIDATOR",
+              "REVIEWER",
+              "DOCUMENTER",
+            ],
             description: "Current execution phase",
           },
           decisions: {
@@ -996,7 +1091,7 @@ export function getToolsList(): Tool[] {
       },
     },
     {
-      name: "apex.task.checkpoint",
+      name: "apex_task_checkpoint",
       description: "Add a checkpoint message to task tracking",
       inputSchema: {
         type: "object",
@@ -1022,7 +1117,7 @@ export function getToolsList(): Tool[] {
       },
     },
     {
-      name: "apex.task.complete",
+      name: "apex_task_complete",
       description: "Complete a task and generate reflection draft",
       inputSchema: {
         type: "object",
@@ -1049,6 +1144,158 @@ export function getToolsList(): Tool[] {
           },
         },
         required: ["id", "outcome", "key_learning"],
+      },
+    },
+    {
+      name: "apex_task_context",
+      description:
+        "Get task-specific context for AI assistant sessions, including active tasks, similar tasks, statistics, and patterns",
+      inputSchema: {
+        type: "object",
+        properties: {
+          task_id: {
+            type: "string",
+            description: "Specific task ID to get context for",
+          },
+          packs: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: ["tasks", "patterns", "statistics"],
+            },
+            description: "Which context packs to include (default: all)",
+          },
+          max_active_tasks: {
+            type: "number",
+            minimum: 1,
+            maximum: 100,
+            description:
+              "Maximum number of active tasks to include (default: 50)",
+          },
+          max_similar_per_task: {
+            type: "number",
+            minimum: 1,
+            maximum: 50,
+            description: "Maximum similar tasks per active task (default: 20)",
+          },
+          max_size_bytes: {
+            type: "number",
+            minimum: 1024,
+            maximum: 100000,
+            description: "Maximum context pack size in bytes (default: 28672)",
+          },
+        },
+      },
+    },
+    {
+      name: "apex_task_append_evidence",
+      description:
+        "Append evidence to task execution log for reflection and learning",
+      inputSchema: {
+        type: "object",
+        properties: {
+          task_id: {
+            type: "string",
+            description: "Task ID to append evidence to",
+          },
+          type: {
+            type: "string",
+            enum: ["file", "pattern", "error", "decision", "learning"],
+            description: "Type of evidence being recorded",
+          },
+          content: {
+            type: "string",
+            description: "Evidence content description",
+          },
+          metadata: {
+            type: "object",
+            description: "Optional metadata for the evidence",
+            properties: {
+              file: {
+                type: "string",
+                description: "File path if evidence relates to a file",
+              },
+              line_start: {
+                type: "number",
+                description: "Starting line number in file",
+              },
+              line_end: {
+                type: "number",
+                description: "Ending line number in file",
+              },
+              pattern_id: {
+                type: "string",
+                description: "Pattern ID if evidence relates to a pattern",
+              },
+            },
+          },
+        },
+        required: ["task_id", "type", "content"],
+      },
+    },
+    {
+      name: "apex_task_get_evidence",
+      description:
+        "Retrieve evidence entries for a task, optionally filtered by type",
+      inputSchema: {
+        type: "object",
+        properties: {
+          task_id: {
+            type: "string",
+            description: "Task ID to get evidence for",
+          },
+          type: {
+            type: "string",
+            enum: ["file", "pattern", "error", "decision", "learning"],
+            description: "Optional type filter",
+          },
+        },
+        required: ["task_id"],
+      },
+    },
+    {
+      name: "apex_task_get_phase",
+      description:
+        "Get current phase and handoff for a task. Simple Unix-style tool that just reads from database.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          task_id: {
+            type: "string",
+            description: "Task ID to get phase for",
+          },
+        },
+        required: ["task_id"],
+      },
+    },
+    {
+      name: "apex_task_set_phase",
+      description:
+        "Set phase and optional handoff for a task. Simple Unix-style tool that just writes to database. No validation or state machine logic.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          task_id: {
+            type: "string",
+            description: "Task ID to set phase for",
+          },
+          phase: {
+            type: "string",
+            enum: [
+              "ARCHITECT",
+              "BUILDER",
+              "VALIDATOR",
+              "REVIEWER",
+              "DOCUMENTER",
+            ],
+            description: "Phase to set",
+          },
+          handoff: {
+            type: "string",
+            description: "Optional handoff message to store with the phase",
+          },
+        },
+        required: ["task_id", "phase"],
       },
     },
   ];

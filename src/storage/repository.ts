@@ -1,6 +1,7 @@
 // [BUILD:MODULE:ESM] ★★★☆☆ (3 uses) - ES module with .js extensions
 import path from "path";
 import fs from "fs-extra";
+import type Database from "better-sqlite3";
 import { PatternDatabase } from "./database.js";
 import { PatternCache } from "./cache.js";
 import { PatternLoader } from "./loader.js";
@@ -14,6 +15,9 @@ import type {
   PatternPack,
   ValidationResult,
   FileChangeEvent,
+  PatternMetadata,
+  PatternTrigger,
+  PatternVocab,
 } from "./types.js";
 
 export class PatternRepository {
@@ -83,6 +87,14 @@ export class PatternRepository {
     return this.watcher;
   }
 
+  /**
+   * Get the database instance for dependency injection
+   * @internal
+   */
+  public getDatabase(): Database.Database {
+    return this.db.database;
+  }
+
   // Core CRUD operations
 
   public async create(pattern: Pattern): Promise<Pattern> {
@@ -142,6 +154,41 @@ export class PatternRepository {
 
     const pattern = this.rowToPattern(row);
     this.cache.setPattern(id, pattern);
+    return pattern;
+  }
+
+  /**
+   * Get pattern with enhanced metadata including last_used_task (APE-65)
+   */
+  public async getWithMetadata(
+    id: string,
+  ): Promise<(Pattern & { last_used_task?: string }) | null> {
+    const pattern = await this.get(id);
+    if (!pattern) return null;
+
+    // Query for last_used_task from reflections
+    try {
+      const lastUsedRow = this.db.database
+        .prepare(
+          `
+        SELECT task_id, MAX(created_at) as last_used
+        FROM reflections
+        WHERE json_extract(json, '$.claims.patterns_used[*].pattern_id') LIKE ?
+        GROUP BY task_id
+        ORDER BY last_used DESC
+        LIMIT 1
+      `,
+        )
+        .get(`%${id}%`) as any;
+
+      if (lastUsedRow) {
+        return { ...pattern, last_used_task: lastUsedRow.task_id };
+      }
+    } catch (error) {
+      // Reflections table might not exist or query might fail
+      console.debug(`Could not fetch last_used_task for pattern ${id}:`, error);
+    }
+
     return pattern;
   }
 
@@ -249,12 +296,106 @@ export class PatternRepository {
   }
 
   /**
-   * Semantic search with facets (renamed from lookup)
-   * [FIX:API:METHOD_CONSISTENCY] ★★☆☆☆ - Standard search method
+   * Semantic search with facets using FTS5
+   * [PAT:SEARCH:FTS5] ★★★★☆ - SQLite FTS5 search implementation
    */
   public async search(query: SearchQuery): Promise<PatternPack> {
-    // Delegate to lookup for now (maintains exact behavior)
-    return this.lookup(query as LookupQuery);
+    // [PAT:PERF:QUERY_MONITORING] - Monitor query performance
+    const startTime = performance.now();
+    const { task = "", type, tags, k = 20 } = query;
+
+    // Build FTS5 query
+    let ftsQuery = task.trim();
+    if (!ftsQuery) {
+      // Fall back to facet-based search if no text query
+      return this.lookup({
+        type: type,
+        tags,
+        k,
+      } as LookupQuery);
+    }
+
+    // Escape special FTS5 characters
+    ftsQuery = ftsQuery.replace(/"/g, '""');
+
+    // Build the SQL query using FTS5 MATCH
+    let sql = `
+      SELECT DISTINCT p.*, 
+             rank * -1 as fts_rank
+      FROM patterns p
+      JOIN patterns_fts pf ON p.rowid = pf.rowid
+      WHERE pf.patterns_fts MATCH ?
+        AND p.invalid = 0
+    `;
+
+    const params: any[] = [ftsQuery];
+
+    // Add type filter if specified
+    // Handle type as array for consistency with SearchQuery interface
+    if (type && Array.isArray(type) && type.length > 0) {
+      const typePlaceholders = type.map(() => "?").join(",");
+      sql += ` AND p.type IN (${typePlaceholders})`;
+      params.push(...type);
+    } else if (type && !Array.isArray(type)) {
+      // Handle single type for backward compatibility
+      sql += ` AND p.type = ?`;
+      params.push(type);
+    }
+
+    // Add tag filter if specified
+    if (tags && tags.length > 0) {
+      const tagPlaceholders = tags.map(() => "?").join(",");
+      sql += ` AND p.id IN (
+        SELECT pattern_id FROM pattern_tags WHERE tag IN (${tagPlaceholders})
+      )`;
+      params.push(...tags);
+    }
+
+    // Order by FTS rank (lower rank = better match)
+    sql += ` ORDER BY fts_rank ASC LIMIT ?`;
+    params.push(k);
+
+    let rows: any[] = [];
+    try {
+      // [FIX:ASYNC:SYNC] ★★★★★ - SQLite operations are synchronous
+      const stmt = this.db.prepare(sql);
+      rows = stmt.all(...params) as any[];
+    } catch (error) {
+      console.error("[ERROR] FTS5 search failed:", error);
+      console.error("[ERROR] Query:", { task: ftsQuery, type, tags });
+      // Fall back to regular facet-based search
+      console.warn("[FALLBACK] Using facet-based search due to FTS5 error");
+      return this.lookup({
+        type: Array.isArray(type) ? type : type ? [type] : undefined,
+        tags,
+        k,
+      });
+    }
+
+    // Convert rows to patterns
+    const patterns = rows.map((row) => this.rowToPattern(row));
+
+    // Cache patterns
+    patterns.forEach((p) => this.cache.setPattern(p.id, p));
+
+    // Performance monitoring
+    const duration = performance.now() - startTime;
+    if (duration > 100) {
+      console.warn(
+        `[PERF] Slow FTS5 search detected: ${duration.toFixed(2)}ms`,
+        {
+          query: task,
+          resultCount: patterns.length,
+          filters: { type, tags },
+        },
+      );
+    }
+
+    return {
+      patterns,
+      total: patterns.length,
+      query,
+    };
   }
 
   /**
@@ -628,6 +769,12 @@ export class PatternRepository {
       ...rest,
       tags: tags_csv ? tags_csv.split(",") : [],
       invalid: row.invalid === 1,
+      // Include enhanced metadata fields (APE-65)
+      usage_count: row.usage_count,
+      success_count: row.success_count,
+      key_insight: row.key_insight,
+      when_to_use: row.when_to_use,
+      common_pitfalls: row.common_pitfalls,
     };
   }
 
@@ -677,5 +824,101 @@ export class PatternRepository {
     sql += " ORDER BY p.trust_score DESC";
 
     return sql;
+  }
+
+  /**
+   * Load pattern metadata for given pattern IDs
+   * [PAT:REPO:METHOD] ★★★★★ - Repository method pattern
+   */
+  public async getMetadata(
+    patternIds: string[],
+  ): Promise<Map<string, PatternMetadata[]>> {
+    if (patternIds.length === 0) {
+      return new Map();
+    }
+
+    const placeholders = patternIds.map(() => "?").join(",");
+    const sql = `SELECT * FROM pattern_metadata WHERE pattern_id IN (${placeholders})`;
+
+    // [FIX:ASYNC:SYNC] ★★★★★ - SQLite operations are synchronous
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...patternIds) as PatternMetadata[];
+
+    // Group by pattern_id
+    const result = new Map<string, PatternMetadata[]>();
+    for (const row of rows) {
+      if (!result.has(row.pattern_id)) {
+        result.set(row.pattern_id, []);
+      }
+      result.get(row.pattern_id)!.push(row);
+    }
+
+    return result;
+  }
+
+  /**
+   * Load pattern triggers for given pattern IDs
+   * [PAT:REPO:METHOD] ★★★★★ - Repository method pattern
+   */
+  public async getTriggers(
+    patternIds: string[],
+  ): Promise<Map<string, PatternTrigger[]>> {
+    if (patternIds.length === 0) {
+      return new Map();
+    }
+
+    const placeholders = patternIds.map(() => "?").join(",");
+    const sql = `SELECT * FROM pattern_triggers WHERE pattern_id IN (${placeholders}) ORDER BY priority DESC`;
+
+    // [FIX:ASYNC:SYNC] ★★★★★ - SQLite operations are synchronous
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...patternIds) as any[];
+
+    // Convert and group by pattern_id
+    const result = new Map<string, PatternTrigger[]>();
+    for (const row of rows) {
+      // Convert regex field from 0/1 to boolean
+      const trigger: PatternTrigger = {
+        ...row,
+        regex: row.regex === 1,
+      };
+
+      if (!result.has(row.pattern_id)) {
+        result.set(row.pattern_id, []);
+      }
+      result.get(row.pattern_id)!.push(trigger);
+    }
+
+    return result;
+  }
+
+  /**
+   * Load pattern vocabulary for given pattern IDs
+   * [PAT:REPO:METHOD] ★★★★★ - Repository method pattern
+   */
+  public async getVocab(
+    patternIds: string[],
+  ): Promise<Map<string, PatternVocab[]>> {
+    if (patternIds.length === 0) {
+      return new Map();
+    }
+
+    const placeholders = patternIds.map(() => "?").join(",");
+    const sql = `SELECT * FROM pattern_vocab WHERE pattern_id IN (${placeholders}) ORDER BY weight DESC`;
+
+    // [FIX:ASYNC:SYNC] ★★★★★ - SQLite operations are synchronous
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...patternIds) as PatternVocab[];
+
+    // Group by pattern_id
+    const result = new Map<string, PatternVocab[]>();
+    for (const row of rows) {
+      if (!result.has(row.pattern_id)) {
+        result.set(row.pattern_id, []);
+      }
+      result.get(row.pattern_id)!.push(row);
+    }
+
+    return result;
   }
 }
