@@ -35,6 +35,13 @@ export const PhaseEnum = z.enum([
 ]);
 export type Phase = z.infer<typeof PhaseEnum>;
 
+// Phase handoff interface for tracking all handoffs
+export interface PhaseHandoff {
+  phase: Phase;
+  handoff: any;
+  timestamp: string;
+}
+
 // Task outcome enumeration
 export const TaskOutcomeEnum = z.enum(["success", "partial", "failure"]);
 export type TaskOutcome = z.infer<typeof TaskOutcomeEnum>;
@@ -66,7 +73,7 @@ export interface Task {
 
   // Execution tracking
   phase?: Phase;
-  phase_handoffs?: Record<string, any>;
+  phase_handoffs?: PhaseHandoff[] | Record<string, any>; // Supports both formats during transition
   confidence?: number;
 
   // Evidence Collection

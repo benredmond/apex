@@ -283,7 +283,7 @@ This file captures key learnings from completed tasks to inform future work.
     );
     console.log(
       chalk.cyan(
-        '  2. Create your first task: /create_task "Your task description"',
+        "  2. Create your first task: /create_task \"Your task description\"",
       ),
     );
     console.log(chalk.cyan("  3. Execute it: /task T001\n"));
@@ -294,49 +294,7 @@ This file captures key learnings from completed tasks to inform future work.
     );
   });
 
-// Patterns command
-program
-  .command("patterns")
-  .description("View and manage APEX patterns")
-  .option("-a, --all", "Show all patterns including pending")
-  .option("-s, --stats", "Show pattern statistics")
-  .action(async (options) => {
-    const spinner = ora("Loading patterns...").start();
-
-    try {
-      const conventionsPath = ".apex/CONVENTIONS.md";
-      const pendingPath = ".apex/CONVENTIONS.pending.md";
-
-      if (!fs.existsSync(conventionsPath)) {
-        spinner.fail('APEX not initialized. Run "apex init" first.');
-        process.exit(1);
-      }
-
-      spinner.stop();
-
-      console.log(chalk.cyan("\n📚 APEX Intelligence Patterns\n"));
-
-      // Read and display patterns
-      const conventions = await fs.readFile(conventionsPath, "utf-8");
-      const patternMatches = conventions.match(/\[.*?\]/g) || [];
-
-      console.log(chalk.bold(`Active Patterns: ${patternMatches.length}`));
-
-      if (options.all) {
-        const pending = await fs.readFile(pendingPath, "utf-8");
-        const pendingMatches = pending.match(/\[.*?\]/g) || [];
-        console.log(chalk.yellow(`Pending Patterns: ${pendingMatches.length}`));
-      }
-
-      if (options.stats) {
-        // TODO: Implement pattern statistics
-        console.log(chalk.gray("\nPattern statistics coming soon..."));
-      }
-    } catch (error) {
-      spinner.fail("Error loading patterns");
-      console.error(error);
-    }
-  });
+// Patterns command is now added via createPatternsCommand() below
 
 // Pattern lint command
 program
@@ -414,7 +372,7 @@ program
       console.log(chalk.green("\n✨ APEX is properly configured!\n"));
     } else {
       console.log(chalk.red("\n⚠️  Some required components are missing."));
-      console.log(chalk.yellow('Run "apex init" to fix issues.\n'));
+      console.log(chalk.yellow("Run \"apex init\" to fix issues.\n"));
     }
   });
 

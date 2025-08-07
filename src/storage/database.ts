@@ -59,13 +59,12 @@ export class PatternDatabase {
         created_at        TEXT NOT NULL,
         updated_at        TEXT NOT NULL,
         source_repo       TEXT,
-        tags_csv          TEXT,
+        tags              TEXT, -- [APE-63] JSON array format
         pattern_digest    TEXT NOT NULL,
         json_canonical    BLOB NOT NULL,
         invalid           INTEGER NOT NULL DEFAULT 0,
         invalid_reason    TEXT,
         alias             TEXT UNIQUE,
-        tags              TEXT,
         keywords          TEXT,
         search_index      TEXT
       );
@@ -231,11 +230,11 @@ export class PatternDatabase {
       this.db.prepare(`
       INSERT INTO patterns (
         id, schema_version, pattern_version, type, title, summary,
-        trust_score, created_at, updated_at, source_repo, tags_csv,
+        trust_score, created_at, updated_at, source_repo, tags,
         pattern_digest, json_canonical, invalid, invalid_reason, alias
       ) VALUES (
         @id, @schema_version, @pattern_version, @type, @title, @summary,
-        @trust_score, @created_at, @updated_at, @source_repo, @tags_csv,
+        @trust_score, @created_at, @updated_at, @source_repo, @tags,
         @pattern_digest, @json_canonical, @invalid, @invalid_reason, @alias
       )
       ON CONFLICT(id) DO UPDATE SET
@@ -247,7 +246,7 @@ export class PatternDatabase {
         trust_score = excluded.trust_score,
         updated_at = excluded.updated_at,
         source_repo = excluded.source_repo,
-        tags_csv = excluded.tags_csv,
+        tags = excluded.tags,
         pattern_digest = excluded.pattern_digest,
         json_canonical = excluded.json_canonical,
         invalid = excluded.invalid,

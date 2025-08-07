@@ -6,6 +6,7 @@
 
 import { BetaBernoulliTrustModel } from "../trust/index.js";
 import { JSONStorageAdapter } from "../trust/storage-adapter.js";
+// Trust calculator for pattern quality assessment
 
 export class TrustCalculator {
   constructor(config = {}) {
@@ -16,6 +17,7 @@ export class TrustCalculator {
       minUsageForTrust: 3, // Minimum uses before trust is meaningful
       decayDays: 90, // Days before trust starts decaying
       useBetaBernoulli: true, // Use statistical model
+      useQualitySystem: false, // Enable quality system integration (set by PatternQualityManager)
       ...config,
     };
 
@@ -28,6 +30,9 @@ export class TrustCalculator {
         defaultHalfLife: this.config.decayDays,
       });
     }
+
+    // Quality manager will be set externally to avoid circular dependency
+    this.qualityManager = null;
   }
 
   /**

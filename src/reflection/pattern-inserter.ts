@@ -332,7 +332,7 @@ export class PatternInserter {
       created_at: row.created_at,
       updated_at: row.updated_at,
       source_repo: row.source_repo,
-      tags: row.tags_csv ? row.tags_csv.split(",") : [],
+      tags: row.tags ? JSON.parse(row.tags) : [], // [APE-63] JSON format
       pattern_digest: row.pattern_digest,
       json_canonical: row.json_canonical,
       invalid: row.invalid === 1,

@@ -132,7 +132,7 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
   delete: ["remove", "destroy", "drop", "clean"],
   import: ["require", "include", "load", "module"],
   export: ["expose", "provide", "output"],
-  
+
   // Add missing reverse mappings
   token: ["jwt", "auth", "authentication"],
   login: ["authentication", "auth"],
@@ -145,7 +145,7 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
   protection: ["security"],
   cookie: ["session"],
   state: ["session"],
-  
+
   // Errors & Issues reverse mappings
   issue: ["bug", "error"],
   problem: ["bug", "error"],
@@ -159,7 +159,7 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
   repair: ["fix"],
   resolve: ["fix"],
   solution: ["fix"],
-  
+
   // Performance reverse mappings
   speed: ["performance", "optimization"],
   latency: ["performance"],
@@ -171,7 +171,7 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
   memoization: ["cache", "caching"],
   memory: ["cache", "redis"],
   storage: ["cache", "database", "redis", "mongodb"],
-  
+
   // Testing reverse mappings
   unit: ["test", "jest", "pytest"],
   integration: ["test"],
@@ -182,7 +182,7 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
   stub: ["mock"],
   fake: ["mock"],
   simulation: ["mock"],
-  
+
   // Database reverse mappings
   persistence: ["database", "db"],
   query: ["database", "sql", "graphql"],
@@ -192,7 +192,7 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
   mysql: ["sql"],
   nosql: ["mongodb"],
   document: ["mongodb"],
-  
+
   // API reverse mappings
   service: ["api"],
   interface: ["api", "ui"],
@@ -205,7 +205,7 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
   route: ["endpoint"],
   url: ["endpoint"],
   path: ["endpoint"],
-  
+
   // Frontend reverse mappings
   ux: ["ui"],
   view: ["ui"],
@@ -215,7 +215,7 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
   jsx: ["react"],
   module: ["component", "import"],
   widget: ["component"],
-  
+
   // Pattern reverse mappings
   design: ["pattern", "architecture"],
   template: ["pattern"],
@@ -229,7 +229,7 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
   upgrade: ["migration"],
   transition: ["migration"],
   version: ["migration"],
-  
+
   // Development reverse mappings
   asynchronous: ["async"],
   promise: ["async"],
@@ -248,7 +248,7 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
   lookup: ["search"],
   discover: ["search"],
   match: ["search"],
-  
+
   // Languages reverse mappings
   ts: ["typescript"],
   type: ["typescript"],
@@ -259,7 +259,7 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
   backend: ["node"],
   server: ["node"],
   py: ["python"],
-  
+
   // Operations reverse mappings
   add: ["create"],
   new: ["create"],

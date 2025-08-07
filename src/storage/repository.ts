@@ -920,4 +920,114 @@ export class PatternRepository {
 
     return result;
   }
+
+  /**
+   * Update quality metadata for a pattern
+   * [APE-29] Pattern Quality & Freshness System
+   */
+  public async updateQualityMetadata(
+    patternId: string,
+    metadata: {
+      lastActivityAt?: string | null;
+      qualityScoreCached?: number | null;
+      cacheTimestamp?: string | null;
+      semverConstraints?: string | null;
+      quarantineReason?: string | null;
+      quarantineDate?: string | null;
+    },
+  ): Promise<void> {
+    const updates: string[] = [];
+    const params: any[] = [];
+
+    if (metadata.lastActivityAt !== undefined) {
+      updates.push("last_activity_at = ?");
+      params.push(metadata.lastActivityAt);
+    }
+    if (metadata.qualityScoreCached !== undefined) {
+      updates.push("quality_score_cached = ?");
+      params.push(metadata.qualityScoreCached);
+    }
+    if (metadata.cacheTimestamp !== undefined) {
+      updates.push("cache_timestamp = ?");
+      params.push(metadata.cacheTimestamp);
+    }
+    if (metadata.semverConstraints !== undefined) {
+      updates.push("semver_constraints = ?");
+      params.push(metadata.semverConstraints);
+    }
+    if (metadata.quarantineReason !== undefined) {
+      updates.push("quarantine_reason = ?");
+      params.push(metadata.quarantineReason);
+    }
+    if (metadata.quarantineDate !== undefined) {
+      updates.push("quarantine_date = ?");
+      params.push(metadata.quarantineDate);
+    }
+
+    if (updates.length === 0) {
+      return; // Nothing to update
+    }
+
+    // Add updated_at timestamp
+    updates.push("updated_at = ?");
+    params.push(new Date().toISOString());
+
+    // Add pattern ID as last parameter
+    params.push(patternId);
+
+    const sql = `UPDATE patterns SET ${updates.join(", ")} WHERE id = ?`;
+
+    // [PAT:dA0w9N1I9-4m] ★★★☆☆ - Using synchronous SQLite transactions
+    const stmt = this.db.prepare(sql);
+    stmt.run(...params);
+
+    // Clear cache for this pattern
+    // this.cache.invalidatePattern(patternId);
+  }
+
+  /**
+   * Update pattern metadata (for evidence tracking)
+   */
+  public async updateMetadata(
+    patternId: string,
+    updates: Record<string, any>,
+  ): Promise<void> {
+    const pattern = await this.get(patternId);
+    if (!pattern) {
+      throw new Error(`Pattern ${patternId} not found`);
+    }
+
+    // Get metadata from database directly
+    const metadataSql = `SELECT metadata FROM patterns WHERE id = ?`;
+    const metadataStmt = this.db.prepare(metadataSql);
+    const metadataRow = metadataStmt.get(patternId) as { metadata: string } | undefined;
+    
+    const currentMetadata = metadataRow?.metadata ? JSON.parse(metadataRow.metadata) : {};
+    const updatedMetadata = {
+      ...currentMetadata,
+      ...updates,
+    };
+
+    const sql = `UPDATE patterns SET metadata = ?, updated_at = ? WHERE id = ?`;
+    const stmt = this.db.prepare(sql);
+    stmt.run(
+      JSON.stringify(updatedMetadata),
+      new Date().toISOString(),
+      patternId,
+    );
+
+    // Clear cache
+    // this.cache.invalidatePattern(patternId);
+  }
+
+  /**
+   * Get all patterns (for conflict detection)
+   */
+  public async getAllPatterns(): Promise<Pattern[]> {
+    const sql = `SELECT * FROM patterns ORDER BY id`;
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all() as any[];
+
+    return rows.map((row) => this.rowToPattern(row));
+  }
 }

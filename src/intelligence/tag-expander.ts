@@ -30,7 +30,10 @@ export class TagExpander {
     let sanitized = tag
       .toLowerCase()
       .replace(/['"`;\\]/g, "") // Remove quotes, semicolons, backslashes
-      .replace(/\b(select|insert|update|delete|drop|union|exec|script|from|where|table|alter|create|truncate|grant|revoke)\b/gi, "")
+      .replace(
+        /\b(select|insert|update|delete|drop|union|exec|script|from|where|table|alter|create|truncate|grant|revoke)\b/gi,
+        "",
+      )
       .replace(/--.*$/g, "") // Remove SQL comments
       .replace(/\/\*.*?\*\//g, "") // Remove multi-line comments
       .replace(/[^a-z0-9\-_]/g, "") // Only allow alphanumeric, dash, underscore
@@ -58,7 +61,7 @@ export class TagExpander {
 
     // Sanitize all input tags
     const sanitizedTags = tags
-      .filter((tag) => tag && typeof tag === 'string')
+      .filter((tag) => tag && typeof tag === "string")
       .map((tag) => this.sanitizeTag(tag))
       .filter((tag) => tag.length > 0);
 

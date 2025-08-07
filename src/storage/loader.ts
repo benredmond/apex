@@ -84,7 +84,7 @@ export class PatternLoader {
         ...normalized,
         pattern_digest: digest,
         json_canonical: canonical,
-        tags_csv: normalized.tags.join(","),
+        tags: normalized.tags, // [APE-63] Tags stored as array, will be JSON stringified in DB
         invalid: false,
       };
 

@@ -387,6 +387,30 @@ export function createPatternsCommand(): Command {
     });
 
   patterns
+    .command("audit")
+    .description("Audit patterns for quality issues")
+    .option("-v, --verbose", "Show detailed audit information", false)
+    .option("--fix", "Automatically fix minor issues", false)
+    .option("-t, --threshold <score>", "Quality score threshold for warnings", "0.5")
+    .action(async (options) => {
+      // Dynamic import to avoid circular dependencies
+      const { handler } = await import("./patterns-audit.js");
+      await handler(options);
+    });
+
+  patterns
+    .command("refresh <pattern-id>")
+    .description("Refresh a pattern to reset decay and clear quarantine")
+    .option("--all-stale", "Refresh all stale patterns (freshness < 30%)", false)
+    .option("-q, --clear-quarantine", "Clear quarantine status", true)
+    .option("-v, --verbose", "Show detailed information", false)
+    .action(async (patternId: string, options) => {
+      // Dynamic import to avoid circular dependencies
+      const { handler } = await import("./patterns-refresh.js");
+      await handler({ patternId, ...options });
+    });
+
+  patterns
     .command("stats")
     .description("Display pattern statistics and usage metrics")
     .option("-f, --format <type>", "Output format (json|table|yaml)", "table")

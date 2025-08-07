@@ -19,6 +19,7 @@ import type {
   Task,
   TaskBrief,
   Phase,
+  PhaseHandoff,
   CreateRequest,
   CreateResponse,
   FindRequest,
@@ -243,12 +244,33 @@ export class TaskService {
           fix?: string;
         }>;
 
-      // Store handoff in phase_handoffs
+      // Store handoff in phase_handoffs - append to array
       if (request.handoff) {
         const task = this.repository.findById(request.id);
         if (task) {
-          const handoffs = task.phase_handoffs || {};
-          handoffs[task.phase || "ARCHITECT"] = request.handoff;
+          let handoffs: PhaseHandoff[];
+          
+          // Handle both old Record format and new array format
+          if (Array.isArray(task.phase_handoffs)) {
+            handoffs = task.phase_handoffs;
+          } else if (task.phase_handoffs && typeof task.phase_handoffs === 'object') {
+            // Convert old Record format to array format
+            handoffs = Object.entries(task.phase_handoffs).map(([p, h]) => ({
+              phase: p as Phase,
+              handoff: h,
+              timestamp: task.created_at, // Use task creation time for migrated handoffs
+            }));
+          } else {
+            handoffs = [];
+          }
+          
+          // Append new handoff
+          handoffs.push({
+            phase: task.phase || "ARCHITECT",
+            handoff: request.handoff,
+            timestamp: new Date().toISOString(),
+          });
+          
           updates.phase_handoffs = handoffs;
         }
       }
@@ -596,18 +618,41 @@ export class TaskService {
       // Get handoff from previous phase if exists
       let handoff: string | undefined;
       if (task.phase_handoffs) {
-        // Get the previous phase's handoff
-        const phases: Phase[] = [
-          "ARCHITECT",
-          "BUILDER",
-          "VALIDATOR",
-          "REVIEWER",
-          "DOCUMENTER",
-        ];
-        const currentIndex = phases.indexOf(phase);
-        if (currentIndex > 0) {
-          const previousPhase = phases[currentIndex - 1];
-          handoff = task.phase_handoffs[previousPhase];
+        // Support both old Record format and new array format
+        if (Array.isArray(task.phase_handoffs)) {
+          // New array format - find the latest handoff for the previous phase
+          const phases: Phase[] = [
+            "ARCHITECT",
+            "BUILDER",
+            "VALIDATOR",
+            "REVIEWER",
+            "DOCUMENTER",
+          ];
+          const currentIndex = phases.indexOf(phase);
+          if (currentIndex > 0) {
+            const previousPhase = phases[currentIndex - 1];
+            // Find the latest handoff for the previous phase
+            const previousHandoffs = task.phase_handoffs
+              .filter(h => h.phase === previousPhase)
+              .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+            if (previousHandoffs.length > 0) {
+              handoff = previousHandoffs[0].handoff;
+            }
+          }
+        } else {
+          // Old Record format - direct lookup
+          const phases: Phase[] = [
+            "ARCHITECT",
+            "BUILDER",
+            "VALIDATOR",
+            "REVIEWER",
+            "DOCUMENTER",
+          ];
+          const currentIndex = phases.indexOf(phase);
+          if (currentIndex > 0) {
+            const previousPhase = phases[currentIndex - 1];
+            handoff = task.phase_handoffs[previousPhase];
+          }
         }
       }
 
@@ -659,10 +704,31 @@ export class TaskService {
         phase,
       };
 
-      // Store handoff if provided
+      // Store handoff if provided - append to array
       if (handoff) {
-        const handoffs = task.phase_handoffs || {};
-        handoffs[phase] = handoff;
+        let handoffs: PhaseHandoff[];
+        
+        // Handle both old Record format and new array format
+        if (Array.isArray(task.phase_handoffs)) {
+          handoffs = task.phase_handoffs;
+        } else if (task.phase_handoffs && typeof task.phase_handoffs === 'object') {
+          // Convert old Record format to array format
+          handoffs = Object.entries(task.phase_handoffs).map(([p, h]) => ({
+            phase: p as Phase,
+            handoff: h,
+            timestamp: task.created_at, // Use task creation time for migrated handoffs
+          }));
+        } else {
+          handoffs = [];
+        }
+        
+        // Append new handoff
+        handoffs.push({
+          phase,
+          handoff,
+          timestamp: new Date().toISOString(),
+        });
+        
         updates.phase_handoffs = handoffs;
       }
 

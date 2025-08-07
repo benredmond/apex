@@ -188,33 +188,35 @@ export class TaskRepository {
    * Find tasks by various criteria including tags
    * [APE-63] Support tag-based filtering
    */
-  find(criteria: {
-    tags?: string[];
-    status?: TaskStatus;
-    limit?: number;
-  } = {}): Task[] {
+  find(
+    criteria: {
+      tags?: string[];
+      status?: TaskStatus;
+      limit?: number;
+    } = {},
+  ): Task[] {
     const { tags, status, limit = 10 } = criteria;
 
     // Build dynamic query based on criteria
-    let query = 'SELECT * FROM tasks WHERE 1=1';
+    let query = "SELECT * FROM tasks WHERE 1=1";
     const params: any[] = [];
 
     if (status) {
-      query += ' AND status = ?';
+      query += " AND status = ?";
       params.push(status);
     }
 
     if (tags && tags.length > 0) {
       // For tag filtering, we need to check if any of the provided tags
       // are present in the task's tags JSON array
-      const tagConditions = tags.map(() => 'tags LIKE ?').join(' OR ');
+      const tagConditions = tags.map(() => "tags LIKE ?").join(" OR ");
       query += ` AND (${tagConditions})`;
-      tags.forEach(tag => {
+      tags.forEach((tag) => {
         params.push(`%"${tag}"%`);
       });
     }
 
-    query += ' ORDER BY created_at DESC LIMIT ?';
+    query += " ORDER BY created_at DESC LIMIT ?";
     params.push(limit);
 
     const stmt = this.db.prepare(query);
@@ -226,7 +228,11 @@ export class TaskRepository {
    * Add a checkpoint message to a task
    * [APE-63] Track task progress with checkpoint messages
    */
-  checkpoint(request: { id: string; message: string; confidence?: number }): void {
+  checkpoint(request: {
+    id: string;
+    message: string;
+    confidence?: number;
+  }): void {
     const task = this.findById(request.id);
     if (!task) {
       throw new Error(`Task ${request.id} not found`);
