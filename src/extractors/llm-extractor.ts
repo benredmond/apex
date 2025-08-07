@@ -1,5 +1,5 @@
-import { spawn } from 'child_process';
-import { LLMExtractionResponseSchema, type BookPattern } from './schemas.js';
+import { spawn } from "child_process";
+import { LLMExtractionResponseSchema, type BookPattern } from "./schemas.js";
 
 // [ARCH:SECURITY:SPAWN_NO_SHELL] ★★★★★ - Use spawn for subprocess security
 // [FIX:ASYNC:UNHANDLED_REJECTION] ★★★★☆ - Comprehensive error handling
@@ -15,13 +15,17 @@ export class LLMExtractor {
   async extractPatternsFromChapter(
     chapterText: string,
     chapterNumber?: number,
-    bookTitle?: string
+    bookTitle?: string,
   ): Promise<BookPattern[]> {
     // Rate limiting
     await this.enforceRateLimit();
 
-    const prompt = this.buildExtractionPrompt(chapterText, chapterNumber, bookTitle);
-    
+    const prompt = this.buildExtractionPrompt(
+      chapterText,
+      chapterNumber,
+      bookTitle,
+    );
+
     let attempts = 0;
     let lastError: Error | null = null;
 
@@ -32,7 +36,7 @@ export class LLMExtractor {
       } catch (error) {
         lastError = error as Error;
         attempts++;
-        
+
         if (attempts < this.maxRetries) {
           console.log(`[LLMExtractor] Attempt ${attempts} failed, retrying...`);
           await this.backoff(attempts);
@@ -40,7 +44,9 @@ export class LLMExtractor {
       }
     }
 
-    throw new Error(`[LLMExtractor] Failed after ${this.maxRetries} attempts: ${lastError?.message}`);
+    throw new Error(
+      `[LLMExtractor] Failed after ${this.maxRetries} attempts: ${lastError?.message}`,
+    );
   }
 
   /**
@@ -49,11 +55,12 @@ export class LLMExtractor {
   private buildExtractionPrompt(
     chapterText: string,
     chapterNumber?: number,
-    bookTitle?: string
+    bookTitle?: string,
   ): string {
-    const contextInfo = chapterNumber && bookTitle 
-      ? `from Chapter ${chapterNumber} of "${bookTitle}"`
-      : '';
+    const contextInfo =
+      chapterNumber && bookTitle
+        ? `from Chapter ${chapterNumber} of "${bookTitle}"`
+        : "";
 
     return `Extract reusable code patterns and best practices ${contextInfo}.
 
@@ -111,28 +118,30 @@ Remember to:
   private async callLLMSecurely(prompt: string): Promise<string> {
     return new Promise((resolve, reject) => {
       // Write prompt to stdin instead of passing as argument to avoid shell interpretation
-      const child = spawn('claude', ['-p'], {
-        stdio: ['pipe', 'pipe', 'pipe']
+      const child = spawn("claude", ["-p"], {
+        stdio: ["pipe", "pipe", "pipe"],
       });
 
-      let stdout = '';
-      let stderr = '';
+      let stdout = "";
+      let stderr = "";
 
-      child.stdout.on('data', (data) => {
+      child.stdout.on("data", (data) => {
         stdout += data.toString();
       });
 
-      child.stderr.on('data', (data) => {
+      child.stderr.on("data", (data) => {
         stderr += data.toString();
       });
 
-      child.on('error', (error) => {
+      child.on("error", (error) => {
         reject(new Error(`Failed to spawn claude process: ${error.message}`));
       });
 
-      child.on('close', (code) => {
+      child.on("close", (code) => {
         if (code !== 0) {
-          reject(new Error(`claude process exited with code ${code}: ${stderr}`));
+          reject(
+            new Error(`claude process exited with code ${code}: ${stderr}`),
+          );
         } else {
           resolve(stdout);
         }
@@ -153,15 +162,15 @@ Remember to:
       // Try to extract JSON from response (LLM might include extra text)
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error('No JSON found in LLM response');
+        throw new Error("No JSON found in LLM response");
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
       const validated = LLMExtractionResponseSchema.parse(parsed);
-      
+
       return validated.patterns;
     } catch (error) {
-      console.error('[LLMExtractor] Failed to parse LLM response:', error);
+      console.error("[LLMExtractor] Failed to parse LLM response:", error);
       throw new Error(`Invalid LLM response format: ${error}`);
     }
   }
@@ -172,11 +181,11 @@ Remember to:
   private async enforceRateLimit(): Promise<void> {
     const now = Date.now();
     const timeSinceLastCall = now - this.lastCallTime;
-    
+
     if (timeSinceLastCall < this.rateLimitDelay) {
       await this.sleep(this.rateLimitDelay - timeSinceLastCall);
     }
-    
+
     this.lastCallTime = Date.now();
   }
 
@@ -192,6 +201,6 @@ Remember to:
    * Sleep helper
    */
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

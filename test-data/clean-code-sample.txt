@@ -1,0 +1,254 @@
+Chapter 2: Meaningful Names
+
+Introduction
+Names are everywhere in software. We name our variables, our functions, our arguments,
+classes, and packages. We name our source files and the directories that contain them. We
+name our jar files and war files and ear files. We name and name and name. Because we do
+so much of it, we'd better do it well. What follows are some simple rules for creating
+good names.
+
+Use Intention-Revealing Names
+It is easy to say that names should reveal intent. What we want to impress upon you is that
+we are serious about this. Choosing good names takes time but saves more than it takes.
+So take care with your names and change them when you find better ones. Everyone who
+reads your code (including you) will be happier if you do.
+
+The name of a variable, function, or class, should answer all the big questions. It
+should tell you why it exists, what it does, and how it is used. If a name requires a com-
+ment, then the name does not reveal its intent.
+
+int d; // elapsed time in days
+
+The name d reveals nothing. It does not evoke a sense of elapsed time, nor of days. We
+should choose a name that specifies what is being measured and the unit of that measure-
+ment:
+
+int elapsedTimeInDays;
+int daysSinceCreation;
+int daysSinceModification;
+int fileAgeInDays;
+
+Choosing names that reveal intent can make it much easier to understand and change
+code. What is the purpose of this code?
+
+public List<int[]> getThem() {
+  List<int[]> list1 = new ArrayList<int[]>();
+  for (int[] x : theList)
+    if (x[0] == 4)
+      list1.add(x);
+  return list1;
+}
+
+The problem isn't the simplicity of the code but the implicity of the code: the degree to which 
+the context is not explicit in the code itself. Say that we're working in a mine sweeper game. 
+We find that the board is a list of cells called theList. Let's rename that to gameBoard.
+
+public List<int[]> getFlaggedCells() {
+  List<int[]> flaggedCells = new ArrayList<int[]>();
+  for (int[] cell : gameBoard)
+    if (cell[STATUS_VALUE] == FLAGGED)
+      flaggedCells.add(cell);
+  return flaggedCells;
+}
+
+We can go further and write a simple class for cells instead of using an array of ints:
+
+public List<Cell> getFlaggedCells() {
+  List<Cell> flaggedCells = new ArrayList<Cell>();
+  for (Cell cell : gameBoard)
+    if (cell.isFlagged())
+      flaggedCells.add(cell);
+  return flaggedCells;
+}
+
+With these simple name changes, it's not difficult to understand what's going on. This is
+the power of choosing good names.
+
+Avoid Disinformation
+Programmers must avoid leaving false clues that obscure the meaning of code. We should
+avoid words whose entrenched meanings vary from our intended meaning. For example,
+hp, aix, and sco would be poor variable names because they are the names of Unix plat-
+forms or variants.
+
+Do not refer to a grouping of accounts as an accountList unless it's actually a List.
+The word list means something specific to programmers. If the container holding the
+accounts is not actually a List, it may lead to false conclusions. So accountGroup or
+bunchOfAccounts or just plain accounts would be better.
+
+Make Meaningful Distinctions
+Programmers create problems for themselves when they write code solely to satisfy a compiler 
+or interpreter. It is not sufficient to add number series or noise words, even though the compiler is
+satisfied. If names must be different, then they should also mean something different.
+
+Number-series naming (a1, a2, .. aN) is the opposite of intentional naming. Consider:
+
+public static void copyChars(char a1[], char a2[]) {
+  for (int i = 0; i < a1.length; i++) {
+    a2[i] = a1[i];
+  }
+}
+
+This function reads much better when source and destination are used for the argument names.
+
+Noise words are another meaningless distinction. Imagine that you have a Product
+class. If you have another called ProductInfo or ProductData, you have made the names dif-
+ferent without making them mean anything different. Info and Data are indistinct noise
+words like a, an, and the.
+
+Use Pronounceable Names
+Humans are good at words. A significant part of our brains is dedicated to the concept of
+words. And words are, by definition, pronounceable. Make your names pronounceable.
+
+If you can't pronounce it, you can't discuss it without sounding like an idiot. Compare:
+
+class DtaRcrd102 {
+  private Date genymdhms;
+  private Date modymdhms;
+  private final String pszqint = "102";
+};
+
+to:
+
+class Customer {
+  private Date generationTimestamp;
+  private Date modificationTimestamp;
+  private final String recordId = "102";
+};
+
+Intelligent conversation is now possible: "Hey, Mikey, take a look at this record! The gen-
+eration timestamp is set to tomorrow's date! How can that be?"
+
+Use Searchable Names
+Single-letter names and numeric constants have a particular problem in that they are not
+easy to locate across a body of text.
+
+One might easily grep for MAX_CLASSES_PER_STUDENT, but the number 7 could be more
+troublesome. Compare:
+
+for (int j=0; j<34; j++) {
+  s += (t[j]*4)/5;
+}
+
+to:
+
+int realDaysPerIdealDay = 4;
+const int WORK_DAYS_PER_WEEK = 5;
+int sum = 0;
+for (int j=0; j < NUMBER_OF_TASKS; j++) {
+  int realTaskDays = taskEstimate[j] * realDaysPerIdealDay;
+  int realTaskWeeks = (realTaskDays / WORK_DAYS_PER_WEEK);
+  sum += realTaskWeeks;
+}
+
+The intentionally named code makes for a longer function, but consider how much easier it
+will be to find WORK_DAYS_PER_WEEK than to find all the places where 5 was used.
+
+Avoid Encodings
+We have enough encodings to deal with without adding more to our burden. Encoding
+type or scope information into names simply adds an extra burden of deciphering.
+
+Hungarian Notation
+In days of old, when we worked in name-length-challenged languages, we violated this
+rule out of necessity. In modern languages we have much richer type systems, and the 
+compilers remember and enforce the types.
+
+Java programmers don't need type encoding. Objects are strongly typed, and editing
+environments have advanced such that they detect a type error long before you can run a
+compile!
+
+PhoneNumber phoneString; // name not changed when type changed!
+
+Member Prefixes
+You also don't need to prefix member variables with m_ anymore. Your classes and func-
+tions should be small enough that you don't need them.
+
+public class Part {
+  private String m_dsc; // The textual description
+  void setName(String name) {
+    m_dsc = name;
+  }
+}
+
+vs:
+
+public class Part {
+  String description;
+  void setDescription(String description) {
+    this.description = description;
+  }
+}
+
+Class Names
+Classes and objects should have noun or noun phrase names like Customer, WikiPage,
+Account, and AddressParser. Avoid words like Manager, Processor, Data, or Info in the name
+of a class. A class name should not be a verb.
+
+Method Names
+Methods should have verb or verb phrase names like postPayment, deletePage, or save.
+Accessors, mutators, and predicates should be named for their value and prefixed with get,
+set, and is according to the javabean standard.
+
+string name = employee.getName();
+customer.setName("mike");
+if (paycheck.isPosted())...
+
+When constructors are overloaded, use static factory methods with names that
+describe the arguments:
+
+Complex fulcrumPoint = Complex.FromRealNumber(23.0);
+
+is generally better than:
+
+Complex fulcrumPoint = new Complex(23.0);
+
+Pick One Word per Concept
+Pick one word for one abstract concept and stick with it. For instance, it's confusing to
+have fetch, retrieve, and get as equivalent methods of different classes.
+
+A consistent lexicon is a great boon to the programmers who must use your code.
+
+Don't Pun
+Avoid using the same word for two purposes. Using the same term for two different ideas
+is essentially a pun.
+
+If you follow the "one word per concept" rule, you could end up with many classes
+that have, for example, an add method. As long as the parameter lists and return values of
+the various add methods are semantically equivalent, all is well.
+
+Use Solution Domain Names
+Remember that the people who read your code will be programmers. So go ahead and use
+computer science terms, algorithm names, pattern names, math terms, and so forth.
+
+The name AccountVisitor means a great deal to a programmer who is familiar with
+the VISITOR pattern. What programmer would not know what a JobQueue was?
+
+Use Problem Domain Names
+When there is no "programmer-eese" for what you're doing, use the name from the prob-
+lem domain. At least the programmer who maintains your code can ask a domain expert
+what it means.
+
+Add Meaningful Context
+There are a few names which are meaningful in and of themselves—most are not. Instead,
+you need to place names in context for your reader by enclosing them in well-named
+classes, functions, or namespaces.
+
+Imagine that you have variables named firstName, lastName, street, houseNumber, city,
+state, and zipcode. Taken together it's pretty clear that they form an address. But what if
+you just saw the state variable being used alone in a method?
+
+A better solution is to create a class named Address. Then, even the compiler knows
+that the variables belong to a bigger concept.
+
+Don't Add Gratuitous Context
+In an imaginary application called "Gas Station Deluxe," it is a bad idea to prefix every
+class with GSD. You type G and press the completion key and are rewarded with a mile-long 
+list of every class in the system.
+
+Shorter names are generally better than longer ones, so long as they are clear. Add no
+more context to a name than is necessary.
+
+Final Words
+The hardest thing about choosing good names is that it requires good descriptive skills and
+a shared cultural background. People are also afraid of renaming things for fear that some 
+other developers will object. Follow some of these rules and see whether you don't improve 
+the readability of your code.

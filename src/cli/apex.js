@@ -13,6 +13,7 @@ import { createBriefCommand } from "../../dist/cli/commands/brief.js";
 import { createPackCommand } from "../../dist/cli/commands/pack.js";
 import { createMCPCommand } from "../../dist/cli/commands/mcp.js";
 import { configureMCPForProject } from "../../dist/cli/utils/mcp-config.js";
+import { registerExtractCommand } from "./extract-command.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -390,5 +391,8 @@ program.addCommand(createPackCommand());
 
 // Add MCP command
 program.addCommand(createMCPCommand());
+
+// Add extract command for book pattern extraction
+registerExtractCommand(program);
 
 program.parse(process.argv);
