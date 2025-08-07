@@ -249,11 +249,14 @@ export class TaskService {
         const task = this.repository.findById(request.id);
         if (task) {
           let handoffs: PhaseHandoff[];
-          
+
           // Handle both old Record format and new array format
           if (Array.isArray(task.phase_handoffs)) {
             handoffs = task.phase_handoffs;
-          } else if (task.phase_handoffs && typeof task.phase_handoffs === 'object') {
+          } else if (
+            task.phase_handoffs &&
+            typeof task.phase_handoffs === "object"
+          ) {
             // Convert old Record format to array format
             handoffs = Object.entries(task.phase_handoffs).map(([p, h]) => ({
               phase: p as Phase,
@@ -263,14 +266,14 @@ export class TaskService {
           } else {
             handoffs = [];
           }
-          
+
           // Append new handoff
           handoffs.push({
             phase: task.phase || "ARCHITECT",
             handoff: request.handoff,
             timestamp: new Date().toISOString(),
           });
-          
+
           updates.phase_handoffs = handoffs;
         }
       }
@@ -633,7 +636,7 @@ export class TaskService {
             const previousPhase = phases[currentIndex - 1];
             // Find the latest handoff for the previous phase
             const previousHandoffs = task.phase_handoffs
-              .filter(h => h.phase === previousPhase)
+              .filter((h) => h.phase === previousPhase)
               .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
             if (previousHandoffs.length > 0) {
               handoff = previousHandoffs[0].handoff;
@@ -707,11 +710,14 @@ export class TaskService {
       // Store handoff if provided - append to array
       if (handoff) {
         let handoffs: PhaseHandoff[];
-        
+
         // Handle both old Record format and new array format
         if (Array.isArray(task.phase_handoffs)) {
           handoffs = task.phase_handoffs;
-        } else if (task.phase_handoffs && typeof task.phase_handoffs === 'object') {
+        } else if (
+          task.phase_handoffs &&
+          typeof task.phase_handoffs === "object"
+        ) {
           // Convert old Record format to array format
           handoffs = Object.entries(task.phase_handoffs).map(([p, h]) => ({
             phase: p as Phase,
@@ -721,14 +727,14 @@ export class TaskService {
         } else {
           handoffs = [];
         }
-        
+
         // Append new handoff
         handoffs.push({
           phase,
           handoff,
           timestamp: new Date().toISOString(),
         });
-        
+
         updates.phase_handoffs = handoffs;
       }
 

@@ -250,7 +250,7 @@ export const handler = async (argv) => {
     }
 
     // Cleanup
-    await repository.close();
+    await repository.shutdown();
   } catch (error) {
     console.error(chalk.red(`\n❌ Audit failed: ${error.message}`));
     if (verbose) {

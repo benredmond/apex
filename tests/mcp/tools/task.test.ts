@@ -32,8 +32,9 @@ describe("Task MCP Tools", () => {
     // Run migrations to create tables
     const migration006 = await import("../../../src/migrations/migrations/006-add-task-system-schema.js");
     const migration007 = await import("../../../src/migrations/migrations/007-add-evidence-log-table.js");
+    const migration010 = await import("../../../src/migrations/migrations/010-add-task-tags.js");
     
-    // Run the migrations
+    // Run the migrations in order
     try {
       migration006.migration.up(db);
     } catch (error) {
@@ -45,7 +46,12 @@ describe("Task MCP Tools", () => {
     } catch (error) {
       // Ignore if table already exists
     }
-
+    
+    try {
+      migration010.migration.up(db);
+    } catch (error) {
+      // Ignore if column already exists
+    }
     // Create minimal patterns table for BriefGenerator
     db.exec(`
       CREATE TABLE IF NOT EXISTS patterns (
@@ -648,6 +654,67 @@ describe("Task MCP Tools", () => {
       phaseInfo = await service.getPhase({ task_id: taskId });
       expect(phaseInfo.phase).toBe("BUILDER");
       expect(phaseInfo.handoff).toBe("Architecture handoff");
+    });
+
+    it("should store multiple handoffs for the same phase", async () => {
+      const response = await service.create({
+        intent: "Test multiple handoffs per phase",
+        type: "test",
+      });
+
+      const taskId = response.id;
+
+      // Set initial handoff for ARCHITECT
+      await service.setPhase({
+        task_id: taskId,
+        phase: "ARCHITECT",
+        handoff: "First architecture decision",
+      });
+
+      // Move to BUILDER with handoff
+      await service.setPhase({
+        task_id: taskId,
+        phase: "BUILDER",
+        handoff: "Initial implementation",
+      });
+
+      // Move back to ARCHITECT with new handoff (revision scenario)
+      await service.setPhase({
+        task_id: taskId,
+        phase: "ARCHITECT",
+        handoff: "Revised architecture after builder feedback",
+      });
+
+      // Move to BUILDER again with another handoff
+      await service.setPhase({
+        task_id: taskId,
+        phase: "BUILDER",
+        handoff: "Updated implementation based on revision",
+      });
+
+      // Get the task and verify all handoffs are stored
+      const task = repository.findById(taskId);
+      expect(task).toBeDefined();
+      expect(Array.isArray(task.phase_handoffs)).toBe(true);
+      
+      // Should have 4 handoffs total
+      expect(task.phase_handoffs).toHaveLength(4);
+      
+      // Verify each handoff is present
+      const architectHandoffs = task.phase_handoffs.filter(h => h.phase === "ARCHITECT");
+      expect(architectHandoffs).toHaveLength(2);
+      expect(architectHandoffs[0].handoff).toBe("First architecture decision");
+      expect(architectHandoffs[1].handoff).toBe("Revised architecture after builder feedback");
+      
+      const builderHandoffs = task.phase_handoffs.filter(h => h.phase === "BUILDER");
+      expect(builderHandoffs).toHaveLength(2);
+      expect(builderHandoffs[0].handoff).toBe("Initial implementation");
+      expect(builderHandoffs[1].handoff).toBe("Updated implementation based on revision");
+      
+      // Verify getPhase returns the latest handoff for previous phase
+      const phaseInfo = await service.getPhase({ task_id: taskId });
+      expect(phaseInfo.phase).toBe("BUILDER");
+      expect(phaseInfo.handoff).toBe("Revised architecture after builder feedback");
     });
   });
 

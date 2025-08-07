@@ -37,7 +37,7 @@ export const builder = (yargs) => {
 };
 
 export const handler = async (argv) => {
-  const { patternId, allStale , verbose } = argv;
+  const { patternId, allStale, verbose } = argv;
 
   try {
     // Initialize components
@@ -201,7 +201,7 @@ export const handler = async (argv) => {
     }
 
     // Cleanup
-    await repository.close();
+    await repository.shutdown();
   } catch (error) {
     console.error(chalk.red(`\n❌ Refresh failed: ${error.message}`));
     if (verbose) {

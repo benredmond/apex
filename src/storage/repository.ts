@@ -1000,9 +1000,13 @@ export class PatternRepository {
     // Get metadata from database directly
     const metadataSql = `SELECT metadata FROM patterns WHERE id = ?`;
     const metadataStmt = this.db.prepare(metadataSql);
-    const metadataRow = metadataStmt.get(patternId) as { metadata: string } | undefined;
-    
-    const currentMetadata = metadataRow?.metadata ? JSON.parse(metadataRow.metadata) : {};
+    const metadataRow = metadataStmt.get(patternId) as
+      | { metadata: string }
+      | undefined;
+
+    const currentMetadata = metadataRow?.metadata
+      ? JSON.parse(metadataRow.metadata)
+      : {};
     const updatedMetadata = {
       ...currentMetadata,
       ...updates,

@@ -248,8 +248,7 @@ export class EvidenceStandards {
           ((pattern as any).manualVerifications || 0) + 1;
         break;
       case EvidenceType.PRODUCTION_USAGE:
-        updates.productionUsages =
-          ((pattern as any).productionUsages || 0) + 1;
+        updates.productionUsages = ((pattern as any).productionUsages || 0) + 1;
         break;
     }
 

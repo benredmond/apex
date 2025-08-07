@@ -391,7 +391,11 @@ export function createPatternsCommand(): Command {
     .description("Audit patterns for quality issues")
     .option("-v, --verbose", "Show detailed audit information", false)
     .option("--fix", "Automatically fix minor issues", false)
-    .option("-t, --threshold <score>", "Quality score threshold for warnings", "0.5")
+    .option(
+      "-t, --threshold <score>",
+      "Quality score threshold for warnings",
+      "0.5",
+    )
     .action(async (options) => {
       // Dynamic import to avoid circular dependencies
       const { handler } = await import("./patterns-audit.js");
@@ -401,7 +405,11 @@ export function createPatternsCommand(): Command {
   patterns
     .command("refresh <pattern-id>")
     .description("Refresh a pattern to reset decay and clear quarantine")
-    .option("--all-stale", "Refresh all stale patterns (freshness < 30%)", false)
+    .option(
+      "--all-stale",
+      "Refresh all stale patterns (freshness < 30%)",
+      false,
+    )
     .option("-q, --clear-quarantine", "Clear quarantine status", true)
     .option("-v, --verbose", "Show detailed information", false)
     .action(async (patternId: string, options) => {
