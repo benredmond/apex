@@ -30,11 +30,15 @@ import type {
 import { QueryProcessor } from "../../search/query-processor.js";
 import { FuzzyMatcher } from "../../search/fuzzy-matcher.js";
 import type { PatternPack } from "../../ranking/types.js";
+import { TagExpander } from "../../intelligence/tag-expander.js";
 
 // Request validation schema
 const DiscoverRequestSchema = z.object({
   // Natural language query
   query: z.string().min(3).max(500),
+
+  // AI-provided tags for enhanced discovery [APE-63]
+  tags: z.array(z.string()).max(15).optional(),
 
   // Optional filters
   filters: z
@@ -113,6 +117,7 @@ export class PatternDiscoverer {
   private rateLimiter: RateLimiter;
   private queryProcessor: QueryProcessor;
   private fuzzyMatcher: FuzzyMatcher;
+  private tagExpander: TagExpander;
 
   constructor(repository: PatternRepository) {
     this.repository = repository;
@@ -125,6 +130,7 @@ export class PatternDiscoverer {
     this.rateLimiter = new RateLimiter();
     this.queryProcessor = new QueryProcessor();
     this.fuzzyMatcher = new FuzzyMatcher();
+    this.tagExpander = new TagExpander();
   }
 
   async discover(rawRequest: unknown): Promise<DiscoverResponse> {
@@ -163,6 +169,16 @@ export class PatternDiscoverer {
           latency_ms: latency,
           cache_hit: true,
         };
+      }
+
+      // [APE-63] Expand AI-provided tags if present
+      let expandedTags: string[] = [];
+      if (request.tags && request.tags.length > 0) {
+        expandedTags = this.tagExpander.expand(request.tags, {
+          maxDepth: 2,
+          maxTags: 50,
+          cacheResults: true,
+        });
       }
 
       // Process query with enhanced search capabilities
@@ -223,6 +239,11 @@ export class PatternDiscoverer {
         searchTags = [...searchTags, ...request.filters.categories] as any;
       }
 
+      // [APE-63] Combine expanded tags with search tags
+      if (expandedTags.length > 0) {
+        searchTags = [...new Set([...searchTags, ...expandedTags])] as any;
+      }
+
       // Use enhanced FTS query for search
       // [PAT:SEARCH:FTS] ★★★★★ - Enhanced FTS5 search
       const lookupResult = await this.repository.search({
@@ -264,6 +285,9 @@ export class PatternDiscoverer {
 
       // Calculate facet matches based on search criteria
       const facetMatches = new Map<string, number>();
+      // [APE-63] Calculate tag overlap scores for AI-provided tags
+      const tagOverlapScores = new Map<string, number>();
+
       for (const pattern of searchResults) {
         let matches = 0;
         if (searchTypes?.includes(pattern.type)) matches++;
@@ -275,6 +299,15 @@ export class PatternDiscoverer {
             matches++;
         }
         facetMatches.set(pattern.id, matches);
+
+        // [APE-63] Calculate tag overlap score if AI tags provided
+        if (request.tags && request.tags.length > 0 && pattern.tags) {
+          const overlapScore = this.tagExpander.calculateOverlapScore(
+            request.tags,
+            pattern.tags,
+          );
+          tagOverlapScores.set(pattern.id, overlapScore);
+        }
       }
 
       // Check trigger matches (empty for now as triggers aren't loaded)
@@ -292,14 +325,38 @@ export class PatternDiscoverer {
           vocab: metadata.vocab,
         },
         {
-          maxResults: request.max_results,
+          maxResults: request.max_results * 2, // Get more to re-rank with tags
           minScore: request.min_score,
           includeBreakdown: true,
         },
       );
 
+      // [APE-63] Adjust scores based on tag overlap if AI tags provided
+      let adjustedScored = scored;
+      if (tagOverlapScores.size > 0) {
+        adjustedScored = scored.map((scoreResult) => {
+          const tagScore = tagOverlapScores.get(scoreResult.pattern.id) || 0;
+          // Blend tag score with existing score (40% tags, 60% existing)
+          const adjustedScore = tagScore * 0.4 + scoreResult.score * 0.6;
+          return {
+            ...scoreResult,
+            score: adjustedScore,
+            explanation:
+              scoreResult.explanation +
+              (tagScore > 0
+                ? ` Tag overlap: ${(tagScore * 100).toFixed(0)}%.`
+                : ""),
+          };
+        });
+        // Re-sort by adjusted score
+        adjustedScored.sort((a, b) => b.score - a.score);
+      }
+
+      // Take top results after adjustment
+      const finalScored = adjustedScored.slice(0, request.max_results);
+
       // Format response
-      const patterns = scored.map((score) => ({
+      const patterns = finalScored.map((score) => ({
         pattern: score.pattern,
         score: score.score,
         explanation: request.include_explanation ? score.explanation : "",
@@ -394,6 +451,7 @@ export class PatternDiscoverer {
   private generateCacheKey(request: DiscoverRequest): string {
     const normalized = {
       query: request.query.toLowerCase().trim(),
+      tags: request.tags || [], // [APE-63] Include tags in cache key
       filters: request.filters || {},
       context: request.context || {},
       max_results: request.max_results,

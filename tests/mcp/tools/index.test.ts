@@ -33,6 +33,18 @@ describe("MCP Tools Orchestration", () => {
       patternsDir: path.join(tempDir, "patterns"),
     });
 
+    // Run migrations to create required tables
+    const db = (repository as any).db.database;
+    const migration006 = await import("../../../src/migrations/migrations/006-add-task-system-schema.js");
+    const migration007 = await import("../../../src/migrations/migrations/007-add-evidence-log-table.js");
+    
+    try {
+      migration006.migration.up(db);
+      migration007.migration.up(db);
+    } catch (error) {
+      // Ignore if tables already exist
+    }
+
     await repository.initialize();
 
     // Create test pattern

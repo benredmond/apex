@@ -45,12 +45,12 @@ export class TaskRepository {
           id, identifier, title, intent, task_type, status,
           tl_dr, objectives, constraints, acceptance_criteria, plan,
           facts, snippets, risks_and_gotchas, open_questions, test_scaffold,
-          phase, confidence, created_at
+          phase, confidence, tags, created_at
         ) VALUES (
           @id, @identifier, @title, @intent, @task_type, @status,
           @tl_dr, @objectives, @constraints, @acceptance_criteria, @plan,
           @facts, @snippets, @risks_and_gotchas, @open_questions, @test_scaffold,
-          @phase, @confidence, CURRENT_TIMESTAMP
+          @phase, @confidence, @tags, CURRENT_TIMESTAMP
         )
       `),
 
@@ -119,30 +119,37 @@ export class TaskRepository {
     const id = nanoid();
 
     // Convert new TaskBrief format to old format if needed
-    const oldBrief = this.isNewTaskBrief(brief)
-      ? newToOldTaskBrief(brief)
-      : brief;
+    const oldBrief = brief
+      ? this.isNewTaskBrief(brief)
+        ? newToOldTaskBrief(brief)
+        : brief
+      : null;
 
     const newTask = {
       id,
       identifier: task.identifier,
-      title: oldBrief.tl_dr || task.intent || "Untitled Task",
+      title: oldBrief?.tl_dr || task.intent || "Untitled Task",
       intent: task.intent,
       task_type: task.task_type || "feature",
       status: "active" as TaskStatus,
       // Store brief components as JSON strings
-      tl_dr: oldBrief.tl_dr,
-      objectives: JSON.stringify(oldBrief.objectives),
-      constraints: JSON.stringify(oldBrief.constraints),
-      acceptance_criteria: JSON.stringify(oldBrief.acceptance_criteria),
-      plan: JSON.stringify(oldBrief.plan),
-      facts: JSON.stringify(oldBrief.facts),
-      snippets: JSON.stringify(oldBrief.snippets),
-      risks_and_gotchas: JSON.stringify(oldBrief.risks_and_gotchas),
-      open_questions: JSON.stringify(oldBrief.open_questions),
-      test_scaffold: oldBrief.test_scaffold,
+      tl_dr: oldBrief?.tl_dr || null,
+      objectives: oldBrief ? JSON.stringify(oldBrief.objectives) : null,
+      constraints: oldBrief ? JSON.stringify(oldBrief.constraints) : null,
+      acceptance_criteria: oldBrief
+        ? JSON.stringify(oldBrief.acceptance_criteria)
+        : null,
+      plan: oldBrief ? JSON.stringify(oldBrief.plan) : null,
+      facts: oldBrief ? JSON.stringify(oldBrief.facts) : null,
+      snippets: oldBrief ? JSON.stringify(oldBrief.snippets) : null,
+      risks_and_gotchas: oldBrief
+        ? JSON.stringify(oldBrief.risks_and_gotchas)
+        : null,
+      open_questions: oldBrief ? JSON.stringify(oldBrief.open_questions) : null,
+      test_scaffold: oldBrief?.test_scaffold || null,
       phase: "ARCHITECT" as Phase,
       confidence: 0.3,
+      tags: task.tags ? JSON.stringify(task.tags) : null, // [APE-63] Store tags as JSON
     };
 
     // [FIX:SQLITE:SYNC] ★★★★★ - Synchronous insert
@@ -175,6 +182,68 @@ export class TaskRepository {
   findActive(): Task[] {
     const rows = this.statements.findActive.all() as any[];
     return rows.map((row) => this.deserializeTask(row));
+  }
+
+  /**
+   * Find tasks by various criteria including tags
+   * [APE-63] Support tag-based filtering
+   */
+  find(criteria: {
+    tags?: string[];
+    status?: TaskStatus;
+    limit?: number;
+  } = {}): Task[] {
+    const { tags, status, limit = 10 } = criteria;
+
+    // Build dynamic query based on criteria
+    let query = 'SELECT * FROM tasks WHERE 1=1';
+    const params: any[] = [];
+
+    if (status) {
+      query += ' AND status = ?';
+      params.push(status);
+    }
+
+    if (tags && tags.length > 0) {
+      // For tag filtering, we need to check if any of the provided tags
+      // are present in the task's tags JSON array
+      const tagConditions = tags.map(() => 'tags LIKE ?').join(' OR ');
+      query += ` AND (${tagConditions})`;
+      tags.forEach(tag => {
+        params.push(`%"${tag}"%`);
+      });
+    }
+
+    query += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(limit);
+
+    const stmt = this.db.prepare(query);
+    const rows = stmt.all(...params) as any[];
+    return rows.map((row) => this.deserializeTask(row));
+  }
+
+  /**
+   * Add a checkpoint message to a task
+   * [APE-63] Track task progress with checkpoint messages
+   */
+  checkpoint(request: { id: string; message: string; confidence?: number }): void {
+    const task = this.findById(request.id);
+    if (!task) {
+      throw new Error(`Task ${request.id} not found`);
+    }
+
+    const inFlight = task.in_flight || [];
+    const checkpoint = `${new Date().toISOString()}: ${request.message}${
+      request.confidence ? ` (confidence: ${request.confidence})` : ""
+    }`;
+    inFlight.push(checkpoint);
+
+    const updates: Partial<Task> = { in_flight: inFlight };
+    if (request.confidence !== undefined) {
+      updates.confidence = request.confidence;
+    }
+
+    this.update(request.id, updates);
   }
 
   /**
@@ -246,6 +315,11 @@ export class TaskRepository {
    * Update task fields
    */
   update(id: string, updates: Partial<Task>): void {
+    // Handle null/undefined updates
+    if (!updates) {
+      return;
+    }
+
     // For complex updates like in_flight, we need a more flexible approach
     const updateFields: string[] = [];
     const params: any = { id };
@@ -332,6 +406,7 @@ export class TaskRepository {
         ? JSON.parse(row.open_questions)
         : undefined,
       in_flight: row.in_flight ? JSON.parse(row.in_flight) : undefined,
+      tags: row.tags ? JSON.parse(row.tags) : undefined, // [APE-63] Parse tags
       phase_handoffs: row.phase_handoffs
         ? JSON.parse(row.phase_handoffs)
         : undefined,
@@ -358,9 +433,9 @@ export class TaskRepository {
    * Type guard to check if brief is new format
    */
   private isNewTaskBrief(
-    brief: TaskBrief | NewTaskBrief,
+    brief: TaskBrief | NewTaskBrief | undefined,
   ): brief is NewTaskBrief {
-    return Array.isArray((brief as NewTaskBrief).tl_dr);
+    return brief !== undefined && Array.isArray((brief as NewTaskBrief).tl_dr);
   }
 
   /**

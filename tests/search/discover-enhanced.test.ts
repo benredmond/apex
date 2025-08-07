@@ -1,6 +1,5 @@
 // [PAT:TEST:SEARCH] ★★★★☆ (78 uses, 90% success) - Search functionality testing patterns
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
-import { PatternDatabase } from '../../src/storage/database.js';
 import { PatternRepository } from '../../src/storage/repository.js';
 import { PatternDiscoverer } from '../../src/mcp/tools/discover.js';
 import { QueryProcessor } from '../../src/search/query-processor.js';
@@ -10,15 +9,14 @@ import { SynonymExpander } from '../../src/search/synonym-expander.js';
 import type { Pattern } from '../../src/storage/types.js';
 
 describe('Enhanced Pattern Discovery', () => {
-  let db: PatternDatabase;
   let repository: PatternRepository;
   let discoverer: PatternDiscoverer;
   let processor: QueryProcessor;
 
   beforeAll(async () => {
     // Initialize test database (base schema includes all columns)
-    db = new PatternDatabase(':memory:');
-    repository = new PatternRepository(db);
+    repository = new PatternRepository({ dbPath: ':memory:' });
+    await repository.initialize();
     discoverer = new PatternDiscoverer(repository);
     processor = new QueryProcessor();
 
@@ -26,41 +24,74 @@ describe('Enhanced Pattern Discovery', () => {
     const testPatterns: Partial<Pattern>[] = [
       {
         id: 'PAT:AUTH:JWT_VALIDATION',
+        schema_version: '1.0',
+        pattern_version: '1.0',
         type: 'CODEBASE',
         title: 'JWT Token Validation Pattern',
         summary: 'Secure JWT authentication and validation',
         tags: ['authentication', 'security', 'jwt'],
         keywords: ['jwt', 'token', 'auth', 'validation'],
         trust_score: 0.95,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        pattern_digest: 'test-digest-1',
+        json_canonical: JSON.stringify({}),
+        search_index: 'jwt token validation pattern secure authentication auth PAT AUTH JWT VALIDATION',
       },
       {
         id: 'PAT:TEST:ASYNC_JEST',
+        schema_version: '1.0',
+        pattern_version: '1.0',
         type: 'TEST',
         title: 'Async Jest Testing Pattern',
         summary: 'Handle asynchronous operations in Jest tests',
         tags: ['testing', 'jest', 'async'],
         keywords: ['test', 'jest', 'async', 'promise'],
         trust_score: 0.88,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        pattern_digest: 'test-digest-2',
+        json_canonical: JSON.stringify({}),
+        search_index: 'async jest testing pattern handle asynchronous operations tests errors PAT TEST ASYNC JEST',
       },
       {
         id: 'FIX:TYPESCRIPT:MODULE_IMPORT',
+        schema_version: '1.0',
+        pattern_version: '1.0',
         type: 'FAILURE',
         title: 'TypeScript Module Import Error Fix',
         summary: 'Fix TypeScript module resolution errors',
         tags: ['typescript', 'import', 'module'],
         keywords: ['typescript', 'import', 'error', 'module'],
         trust_score: 0.92,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        pattern_digest: 'test-digest-3',
+        json_canonical: JSON.stringify({}),
+        search_index: 'typescript module import error fix resolution errors FIX TYPESCRIPT MODULE IMPORT',
       },
     ];
 
     for (const pattern of testPatterns) {
-      await repository.insert(pattern as Pattern);
+      await repository.create(pattern as Pattern);
+    }
+    
+    // Wait for file watcher to process changes
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    // Verify patterns were created
+    const pat1 = await repository.get('PAT:AUTH:JWT_VALIDATION');
+    const pat2 = await repository.get('PAT:TEST:ASYNC_JEST');
+    const pat3 = await repository.get('FIX:TYPESCRIPT:MODULE_IMPORT');
+    
+    if (!pat1 || !pat2 || !pat3) {
+      console.error('Patterns not found after creation:', { pat1: !!pat1, pat2: !!pat2, pat3: !!pat3 });
     }
   });
 
   afterAll(async () => {
     // Cleanup
-    db.database.close();
+    await repository.shutdown();
   });
 
   describe('Natural Language Query Tests', () => {

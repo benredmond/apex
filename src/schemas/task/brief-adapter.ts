@@ -45,7 +45,7 @@ export function newToOldTaskBrief(newBrief: NewTaskBrief): OldTaskBrief {
  */
 export function oldToNewTaskBrief(oldBrief: OldTaskBrief): NewTaskBrief {
   return {
-    tl_dr: Array.isArray(oldBrief.tl_dr) ? oldBrief.tl_dr : [oldBrief.tl_dr],
+    tl_dr: oldBrief.tl_dr,
     objectives: oldBrief.objectives,
     constraints: oldBrief.constraints,
     acceptance_criteria: oldBrief.acceptance_criteria,
@@ -68,14 +68,7 @@ export function oldToNewTaskBrief(oldBrief: OldTaskBrief): NewTaskBrief {
       question: q,
     })),
     in_flight: [],
-    test_scaffold: [
-      {
-        test_name: "generated_test",
-        test_type: "unit" as const,
-        description: "Generated test scaffold",
-        scaffold: oldBrief.test_scaffold,
-      },
-    ],
+    test_scaffold: oldBrief.test_scaffold,
     drilldowns: {
       prior_impls: [],
       files: [],

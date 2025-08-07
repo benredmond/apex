@@ -9,6 +9,7 @@ import type Database from "better-sqlite3";
 import { TaskRepository } from "../../storage/repositories/task-repository.js";
 import { BriefGenerator } from "../../intelligence/brief-generator.js";
 import { ReflectionService } from "./reflect.js";
+import { TagExpander } from "../../intelligence/tag-expander.js";
 import {
   InvalidParamsError,
   InternalError,
@@ -48,11 +49,14 @@ import {
 export class TaskService {
   private briefGenerator?: BriefGenerator;
   private reflectionService?: ReflectionService;
+  private tagExpander: TagExpander;
 
   constructor(
     private repository: TaskRepository,
     private db?: Database.Database,
-  ) {}
+  ) {
+    this.tagExpander = new TagExpander();
+  }
 
   /**
    * Create a new task with auto-generated brief
@@ -72,6 +76,16 @@ export class TaskService {
     const request = parseResult.data;
 
     try {
+      // [APE-63] Sanitize and expand AI-provided tags
+      let sanitizedTags: string[] | undefined;
+      if (request.tags && request.tags.length > 0) {
+        // Sanitize tags for security
+        sanitizedTags = request.tags
+          .map((tag) => this.tagExpander.sanitizeTag(tag))
+          .filter((tag) => tag.length > 0)
+          .slice(0, 15); // Limit to 15 tags
+      }
+
       // First create a basic task to get ID
       const tempBrief = this.generateBasicBrief(request.intent, request.type);
 
@@ -81,6 +95,7 @@ export class TaskService {
           identifier: request.identifier,
           intent: request.intent,
           task_type: request.type,
+          tags: sanitizedTags, // [APE-63] Store sanitized tags
         },
         tempBrief,
       );
@@ -477,113 +492,19 @@ export class TaskService {
     // Generate TL;DR
     const tldr = intent.length > 50 ? intent.substring(0, 50) + "..." : intent;
 
-    // Generate objectives based on type and intent
-    const objectives = this.generateObjectives(intent, type);
-
-    // Generate plan steps
-    const plan = this.generatePlan(intent, type);
-
+    // Return minimal brief - AI can gather its own context
     return {
       tl_dr: tldr,
-      objectives,
-      constraints: [
-        "Maintain backwards compatibility",
-        "Follow existing code patterns",
-        "Include comprehensive tests",
-      ],
-      acceptance_criteria: [
-        `${action} functionality as described`,
-        "All tests pass",
-        "Code follows project conventions",
-      ],
-      plan,
+      objectives: [],
+      constraints: [],
+      acceptance_criteria: [],
+      plan: [],
       facts: [],
       snippets: [],
-      risks_and_gotchas: [
-        "Check for existing implementations",
-        "Consider performance implications",
-      ],
+      risks_and_gotchas: [],
       open_questions: [],
-      test_scaffold: `// Test scaffold for: ${intent}\n// TODO: Implement tests`,
+      test_scaffold: "",
     };
-  }
-
-  /**
-   * Generate objectives from intent
-   */
-  private generateObjectives(intent: string, type?: string): string[] {
-    const objectives: string[] = [];
-
-    switch (type) {
-      case "bug":
-        objectives.push("Identify root cause of the issue");
-        objectives.push("Implement fix without side effects");
-        objectives.push("Add tests to prevent regression");
-        break;
-      case "feature":
-        objectives.push("Design and implement new functionality");
-        objectives.push("Ensure integration with existing features");
-        objectives.push("Document usage and API");
-        break;
-      case "refactor":
-        objectives.push("Improve code structure and maintainability");
-        objectives.push("Maintain existing functionality");
-        objectives.push("Update affected tests");
-        break;
-      case "test":
-        objectives.push("Increase test coverage");
-        objectives.push("Verify edge cases");
-        objectives.push("Ensure test isolation");
-        break;
-      default:
-        objectives.push("Complete the requested task");
-        objectives.push("Follow best practices");
-        objectives.push("Ensure quality and correctness");
-    }
-
-    return objectives;
-  }
-
-  /**
-   * Generate plan steps from intent
-   */
-  private generatePlan(
-    intent: string,
-    type?: string,
-  ): Array<{ step: string; action: string; files?: string[] }> {
-    const plan = [];
-
-    // ARCHITECT phase
-    plan.push({
-      step: "1",
-      action: "Research and design solution approach",
-    });
-
-    // BUILDER phase
-    plan.push({
-      step: "2",
-      action: "Implement core functionality",
-    });
-
-    // VALIDATOR phase
-    plan.push({
-      step: "3",
-      action: "Test implementation and validate requirements",
-    });
-
-    // REVIEWER phase
-    plan.push({
-      step: "4",
-      action: "Review code quality and patterns",
-    });
-
-    // DOCUMENTER phase
-    plan.push({
-      step: "5",
-      action: "Document learnings and update patterns",
-    });
-
-    return plan;
   }
 
   /**

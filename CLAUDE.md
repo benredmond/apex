@@ -73,3 +73,49 @@ npm run release:major     # Release major version (1.x.x)
 - CLI binary exposed as `apex` command globally
 - Pattern promotion threshold: 3+ uses with >80% success rate
 - Complexity routing: Automatically engages Gemini AI for complex tasks
+
+## MCP Integration & Self-Improvement
+
+### How APEX Works with Claude Code
+
+APEX operates as an MCP (Model Context Protocol) server that provides intelligent tools to AI coding assistants. Rather than manipulating files directly, APEX exposes specialized tools through MCP that enable:
+
+### Available MCP Tools
+
+- **Pattern Discovery & Management**
+  - `apex_patterns_lookup` - Find relevant patterns for current task
+  - `apex_patterns_discover` - Discover new patterns using semantic search
+  - `apex_patterns_explain` - Get detailed pattern explanations
+  
+- **Task Intelligence**
+  - `apex_task_create` - Create tasks with auto-generated briefs
+  - `apex_task_context` - Get comprehensive task context
+  - `apex_task_update` - Track task progress through phases
+  - `apex_task_complete` - Complete tasks and generate reflection draft
+  - `apex_task_checkpoint` - Add progress checkpoints
+  - `apex_task_append_evidence` - Track evidence for learning
+  
+- **Learning & Reflection**
+  - `apex_reflect` - Submit pattern usage outcomes for trust updates
+  - Evidence tracking for continuous improvement
+  - Pattern evolution based on real-world results
+  
+### Self-Improvement Mechanism
+
+APEX learns and improves through a continuous cycle:
+
+1. **Pattern Discovery** - Identifies reusable solutions during task execution
+2. **Usage Tracking** - Records when patterns are applied via MCP tools
+3. **Outcome Reflection** - Captures success/failure through `apex_reflect`
+4. **Trust Evolution** - Updates pattern confidence scores based on results
+5. **Pattern Promotion** - Graduates high-performing patterns to active conventions
+
+This creates a feedback loop where each task execution makes the next one more efficient.
+
+### Integration with AI Assistants
+
+- APEX runs as an MCP server (using SDK v0.6.1)
+- AI assistants connect as MCP clients to access APEX tools
+- Tools provide context-aware intelligence based on learned patterns
+- No runtime overhead - tools are invoked on-demand only
+- Pattern cache enables 40-55% faster development through reuse

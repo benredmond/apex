@@ -48,6 +48,7 @@ export interface Task {
   intent?: string;
   task_type?: TaskType;
   status: TaskStatus;
+  tags?: string[]; // [APE-63] AI-provided tags for discovery
 
   // Task Brief Components (stored as JSON strings in DB)
   tl_dr?: string;
@@ -133,6 +134,7 @@ export const CreateRequestSchema = z.object({
   identifier: z.string().optional(),
   intent: z.string().min(1).max(1000),
   type: TaskTypeEnum.optional(),
+  tags: z.array(z.string()).max(15).optional(), // [APE-63] AI-provided tags
 });
 export type CreateRequest = z.infer<typeof CreateRequestSchema>;
 

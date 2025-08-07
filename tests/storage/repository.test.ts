@@ -24,19 +24,16 @@ describe("PatternRepository", () => {
       watchDebounce: 50, // Faster for tests
     });
     
-    // [FIX:TEST:MIGRATION] - Run migrations to create metadata tables for tests
-    // Import migration runner and migrations
-    const { MigrationRunner } = await import("../../src/migrations/MigrationRunner.js");
-    const { MigrationLoader } = await import("../../src/migrations/MigrationLoader.js");
-    
-    // Get database instance from repository (accessing private field for testing)
+    // Run migrations to create metadata tables - but do this BEFORE using the repo
     const db = (repository as any).db.database;
     
-    // Load and run migrations
-    const loader = new MigrationLoader();
-    const migrations = await loader.loadMigrations();
-    const runner = new MigrationRunner(db);
-    await runner.runMigrations(migrations);
+    // Only run the metadata migrations that add tables
+    try {
+      const migration002 = await import("../../src/migrations/migrations/002-pattern-metadata-enrichment.js");
+      migration002.migration.up(db);
+    } catch (e) {
+      // Ignore if already exists
+    }
   });
 
   afterEach(async () => {
@@ -58,8 +55,8 @@ describe("PatternRepository", () => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         tags: ["test", "crud"],
-        pattern_digest: "",
-        json_canonical: "",
+        pattern_digest: "test-digest",
+        json_canonical: JSON.stringify({}),
       };
 
       const created = await repository.create(pattern);
@@ -83,8 +80,8 @@ describe("PatternRepository", () => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         tags: ["test"],
-        pattern_digest: "",
-        json_canonical: "",
+        pattern_digest: "test-digest",
+        json_canonical: JSON.stringify({}),
       };
 
       await repository.create(pattern);
@@ -111,8 +108,8 @@ describe("PatternRepository", () => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         tags: ["test"],
-        pattern_digest: "",
-        json_canonical: "",
+        pattern_digest: "test-digest",
+        json_canonical: JSON.stringify({}),
       };
 
       await repository.create(pattern);
@@ -172,8 +169,8 @@ describe("PatternRepository", () => {
           trust_score: 0.8,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          pattern_digest: "",
-          json_canonical: "",
+          pattern_digest: "test-digest",
+          json_canonical: JSON.stringify({}),
         });
       }
     });
@@ -325,8 +322,8 @@ describe("PatternRepository", () => {
           summary: `Summary for ${partial.id}`,
           created_at: new Date(Date.now() - 1000 * 60 * (5 - patterns.indexOf(partial))).toISOString(),
           updated_at: new Date().toISOString(),
-          pattern_digest: "",
-          json_canonical: "",
+          pattern_digest: "test-digest",
+          json_canonical: JSON.stringify({}),
         };
         await repository.create(pattern);
       }
@@ -396,8 +393,8 @@ describe("PatternRepository", () => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         tags: ["semantic", "search"],
-        pattern_digest: "",
-        json_canonical: "",
+        pattern_digest: "test-digest",
+        json_canonical: JSON.stringify({}),
       };
       await repository.create(pattern);
 

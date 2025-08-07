@@ -235,7 +235,7 @@ const migration: Migration = {
     // Reverting would mean clearing the search fields
     try {
       console.log(`[Migration 009] Rolling back - clearing search fields`);
-      
+
       // Drop trigger temporarily to avoid SQL logic errors during UPDATE
       db.exec(`DROP TRIGGER IF EXISTS patterns_au`);
 
@@ -251,7 +251,7 @@ const migration: Migration = {
         SELECT rowid, id, title, summary, NULL, NULL, NULL
         FROM patterns
       `);
-      
+
       // Recreate the update trigger
       db.exec(`
         CREATE TRIGGER patterns_au AFTER UPDATE OF title, summary, tags, keywords, search_index ON patterns BEGIN
@@ -261,7 +261,7 @@ const migration: Migration = {
           VALUES (new.rowid, new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
         END;
       `);
-      
+
       console.log(`[Migration 009] Rollback complete`);
     } catch (error) {
       throw new Error(

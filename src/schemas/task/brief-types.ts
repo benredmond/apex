@@ -43,10 +43,10 @@ export interface TestSpec {
 
 export interface TaskBrief {
   // Core fields (stream first for performance)
-  tl_dr: string[]; // 3-5 key points
-  objectives: string[]; // Clear goals
-  constraints: string[]; // Technical/business constraints
-  acceptance_criteria: string[]; // Testable criteria
+  tl_dr: string; // Minimal one-line description
+  objectives: string[]; // Empty for simple tasks
+  constraints: string[]; // Empty for simple tasks
+  acceptance_criteria: string[]; // Empty for simple tasks
 
   // Detail fields (stream second)
   plan: PlanStep[]; // Step-by-step approach
@@ -54,12 +54,12 @@ export interface TaskBrief {
   snippets: CodeSnippet[]; // Relevant code with citations
   risks_and_gotchas: string[]; // Known issues from failure corpus
   open_questions: Question[]; // With guesses and confidence
-  in_flight: InFlightWork[]; // Concurrent work that might conflict
-  test_scaffold: TestSpec[]; // Test requirements and scaffolds
+  in_flight?: InFlightWork[]; // Concurrent work that might conflict (optional for simple tasks)
+  test_scaffold: string; // Empty string for minimal briefs, AI generates its own
 
   // Optional/metadata
   approvers?: string[]; // Optional approvers
-  drilldowns: {
+  drilldowns?: {
     // Additional context
     prior_impls: string[]; // Similar completed tasks
     files: string[]; // Key files to review
@@ -70,6 +70,7 @@ export interface TaskBrief {
     sources: string[]; // Data sources used
     cache_hit?: boolean; // Whether from cache
     generation_time_ms?: number; // Performance metric
+    complexity_score?: number; // 1-10 complexity rating
   };
 }
 

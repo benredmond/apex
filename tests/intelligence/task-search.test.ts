@@ -56,9 +56,13 @@ describe("TaskSearchEngine", () => {
         key_learning TEXT,
         duration_ms INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        completed_at TIMESTAMP
+        completed_at TIMESTAMP,
+        tags TEXT
       )
     `);
+    
+    // Create index for tags column
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_tags ON tasks(tags)`);
 
     db.exec(`
       CREATE TABLE task_similarity (

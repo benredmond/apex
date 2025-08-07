@@ -579,7 +579,7 @@ export class PatternRepository {
       this.db.getStatement("upsertPattern").run({
         ...pattern,
         source_repo: pattern.source_repo || null,
-        tags_csv: pattern.tags.join(","),
+        tags: JSON.stringify(pattern.tags), // [APE-63] Store tags as JSON
         invalid: pattern.invalid ? 1 : 0,
         invalid_reason: pattern.invalid_reason || null,
         alias: pattern.alias || null, // APE-44: Support for human-readable aliases
@@ -764,10 +764,9 @@ export class PatternRepository {
   }
 
   private rowToPattern(row: any): Pattern {
-    const { tags_csv, ...rest } = row;
     return {
-      ...rest,
-      tags: tags_csv ? tags_csv.split(",") : [],
+      ...row,
+      tags: row.tags ? JSON.parse(row.tags) : [],
       invalid: row.invalid === 1,
       // Include enhanced metadata fields (APE-65)
       usage_count: row.usage_count,

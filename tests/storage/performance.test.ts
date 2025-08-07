@@ -44,8 +44,8 @@ describe("PatternRepository Performance", () => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         tags: [lang, framework, "performance", `tag${i % 10}`],
-        pattern_digest: "",
-        json_canonical: "",
+        pattern_digest: `test-digest-${i}`,
+        json_canonical: JSON.stringify({}),
       });
     }
 
@@ -216,8 +216,8 @@ describe("PatternRepository Performance", () => {
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
               tags: ["concurrent"],
-              pattern_digest: "",
-              json_canonical: "",
+              pattern_digest: `test-digest-${i}`,
+              json_canonical: JSON.stringify({}),
             });
           } catch (error) {
             errors.push(error as Error);

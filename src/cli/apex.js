@@ -11,6 +11,8 @@ import { createPatternsCommand } from "../../dist/cli/commands/patterns.js";
 import { createMigrateCommand } from "../../dist/cli/commands/migrate.js";
 import { createBriefCommand } from "../../dist/cli/commands/brief.js";
 import { createPackCommand } from "../../dist/cli/commands/pack.js";
+import { createMCPCommand } from "../../dist/cli/commands/mcp.js";
+import { configureMCPForProject } from "../../dist/cli/utils/mcp-config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,6 +40,8 @@ program
   .command("init")
   .description("Initialize APEX in your project")
   .option("-f, --force", "Force initialization even if APEX already exists")
+  .option("--agents", "Seed agent templates into .claude/agents directory")
+  .option("--mcp", "Install and configure MCP for APEX")
   .action(async (options) => {
     console.log(chalk.cyan(logo));
     console.log(chalk.bold("🚀 Initializing APEX Intelligence...\n"));
@@ -112,19 +116,50 @@ program
       await fs.copy(templatePath, targetPath, { overwrite: true });
     }
 
-    // Copy agent templates
-    spinner2.text = "Installing APEX agent templates...";
+    // Copy agent templates if --agents flag is set
+    if (options.agents) {
+      spinner2.text = "Installing APEX agent templates...";
 
-    const agentTemplatePath = path.join(
-      __dirname,
-      "../../templates/.claude/agents",
-    );
-    const targetAgentsPath = ".claude/agents";
+      const agentTemplatePath = path.join(
+        __dirname,
+        "../../templates/.claude/agents",
+      );
+      const targetAgentsPath = ".claude/agents";
 
-    if (await fs.pathExists(agentTemplatePath)) {
-      await fs.copy(agentTemplatePath, targetAgentsPath, { overwrite: true });
-      const agentFiles = await fs.readdir(agentTemplatePath);
-      spinner2.text = `Installed ${agentFiles.length} agent templates...`;
+      try {
+        if (await fs.pathExists(agentTemplatePath)) {
+          const agentFiles = await fs.readdir(agentTemplatePath);
+          let copiedCount = 0;
+
+          for (const file of agentFiles) {
+            const srcPath = path.join(agentTemplatePath, file);
+            const destPath = path.join(targetAgentsPath, file);
+
+            // Only copy if file doesn't exist or force flag is set
+            if (!(await fs.pathExists(destPath)) || options.force) {
+              await fs.copy(srcPath, destPath);
+              copiedCount++;
+            }
+          }
+
+          spinner2.text = `Installed ${copiedCount} agent templates (${agentFiles.length} available)...`;
+        } else {
+          spinner2.warn("Agent templates not found in package");
+        }
+      } catch (error) {
+        spinner2.warn(`Failed to copy agent templates: ${error.message}`);
+      }
+    }
+
+    // Configure MCP if --mcp flag is set
+    if (options.mcp) {
+      spinner2.text = "Configuring MCP for APEX...";
+
+      try {
+        await configureMCPForProject(spinner2);
+      } catch (error) {
+        spinner2.warn(`Failed to configure MCP: ${error.message}`);
+      }
     }
 
     spinner2.text = "Creating configuration files...";
@@ -394,5 +429,8 @@ program.addCommand(createBriefCommand());
 
 // Add pack command
 program.addCommand(createPackCommand());
+
+// Add MCP command
+program.addCommand(createMCPCommand());
 
 program.parse(process.argv);

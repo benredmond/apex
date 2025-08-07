@@ -24,52 +24,26 @@ describe("Task MCP Tools", () => {
   let repository: TaskRepository;
   let service: TaskService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // [PAT:TEST:ISOLATION] ★★★★★ - Create isolated test database
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "apex-task-test-"));
     db = new Database(path.join(tempDir, "test.db"));
 
-    // Run migration to create tables
-    const migration = fs.readFileSync(
-      path.join(__dirname, "../../../src/migrations/006-add-task-system-schema.ts"),
-      "utf-8",
-    );
+    // Run migrations to create tables
+    const migration006 = await import("../../../src/migrations/migrations/006-add-task-system-schema.js");
+    const migration007 = await import("../../../src/migrations/migrations/007-add-evidence-log-table.js");
     
-    // Extract and execute SQL from migration
-    const sqlMatch = migration.match(/db\.exec\(`([\s\S]*?)`\)/g);
-    if (sqlMatch) {
-      sqlMatch.forEach((match) => {
-        const sql = match
-          .replace(/db\.exec\(`/, "")
-          .replace(/`\)/, "")
-          .replace(/\\"/g, '"');
-        try {
-          db.exec(sql);
-        } catch (error) {
-          // Ignore if table already exists
-        }
-      });
+    // Run the migrations
+    try {
+      migration006.migration.up(db);
+    } catch (error) {
+      // Ignore if table already exists
     }
-
-    // Run evidence table migration (007)
-    const evidenceMigration = fs.readFileSync(
-      path.join(__dirname, "../../../src/migrations/007-add-evidence-log-table.ts"),
-      "utf-8",
-    );
     
-    const evidenceSqlMatch = evidenceMigration.match(/db\.exec\(`([\s\S]*?)`\)/g);
-    if (evidenceSqlMatch) {
-      evidenceSqlMatch.forEach((match) => {
-        const sql = match
-          .replace(/db\.exec\(`/, "")
-          .replace(/`\)/, "")
-          .replace(/\\"/g, '"');
-        try {
-          db.exec(sql);
-        } catch (error) {
-          // Ignore if table already exists
-        }
-      });
+    try {
+      migration007.migration.up(db);
+    } catch (error) {
+      // Ignore if table already exists
     }
 
     // Create minimal patterns table for BriefGenerator
