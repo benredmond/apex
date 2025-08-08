@@ -59,10 +59,14 @@ export class PatternValidator {
     source: BookSource,
   ): CompleteBookPattern {
     // Generate pattern ID: BOOK:SOURCE:CATEGORY:IDENTIFIER
-    const bookPrefix = source.book
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, "_")
-      .substring(0, 20);
+    // For Clean Code book, ensure consistent prefix
+    const isCleanCodeBook = source.book.toLowerCase().includes("clean code");
+    const bookPrefix = isCleanCodeBook
+      ? "CLEAN_CODE"
+      : source.book
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, "_")
+          .substring(0, 20);
 
     const categoryPrefix = pattern.category
       .toUpperCase()
@@ -98,13 +102,28 @@ export class PatternValidator {
       },
     };
 
-    // Combine tags
-    const tags = [
+    // Combine tags with clean-code namespacing for Clean Code book
+    const isCleanCode = source.book.toLowerCase().includes("clean code");
+    const baseTags = [
       ...pattern.tags,
       "book-pattern",
       source.book.toLowerCase().replace(/[^a-z0-9]/g, "-"),
       pattern.category.toLowerCase(),
-    ].filter((tag, index, array) => array.indexOf(tag) === index); // Remove duplicates
+    ];
+
+    // Add clean-code specific tags if this is from Clean Code book
+    const tags = isCleanCode
+      ? [
+          "book-pack:clean-code", // For dynamic loading of Clean Code patterns
+          ...baseTags.map((tag) => `clean-code:${tag}`), // Namespace all tags
+          ...baseTags, // Keep original tags too for backward compatibility
+        ]
+      : baseTags;
+
+    // Remove duplicates
+    const uniqueTags = tags.filter(
+      (tag, index, array) => array.indexOf(tag) === index,
+    );
 
     return {
       id: patternId,
@@ -113,7 +132,7 @@ export class PatternValidator {
       summary,
       source,
       snippets: [snippet],
-      tags,
+      tags: uniqueTags,
       trust_score: 0.0, // Zero initial trust per architecture decision
       evidence: [],
     };
