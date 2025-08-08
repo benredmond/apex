@@ -983,5 +983,132 @@ describe("ReflectionService", () => {
       // Should succeed after preprocessing fixes batch_patterns
       expect(response.ok).toBe(true);
     });
+
+    it("should fix batch_patterns when passed as JSON string", async () => {
+      const request = {
+        task: { id: "T1", title: "Test" },
+        outcome: "success",
+        batch_patterns: JSON.stringify([
+          {
+            pattern: "PAT:TEST:STRING",
+            outcome: "worked-perfectly",
+            evidence: "Fixed string to array conversion"
+          }
+        ]),
+        options: {}
+      };
+
+      const response = await service.reflect(request as any);
+
+      // Should succeed after preprocessing converts string to array
+      expect(response.ok).toBe(true);
+      expect(response.persisted).toBe(true);
+    });
+
+    it("should handle invalid JSON in batch_patterns string", async () => {
+      const request = {
+        task: { id: "T1", title: "Test" },
+        outcome: "success",
+        batch_patterns: "not valid json",
+        options: {}
+      };
+
+      const response = await service.reflect(request as any);
+
+      // Should fail with schema validation error
+      expect(response.ok).toBe(false);
+      expect(response.rejected).toContainEqual(
+        expect.objectContaining({
+          code: expect.stringMatching(/SCHEMA_VALIDATION|MALFORMED/),
+        })
+      );
+    });
+
+    it("should not modify batch_patterns if already an array", async () => {
+      const request = {
+        task: { id: "T1", title: "Test" },
+        outcome: "success",
+        batch_patterns: [
+          {
+            pattern: "PAT:TEST:ARRAY",
+            outcome: "worked-perfectly"
+          }
+        ],
+        options: {}
+      };
+
+      const response = await service.reflect(request);
+
+      // Should succeed without modification
+      expect(response.ok).toBe(true);
+      expect(response.persisted).toBe(true);
+    });
+
+    it("should auto-create patterns in permissive mode", async () => {
+      // Set permissive mode
+      process.env.APEX_REFLECTION_MODE = "permissive";
+
+      // Mock repository to return null (pattern doesn't exist)
+      const mockRepository = {
+        getByIdOrAlias: jest.fn().mockResolvedValue(null),
+      };
+      
+      const service = new ReflectionService(
+        mockDb as any,
+        mockRepository as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+      );
+
+      const request = {
+        task: { id: "T1", title: "Test" },
+        outcome: "success",
+        claims: {
+          patterns_used: [
+            {
+              pattern_id: "NEW:PATTERN:AUTO",
+              evidence: [],
+            }
+          ],
+          trust_updates: []
+        },
+        options: {}
+      };
+
+      const response = await service.reflect(request);
+
+      // Should succeed with auto-created pattern
+      expect(response.ok).toBe(true);
+      
+      // Reset permissive mode
+      delete process.env.APEX_REFLECTION_MODE;
+    });
+
+    it("should handle nested batch_patterns in complex objects", async () => {
+      const request = {
+        task: { id: "T1", title: "Test" },
+        outcome: "success",
+        nested: {
+          batch_patterns: JSON.stringify([
+            {
+              pattern: "PAT:NESTED:TEST",
+              outcome: "worked-perfectly"
+            }
+          ])
+        },
+        options: {}
+      };
+
+      // Note: This test shows the preprocessor handles nested objects
+      // The actual batch_patterns should be at root level for the schema
+      const response = await service.reflect(request as any);
+      
+      // Will fail schema validation as batch_patterns should be at root
+      expect(response.ok).toBe(false);
+    });
   });
 });

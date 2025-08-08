@@ -107,6 +107,7 @@ class RequestPreprocessor {
     evidenceFormat: 0,
     missingSha: 0,
     patternId: 0,
+    batchPatterns: 0,
   };
 
   /**
@@ -122,6 +123,7 @@ class RequestPreprocessor {
     this.fixEvidenceFormat(processed);
     this.fixMissingSha(processed);
     this.fixPatternIds(processed);
+    this.fixBatchPatterns(processed);
 
     return processed;
   }
@@ -131,6 +133,7 @@ class RequestPreprocessor {
     evidenceFormat: number;
     missingSha: number;
     patternId: number;
+    batchPatterns: number;
   } {
     return { ...this.corrections };
   }
@@ -294,6 +297,41 @@ class RequestPreprocessor {
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
         this.fixPatternIds(obj[key]);
+      }
+    }
+  }
+
+  /**
+   * Fix batch_patterns: convert JSON string to array
+   * Common AI mistake: passing batch_patterns as stringified JSON
+   */
+  private fixBatchPatterns(obj: any): void {
+    if (!obj || typeof obj !== "object") return;
+
+    // Handle arrays
+    if (Array.isArray(obj)) {
+      obj.forEach((item) => this.fixBatchPatterns(item));
+      return;
+    }
+
+    // Fix batch_patterns if it's a string
+    if (obj.batch_patterns && typeof obj.batch_patterns === "string") {
+      try {
+        const parsed = JSON.parse(obj.batch_patterns);
+        if (Array.isArray(parsed)) {
+          obj.batch_patterns = parsed;
+          this.corrections.batchPatterns++;
+        }
+      } catch (error) {
+        // Invalid JSON - leave as-is for schema to catch
+        // This allows proper error reporting rather than silent failure
+      }
+    }
+
+    // Recurse into object properties
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key) && key !== "batch_patterns") {
+        this.fixBatchPatterns(obj[key]);
       }
     }
   }
@@ -480,11 +518,50 @@ export class ReflectionService {
   ): Promise<ReflectResponse> {
     const validatedAt = Date.now();
 
+    // Auto-create missing patterns in permissive mode BEFORE validation
+    const isPermissive = process.env.APEX_REFLECTION_MODE === "permissive";
+    if (isPermissive && request.claims?.patterns_used) {
+      for (const usage of request.claims.patterns_used) {
+        const pattern = await this.repository.getByIdOrAlias(usage.pattern_id);
+        if (!pattern) {
+          // Auto-create pattern similar to trust_updates logic
+          const title = this.generateTitleFromPatternId(usage.pattern_id);
+          const patternBase = {
+            title: title,
+            summary: `Auto-created pattern from reflection (patterns_used)`,
+            snippets: [],
+            evidence: [],
+          };
+          
+          try {
+            const newPatternId = this.patternInserter.insertNewPattern(
+              patternBase,
+              "NEW_PATTERN"
+            );
+            
+            // Set original ID as alias
+            if (newPatternId) {
+              const updateStmt = this.db.prepare(
+                "UPDATE patterns SET alias = ?, provenance = 'auto-created' WHERE id = ?"
+              );
+              updateStmt.run(usage.pattern_id, newPatternId);
+              
+              console.log(
+                `Auto-created pattern from patterns_used: ${usage.pattern_id} -> ${newPatternId}`
+              );
+            }
+          } catch (error) {
+            console.warn(
+              `Failed to auto-create pattern ${usage.pattern_id}:`,
+              error
+            );
+          }
+        }
+      }
+    }
+
     // Validate evidence
     const validation = await this.validator.validateRequest(request);
-
-    // In permissive mode, continue with warnings even if not fully valid
-    const isPermissive = process.env.APEX_REFLECTION_MODE === "permissive";
     if (!validation.valid && !isPermissive) {
       return this.createValidationResponse(
         false,
