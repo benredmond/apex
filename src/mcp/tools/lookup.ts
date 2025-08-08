@@ -11,6 +11,7 @@ import { PackBuilder } from "../../ranking/pack-builder.js";
 import { extractSignals, toRankingSignals } from "./signal-extractor.js";
 import { RequestCache } from "./request-cache.js";
 import { lookupMetrics } from "./metrics.js";
+import { QueryProcessor } from "../../search/query-processor.js";
 import {
   InvalidParamsError,
   InternalError,
@@ -136,10 +137,12 @@ export class PatternLookupService {
   private packBuilder: PackBuilder;
   private cache: RequestCache;
   private rateLimiter: RateLimiter;
+  private queryProcessor: QueryProcessor;
 
   constructor(repository: PatternRepository) {
     this.repository = repository;
     this.packBuilder = new PackBuilder(repository);
+    this.queryProcessor = new QueryProcessor();
 
     // Configure cache with environment variables for flexibility
     const cacheOptions = {
@@ -252,6 +255,14 @@ export class PatternLookupService {
       });
       const signals = toRankingSignals(extracted);
 
+      // Process query with QueryProcessor for synonym expansion
+      const processedQuery = this.queryProcessor.processQuery(request.task, {
+        enableSynonyms: true,
+        enableFuzzy: false, // Disable fuzzy for performance in lookup
+        performanceMode: false,
+        maxSynonymExpansion: 20,
+      });
+
       // Build query facets for repository lookup
       const facets: QueryFacets = {
         languages: extracted.languages,
@@ -260,20 +271,25 @@ export class PatternLookupService {
         task_types: extracted.taskIntent
           ? [extracted.taskIntent.type]
           : undefined,
-        // Enhanced facets based on workflow phase
-        tags: extracted.workflowPhase ? [extracted.workflowPhase] : undefined,
+        // Don't filter by tags until patterns have proper tags
+        tags: undefined,
       };
 
-      // Query repository with facets
+      // Query repository with facets and processed query
       let patternPack;
       try {
         // [FIX:API:METHOD_CONSISTENCY] ★★☆☆☆ - Use new search() method
+        // Use expanded query if synonyms were found, otherwise use original
+        const searchQuery =
+          processedQuery.expandedTerms.length > 0
+            ? `${request.task} ${processedQuery.expandedTerms.join(" ")}`
+            : request.task;
+
         patternPack = await this.repository.search({
-          task: request.task,
+          task: searchQuery,
           languages: facets.languages,
           frameworks: facets.frameworks,
           paths: facets.paths,
-          task_types: facets.task_types,
           tags: facets.tags,
           k: 100, // Get top 100 for ranking
         });
