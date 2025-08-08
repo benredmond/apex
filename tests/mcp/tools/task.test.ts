@@ -281,7 +281,10 @@ describe("Task MCP Tools", () => {
       });
       
       const task = repository.findById(taskId);
-      expect(task?.phase_handoffs?.ARCHITECT).toBe("Completed design, ready for implementation");
+      // phase_handoffs is now an array of handoffs
+      expect(Array.isArray(task?.phase_handoffs)).toBe(true);
+      const architectHandoff = task?.phase_handoffs?.find(h => h.phase === "ARCHITECT");
+      expect(architectHandoff?.handoff).toBe("Completed design, ready for implementation");
     });
   });
 
@@ -538,10 +541,10 @@ describe("Task MCP Tools", () => {
         handoff: "Implementation complete, ready for validation",
       });
 
-      // VALIDATOR should see BUILDER's handoff (not set, so undefined)
+      // VALIDATOR should see BUILDER's most recent handoff (from line 511)
       phaseInfo = await service.getPhase({ task_id: taskId });
       expect(phaseInfo.phase).toBe("VALIDATOR");
-      expect(phaseInfo.handoff).toBeUndefined();
+      expect(phaseInfo.handoff).toBe("### Architecture Decision\nUse simple Unix-style tools");
 
       // Now set BUILDER handoff
       await service.setPhase({

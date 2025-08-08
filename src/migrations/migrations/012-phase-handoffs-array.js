@@ -94,7 +94,10 @@ export const down = (db) => {
           !handoffTracker[h.phase] ||
           h.timestamp > handoffTracker[h.phase].timestamp
         ) {
-          handoffTracker[h.phase] = { handoff: h.handoff, timestamp: h.timestamp };
+          handoffTracker[h.phase] = {
+            handoff: h.handoff,
+            timestamp: h.timestamp,
+          };
           handoffRecord[h.phase] = h.handoff;
         }
       });
