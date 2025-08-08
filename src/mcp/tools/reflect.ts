@@ -519,7 +519,8 @@ export class ReflectionService {
     const validatedAt = Date.now();
 
     // Auto-create missing patterns in permissive mode BEFORE validation
-    const isPermissive = process.env.APEX_REFLECTION_MODE === "permissive";
+    // Default to permissive mode unless explicitly set to "strict"
+    const isPermissive = process.env.APEX_REFLECTION_MODE !== "strict";
     if (isPermissive && request.claims?.patterns_used) {
       for (const usage of request.claims.patterns_used) {
         const pattern = await this.repository.getByIdOrAlias(usage.pattern_id);
@@ -532,28 +533,28 @@ export class ReflectionService {
             snippets: [],
             evidence: [],
           };
-          
+
           try {
             const newPatternId = this.patternInserter.insertNewPattern(
               patternBase,
-              "NEW_PATTERN"
+              "NEW_PATTERN",
             );
-            
+
             // Set original ID as alias
             if (newPatternId) {
               const updateStmt = this.db.prepare(
-                "UPDATE patterns SET alias = ?, provenance = 'auto-created' WHERE id = ?"
+                "UPDATE patterns SET alias = ?, provenance = 'auto-created' WHERE id = ?",
               );
               updateStmt.run(usage.pattern_id, newPatternId);
-              
+
               console.log(
-                `Auto-created pattern from patterns_used: ${usage.pattern_id} -> ${newPatternId}`
+                `Auto-created pattern from patterns_used: ${usage.pattern_id} -> ${newPatternId}`,
               );
             }
           } catch (error) {
             console.warn(
               `Failed to auto-create pattern ${usage.pattern_id}:`,
-              error
+              error,
             );
           }
         }

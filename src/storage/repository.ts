@@ -315,8 +315,22 @@ export class PatternRepository {
       } as LookupQuery);
     }
 
-    // Escape special FTS5 characters
-    ftsQuery = ftsQuery.replace(/"/g, '""');
+    // Process the query for FTS5
+    // Split multi-word queries into individual terms with OR
+    const terms = ftsQuery.split(/\s+/).filter((t) => t.length > 0);
+    if (terms.length > 1) {
+      // Create an OR query for multiple terms
+      ftsQuery = terms
+        .map((term) => {
+          // Escape special FTS5 characters
+          const escaped = term.replace(/"/g, '""');
+          return `"${escaped}"`;
+        })
+        .join(" OR ");
+    } else {
+      // Single term - just escape it
+      ftsQuery = ftsQuery.replace(/"/g, '""');
+    }
 
     // Build the SQL query using FTS5 MATCH
     let sql = `

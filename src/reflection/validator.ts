@@ -78,7 +78,8 @@ export class EvidenceValidator {
     const validators: string[] = [];
 
     // Check validation mode from environment
-    const isPermissive = process.env.APEX_REFLECTION_MODE === "permissive";
+    // Default to permissive mode unless explicitly set to "strict"
+    const isPermissive = process.env.APEX_REFLECTION_MODE !== "strict";
 
     // Validate pattern IDs exist
     for (const [index, usage] of request.claims.patterns_used.entries()) {
@@ -286,7 +287,8 @@ export class EvidenceValidator {
     warning?: string;
   }> {
     // Check validation mode
-    const isPermissive = process.env.APEX_REFLECTION_MODE === "permissive";
+    // Default to permissive mode unless explicitly set to "strict"
+    const isPermissive = process.env.APEX_REFLECTION_MODE !== "strict";
     const gitRefs = ["HEAD", "main", "master", "origin/main", "origin/master"];
     const isGitRef = gitRefs.includes(sha);
 
@@ -327,8 +329,12 @@ export class EvidenceValidator {
 
     try {
       // Check if SHA exists in repo (already resolved)
-      const shaExists = await this.gitCommand(["cat-file", "-e", resolvedSha]);
-      if (!shaExists) {
+      // Note: git cat-file -e returns no output, just exit code
+      // If gitCommand succeeds (doesn't throw), the SHA exists
+      try {
+        await this.gitCommand(["cat-file", "-e", resolvedSha]);
+        // If we get here, SHA exists
+      } catch (error) {
         return {
           valid: false,
           code: ValidationErrorCode.LINE_RANGE_NOT_FOUND,

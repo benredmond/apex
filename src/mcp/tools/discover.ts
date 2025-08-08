@@ -213,9 +213,8 @@ export class PatternDiscoverer {
       };
 
       // Apply additional filters
-      let searchTypes: Pattern["type"][] = signals.suggestedTypes
-        .map((t) => typeMapping[t])
-        .filter(Boolean);
+      // Don't filter by type unless explicitly requested - too restrictive
+      let searchTypes: Pattern["type"][] = [];
       let searchTags = signals.suggestedCategories;
 
       if (request.filters?.types) {
@@ -246,13 +245,15 @@ export class PatternDiscoverer {
 
       // Use enhanced FTS query for search
       // [PAT:SEARCH:FTS] ★★★★★ - Enhanced FTS5 search
+      // Don't filter by tags if none exist in the database
+      // This was causing empty results when signal extraction suggested tags
       const lookupResult = await this.repository.search({
         task: processedQuery.ftsQuery, // Use processed FTS query
         type:
           searchTypes.length > 0
             ? (searchTypes as Pattern["type"][])
             : undefined,
-        tags: searchTags,
+        tags: undefined, // Temporarily disable tag filtering until patterns have tags
         k: 100, // Get more for scoring and fuzzy matching
       });
 
