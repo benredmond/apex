@@ -284,7 +284,7 @@ This file captures key learnings from completed tasks to inform future work.
     );
     console.log(
       chalk.cyan(
-        '  2. Create your first task: /create_task "Your task description"',
+        "  2. Create your first task: /create_task \"Your task description\"",
       ),
     );
     console.log(chalk.cyan("  3. Execute it: /task T001\n"));
@@ -373,7 +373,7 @@ program
       console.log(chalk.green("\n✨ APEX is properly configured!\n"));
     } else {
       console.log(chalk.red("\n⚠️  Some required components are missing."));
-      console.log(chalk.yellow('Run "apex init" to fix issues.\n'));
+      console.log(chalk.yellow("Run \"apex init\" to fix issues.\n"));
     }
   });
 

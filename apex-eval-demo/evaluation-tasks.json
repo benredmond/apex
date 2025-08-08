@@ -1,0 +1,241 @@
+{
+  "tasks": [
+    {
+      "id": "EVAL-001",
+      "title": "Add input validation to auth login endpoint",
+      "complexity": 3,
+      "description": "The auth service login endpoint needs proper input validation using Joi. Validate email format, password strength (min 8 chars, 1 uppercase, 1 number), and add rate limiting headers to responses.",
+      "patterns_applicable": ["PAT:VALIDATION:JOI", "PAT:AUTH:RATE_LIMIT", "PAT:ERROR:HANDLING"],
+      "files_to_modify": ["services/auth/index.js"],
+      "acceptance_criteria": [
+        "Email validation with proper format checking",
+        "Password strength validation",
+        "Rate limit headers in response",
+        "Proper error messages for validation failures",
+        "Tests for validation logic"
+      ],
+      "common_pitfalls": [
+        "Forgetting to validate MFA code format",
+        "Not handling validation errors properly",
+        "Missing rate limit headers in error responses"
+      ]
+    },
+    {
+      "id": "EVAL-002",
+      "title": "Implement distributed tracing across services",
+      "complexity": 6,
+      "description": "Add distributed tracing to track requests across auth, user, and order services. Use correlation IDs, add trace logging, and implement request timing middleware. Must handle async operations and event bus communications.",
+      "patterns_applicable": [
+        "PAT:OBSERVABILITY:TRACING",
+        "PAT:MIDDLEWARE:CORRELATION",
+        "PAT:LOGGING:STRUCTURED",
+        "PAT:ASYNC:CONTEXT"
+      ],
+      "files_to_modify": [
+        "services/auth/index.js",
+        "services/user/index.js",
+        "services/order/index.js",
+        "shared/utils/tracer.js"
+      ],
+      "acceptance_criteria": [
+        "Correlation ID propagation across services",
+        "Request timing for each service",
+        "Structured logging with trace context",
+        "Event bus messages include trace context",
+        "Performance metrics collection"
+      ],
+      "common_pitfalls": [
+        "Losing context in async operations",
+        "Not propagating headers in service-to-service calls",
+        "Missing trace context in error logs",
+        "Performance overhead from excessive logging"
+      ]
+    },
+    {
+      "id": "EVAL-003",
+      "title": "Fix race condition in session management",
+      "complexity": 7,
+      "description": "There's a race condition when multiple requests try to refresh tokens simultaneously. Implement proper locking mechanism, handle concurrent token refresh attempts, and ensure session consistency. This involves complex async coordination and cache management.",
+      "patterns_applicable": [
+        "PAT:CONCURRENCY:MUTEX",
+        "PAT:CACHE:ATOMIC",
+        "PAT:ERROR:RETRY",
+        "FIX:ASYNC:RACE_CONDITION"
+      ],
+      "files_to_modify": [
+        "services/auth/index.js",
+        "shared/database/cache.js",
+        "shared/utils/mutex.js"
+      ],
+      "acceptance_criteria": [
+        "Mutex implementation for token refresh",
+        "Atomic cache operations",
+        "Proper error handling for lock timeouts",
+        "Tests demonstrating race condition is fixed",
+        "No performance regression"
+      ],
+      "common_pitfalls": [
+        "Deadlock scenarios",
+        "Lock not released on error",
+        "Cache inconsistency",
+        "Performance degradation from over-locking"
+      ]
+    },
+    {
+      "id": "EVAL-004",
+      "title": "Implement circuit breaker for external payment service",
+      "complexity": 5,
+      "description": "Add circuit breaker pattern for payment service integration. Must handle failures gracefully, implement half-open state testing, and provide fallback behavior. Include metrics and alerting.",
+      "patterns_applicable": [
+        "PAT:RESILIENCE:CIRCUIT_BREAKER",
+        "PAT:ERROR:FALLBACK",
+        "PAT:METRICS:COLLECTION"
+      ],
+      "files_to_modify": [
+        "services/order/payment-client.js",
+        "shared/utils/error-handler.js"
+      ],
+      "acceptance_criteria": [
+        "Circuit breaker with configurable thresholds",
+        "Half-open state implementation",
+        "Fallback to queue for retry",
+        "Metrics for circuit state changes",
+        "Proper error messages to clients"
+      ],
+      "common_pitfalls": [
+        "Not resetting circuit breaker properly",
+        "Missing metrics for monitoring",
+        "Fallback causing data inconsistency",
+        "Threshold configuration issues"
+      ]
+    },
+    {
+      "id": "EVAL-005",
+      "title": "Refactor authentication to support OAuth2 and SAML",
+      "complexity": 9,
+      "description": "Major refactoring to support multiple authentication providers (OAuth2, SAML) alongside existing JWT auth. Implement strategy pattern, maintain backward compatibility, handle provider-specific claims mapping, and session unification.",
+      "patterns_applicable": [
+        "PAT:DESIGN:STRATEGY",
+        "PAT:AUTH:OAUTH2",
+        "PAT:AUTH:SAML",
+        "PAT:REFACTOR:BACKWARD_COMPAT",
+        "PAT:ADAPTER:CLAIMS"
+      ],
+      "files_to_modify": [
+        "services/auth/index.js",
+        "services/auth/providers/jwt.js",
+        "services/auth/providers/oauth2.js",
+        "services/auth/providers/saml.js",
+        "services/auth/strategy-manager.js"
+      ],
+      "acceptance_criteria": [
+        "Strategy pattern for auth providers",
+        "OAuth2 flow implementation",
+        "SAML assertion handling",
+        "Unified session management",
+        "Claims mapping and normalization",
+        "Backward compatibility with existing JWT",
+        "Provider-specific error handling",
+        "Comprehensive test coverage"
+      ],
+      "common_pitfalls": [
+        "Breaking existing JWT authentication",
+        "Incorrect claims mapping",
+        "Session conflicts between providers",
+        "Security vulnerabilities in provider switching",
+        "Missing provider-specific validations",
+        "Performance issues with multiple strategies"
+      ]
+    },
+    {
+      "id": "EVAL-006",
+      "title": "Add database transaction support with rollback",
+      "complexity": 8,
+      "description": "Implement distributed transaction support across multiple database operations in the order service. Handle partial failures, implement saga pattern for compensation, and ensure data consistency.",
+      "patterns_applicable": [
+        "PAT:DATABASE:TRANSACTION",
+        "PAT:SAGA:COMPENSATION",
+        "PAT:ERROR:ROLLBACK",
+        "PAT:CONSISTENCY:EVENTUAL"
+      ],
+      "files_to_modify": [
+        "services/order/index.js",
+        "shared/database/transaction-manager.js",
+        "services/order/saga-orchestrator.js"
+      ],
+      "acceptance_criteria": [
+        "Transaction manager implementation",
+        "Saga orchestrator for multi-step operations",
+        "Compensation logic for rollbacks",
+        "Idempotency for retry safety",
+        "Audit log for transaction steps",
+        "Performance monitoring"
+      ],
+      "common_pitfalls": [
+        "Partial rollback leaving inconsistent state",
+        "Deadlocks in concurrent transactions",
+        "Missing compensation for external services",
+        "Idempotency key collisions",
+        "Performance issues with long transactions"
+      ]
+    }
+  ],
+  "evaluation_criteria": {
+    "correctness": {
+      "weight": 0.4,
+      "metrics": [
+        "All acceptance criteria met",
+        "No regression in existing functionality",
+        "Tests pass",
+        "No critical bugs introduced"
+      ]
+    },
+    "pattern_usage": {
+      "weight": 0.3,
+      "metrics": [
+        "Correct pattern application",
+        "Pattern reuse from cache",
+        "Appropriate pattern selection",
+        "Anti-pattern avoidance"
+      ]
+    },
+    "code_quality": {
+      "weight": 0.2,
+      "metrics": [
+        "Clean, readable code",
+        "Proper error handling",
+        "Good test coverage",
+        "Performance considerations"
+      ]
+    },
+    "time_efficiency": {
+      "weight": 0.1,
+      "metrics": [
+        "Time to completion",
+        "Number of iterations needed",
+        "Avoiding common pitfalls"
+      ]
+    }
+  },
+  "scoring": {
+    "levels": {
+      "excellent": { "min": 90, "description": "All criteria exceeded, creative solutions" },
+      "good": { "min": 75, "description": "All acceptance criteria met, good patterns" },
+      "satisfactory": { "min": 60, "description": "Core functionality works, some issues" },
+      "needs_improvement": { "min": 40, "description": "Partial implementation, significant issues" },
+      "poor": { "min": 0, "description": "Major issues, incomplete implementation" }
+    },
+    "bonuses": {
+      "novel_pattern_discovery": 5,
+      "performance_optimization": 3,
+      "extra_test_coverage": 2,
+      "documentation": 2
+    },
+    "penalties": {
+      "regression": -10,
+      "security_vulnerability": -15,
+      "data_corruption": -20,
+      "breaking_change": -10
+    }
+  }
+}

@@ -1,0 +1,346 @@
+{
+  "withApex": [
+    {
+      "taskId": "EVAL-001",
+      "title": "Add input validation to auth login endpoint",
+      "complexity": 3,
+      "startTime": 1754679613311,
+      "errors": [],
+      "patternsUsed": [
+        "PAT:VALIDATION:JOI",
+        "PAT:AUTH:RATE_LIMIT",
+        "PAT:ERROR:HANDLING"
+      ],
+      "patternCacheHits": 3,
+      "metricsCollected": true,
+      "apexBenefits": {
+        "intelligenceGathering": true,
+        "patternSuggestions": 3,
+        "failurePrevention": 3,
+        "contextPack": true,
+        "phaseWorkflow": true
+      },
+      "endTime": 1754679613419,
+      "duration": 108,
+      "simulatedDuration": 10799.999999999998,
+      "success": true,
+      "score": 100
+    },
+    {
+      "taskId": "EVAL-002",
+      "title": "Implement distributed tracing across services",
+      "complexity": 6,
+      "startTime": 1754679613419,
+      "errors": [],
+      "patternsUsed": [
+        "PAT:OBSERVABILITY:TRACING",
+        "PAT:MIDDLEWARE:CORRELATION",
+        "PAT:LOGGING:STRUCTURED",
+        "PAT:ASYNC:CONTEXT"
+      ],
+      "patternCacheHits": 4,
+      "metricsCollected": true,
+      "apexBenefits": {
+        "intelligenceGathering": true,
+        "patternSuggestions": 4,
+        "failurePrevention": 4,
+        "contextPack": true,
+        "phaseWorkflow": true
+      },
+      "endTime": 1754679613612,
+      "duration": 193,
+      "simulatedDuration": 19199.999999999996,
+      "success": true,
+      "score": 100
+    },
+    {
+      "taskId": "EVAL-003",
+      "title": "Fix race condition in session management",
+      "complexity": 7,
+      "startTime": 1754679613612,
+      "errors": [
+        {
+          "type": "pitfall",
+          "description": "Cache inconsistency",
+          "timeToFix": 1000
+        }
+      ],
+      "patternsUsed": [
+        "PAT:CONCURRENCY:MUTEX",
+        "PAT:CACHE:ATOMIC",
+        "PAT:ERROR:RETRY",
+        "FIX:ASYNC:RACE_CONDITION"
+      ],
+      "patternCacheHits": 4,
+      "metricsCollected": true,
+      "apexBenefits": {
+        "intelligenceGathering": true,
+        "patternSuggestions": 4,
+        "failurePrevention": 3,
+        "contextPack": true,
+        "phaseWorkflow": true
+      },
+      "endTime": 1754679613844,
+      "duration": 232,
+      "simulatedDuration": 23399.999999999996,
+      "success": true,
+      "score": 94
+    },
+    {
+      "taskId": "EVAL-004",
+      "title": "Implement circuit breaker for external payment service",
+      "complexity": 5,
+      "startTime": 1754679613845,
+      "errors": [],
+      "patternsUsed": [
+        "PAT:RESILIENCE:CIRCUIT_BREAKER",
+        "PAT:ERROR:FALLBACK",
+        "PAT:METRICS:COLLECTION"
+      ],
+      "patternCacheHits": 3,
+      "metricsCollected": true,
+      "apexBenefits": {
+        "intelligenceGathering": true,
+        "patternSuggestions": 3,
+        "failurePrevention": 4,
+        "contextPack": true,
+        "phaseWorkflow": true
+      },
+      "endTime": 1754679614025,
+      "duration": 180,
+      "simulatedDuration": 18000,
+      "success": true,
+      "score": 100
+    },
+    {
+      "taskId": "EVAL-005",
+      "title": "Refactor authentication to support OAuth2 and SAML",
+      "complexity": 9,
+      "startTime": 1754679614026,
+      "errors": [
+        {
+          "type": "pitfall",
+          "description": "Session conflicts between providers",
+          "timeToFix": 1000
+        }
+      ],
+      "patternsUsed": [
+        "PAT:DESIGN:STRATEGY",
+        "PAT:AUTH:OAUTH2",
+        "PAT:AUTH:SAML",
+        "PAT:REFACTOR:BACKWARD_COMPAT",
+        "PAT:ADAPTER:CLAIMS"
+      ],
+      "patternCacheHits": 5,
+      "metricsCollected": true,
+      "apexBenefits": {
+        "intelligenceGathering": true,
+        "patternSuggestions": 5,
+        "failurePrevention": 5,
+        "contextPack": true,
+        "phaseWorkflow": true
+      },
+      "endTime": 1754679614288,
+      "duration": 262,
+      "simulatedDuration": 26200,
+      "success": true,
+      "score": 94
+    },
+    {
+      "taskId": "EVAL-006",
+      "title": "Add database transaction support with rollback",
+      "complexity": 8,
+      "startTime": 1754679614289,
+      "errors": [
+        {
+          "type": "pitfall",
+          "description": "Performance issues with long transactions",
+          "timeToFix": 1000
+        }
+      ],
+      "patternsUsed": [
+        "PAT:DATABASE:TRANSACTION",
+        "PAT:SAGA:COMPENSATION",
+        "PAT:ERROR:ROLLBACK",
+        "PAT:CONSISTENCY:EVENTUAL"
+      ],
+      "patternCacheHits": 4,
+      "metricsCollected": true,
+      "apexBenefits": {
+        "intelligenceGathering": true,
+        "patternSuggestions": 4,
+        "failurePrevention": 4,
+        "contextPack": true,
+        "phaseWorkflow": true
+      },
+      "endTime": 1754679614554,
+      "duration": 265,
+      "simulatedDuration": 26599.999999999993,
+      "success": true,
+      "score": 94
+    }
+  ],
+  "withoutApex": [
+    {
+      "taskId": "EVAL-001",
+      "title": "Add input validation to auth login endpoint",
+      "complexity": 3,
+      "startTime": 1754679609845,
+      "errors": [
+        {
+          "type": "pitfall",
+          "description": "Missing rate limit headers in error responses",
+          "timeToFix": 3537.035444161878
+        }
+      ],
+      "patternsUsed": [],
+      "metricsCollected": false,
+      "endTime": 1754679610108,
+      "duration": 263,
+      "simulatedDuration": 26268.586632105966,
+      "success": false,
+      "score": 65
+    },
+    {
+      "taskId": "EVAL-002",
+      "title": "Implement distributed tracing across services",
+      "complexity": 6,
+      "startTime": 1754679610108,
+      "errors": [
+        {
+          "type": "pitfall",
+          "description": "Missing trace context in error logs",
+          "timeToFix": 4926.063547974236
+        },
+        {
+          "type": "test_failure",
+          "description": "Tests failed due to edge case",
+          "timeToFix": 5000
+        }
+      ],
+      "patternsUsed": [],
+      "metricsCollected": false,
+      "endTime": 1754679610659,
+      "duration": 551,
+      "simulatedDuration": 55001.9697417524,
+      "success": false,
+      "score": 51
+    },
+    {
+      "taskId": "EVAL-003",
+      "title": "Fix race condition in session management",
+      "complexity": 7,
+      "startTime": 1754679610659,
+      "errors": [
+        {
+          "type": "pitfall",
+          "description": "Cache inconsistency",
+          "timeToFix": 4356.854302857038
+        }
+      ],
+      "patternsUsed": [],
+      "metricsCollected": false,
+      "endTime": 1754679611233,
+      "duration": 574,
+      "simulatedDuration": 57448.725405594756,
+      "success": false,
+      "score": 66
+    },
+    {
+      "taskId": "EVAL-004",
+      "title": "Implement circuit breaker for external payment service",
+      "complexity": 5,
+      "startTime": 1754679611234,
+      "errors": [
+        {
+          "type": "pitfall",
+          "description": "Missing metrics for monitoring",
+          "timeToFix": 3148.913082727773
+        }
+      ],
+      "patternsUsed": [],
+      "metricsCollected": false,
+      "endTime": 1754679611628,
+      "duration": 394,
+      "simulatedDuration": 39440.46378916755,
+      "success": false,
+      "score": 66
+    },
+    {
+      "taskId": "EVAL-005",
+      "title": "Refactor authentication to support OAuth2 and SAML",
+      "complexity": 9,
+      "startTime": 1754679611628,
+      "errors": [
+        {
+          "type": "pitfall",
+          "description": "Breaking existing JWT authentication",
+          "timeToFix": 3854.068014675435
+        },
+        {
+          "type": "pitfall",
+          "description": "Incorrect claims mapping",
+          "timeToFix": 3434.1935971408534
+        },
+        {
+          "type": "pitfall",
+          "description": "Security vulnerabilities in provider switching",
+          "timeToFix": 4363.910883985095
+        }
+      ],
+      "patternsUsed": [],
+      "metricsCollected": false,
+      "endTime": 1754679612494,
+      "duration": 866,
+      "simulatedDuration": 86598.93440203657,
+      "success": false,
+      "score": 36
+    },
+    {
+      "taskId": "EVAL-006",
+      "title": "Add database transaction support with rollback",
+      "complexity": 8,
+      "startTime": 1754679612495,
+      "errors": [
+        {
+          "type": "pitfall",
+          "description": "Partial rollback leaving inconsistent state",
+          "timeToFix": 3180.6647249743687
+        },
+        {
+          "type": "pitfall",
+          "description": "Deadlocks in concurrent transactions",
+          "timeToFix": 3086.647572881963
+        },
+        {
+          "type": "pitfall",
+          "description": "Missing compensation for external services",
+          "timeToFix": 3381.142309236526
+        },
+        {
+          "type": "pitfall",
+          "description": "Idempotency key collisions",
+          "timeToFix": 3756.7332839776755
+        },
+        {
+          "type": "pitfall",
+          "description": "Performance issues with long transactions",
+          "timeToFix": 3664.8095645411395
+        },
+        {
+          "type": "test_failure",
+          "description": "Tests failed due to edge case",
+          "timeToFix": 5000
+        }
+      ],
+      "patternsUsed": [],
+      "metricsCollected": false,
+      "endTime": 1754679613311,
+      "duration": 816,
+      "simulatedDuration": 81578.24491653807,
+      "success": false,
+      "score": 10
+    }
+  ],
+  "timestamp": "2025-08-08T19:00:09.840Z"
+}

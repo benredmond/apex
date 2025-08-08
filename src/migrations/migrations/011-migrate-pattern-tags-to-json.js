@@ -55,9 +55,9 @@ export const migration = {
           const csvTags =
             pattern.tags_csv && pattern.tags_csv.trim()
               ? pattern.tags_csv
-                  .split(",")
-                  .map((tag) => tag.trim())
-                  .filter((tag) => tag.length > 0)
+                .split(",")
+                .map((tag) => tag.trim())
+                .filter((tag) => tag.length > 0)
               : [];
 
           const jsonTags = JSON.stringify(csvTags);
@@ -286,7 +286,7 @@ export const migration = {
         LIMIT 1
       `,
         )
-        .get('%"test"%');
+        .get("%\"test\"%");
 
       console.log("Migration 011 validation passed");
       return true;

@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import Database from "better-sqlite3";
+import { parsePdf } from "./pdf-parser-wrapper.js";
 import { LLMExtractor } from "./llm-extractor.js";
 import { PatternValidator } from "./pattern-validator.js";
 import { PatternInserter } from "../reflection/pattern-inserter.js";
@@ -130,9 +131,21 @@ export class BookExtractor {
 
     if (ext === ".txt") {
       return await fs.readFile(filePath, "utf-8");
+    } else if (ext === ".pdf") {
+      // Read PDF file as buffer
+      const dataBuffer = await fs.readFile(filePath);
+
+      // Parse PDF to extract text
+      const pdfData = await parsePdf(dataBuffer);
+
+      console.log(`[BookExtractor] PDF info:
+  - Pages: ${pdfData.numpages}
+  - Text length: ${pdfData.text.length} characters`);
+
+      return pdfData.text;
     } else {
       throw new Error(
-        `Unsupported file format: ${ext}. Currently only .txt is supported.`,
+        `Unsupported file format: ${ext}. Supported formats: .txt, .pdf`,
       );
     }
   }

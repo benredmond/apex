@@ -101,8 +101,8 @@ Format your response as JSON with this structure:
   }
 }
 
-Text to analyze:
-${chapterText}
+Text to analyze (first 4000 characters):
+${chapterText.substring(0, 4000)}
 
 Remember to:
 - Focus on concrete, reusable patterns with actual code examples
@@ -118,12 +118,24 @@ Remember to:
   private async callLLMSecurely(prompt: string): Promise<string> {
     return new Promise((resolve, reject) => {
       // Write prompt to stdin instead of passing as argument to avoid shell interpretation
-      const child = spawn("claude", ["-p"], {
+      // Use full path to claude CLI
+      const claudePath = "/Users/ben/.claude/local/claude";
+      console.log(`[LLMExtractor] Calling Claude CLI at: ${claudePath}`);
+
+      const child = spawn(claudePath, ["-p"], {
         stdio: ["pipe", "pipe", "pipe"],
       });
 
       let stdout = "";
       let stderr = "";
+      let timedOut = false;
+
+      // Set a timeout - increased for complex prompts
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        child.kill();
+        reject(new Error("Claude CLI call timed out after 120 seconds"));
+      }, 120000); // 120 seconds for complex book extraction prompts
 
       child.stdout.on("data", (data) => {
         stdout += data.toString();
@@ -134,20 +146,33 @@ Remember to:
       });
 
       child.on("error", (error) => {
+        clearTimeout(timeout);
         reject(new Error(`Failed to spawn claude process: ${error.message}`));
       });
 
       child.on("close", (code) => {
+        clearTimeout(timeout);
+        if (timedOut) return;
+
         if (code !== 0) {
+          console.error(
+            `[LLMExtractor] Claude exited with code ${code}. Stderr: ${stderr}`,
+          );
           reject(
             new Error(`claude process exited with code ${code}: ${stderr}`),
           );
         } else {
+          console.log(
+            `[LLMExtractor] Claude responded with ${stdout.length} characters`,
+          );
           resolve(stdout);
         }
       });
 
       // Write prompt to stdin and close
+      console.log(
+        `[LLMExtractor] Sending prompt (${prompt.length} characters)`,
+      );
       child.stdin.write(prompt);
       child.stdin.end();
     });
