@@ -12,6 +12,14 @@ interface CachedResponse {
   latency_ms: number;
   cache_hit: boolean;
   cached_at: number;
+  pagination?: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
 }
 
 interface CacheOptions {

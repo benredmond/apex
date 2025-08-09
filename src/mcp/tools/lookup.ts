@@ -27,6 +27,10 @@ const LookupRequestSchema = z.object({
   task: z.string().min(1).max(1000),
   max_size: z.number().min(1024).max(65536).default(8192),
 
+  // Pagination fields
+  page: z.number().min(1).default(1).optional(),
+  pageSize: z.number().min(1).max(50).default(50).optional(),
+
   // Legacy fields (for backwards compatibility)
   current_file: z.string().optional(),
   language: z.string().optional(),
@@ -102,6 +106,14 @@ export interface LookupResponse {
   request_id: string;
   latency_ms: number;
   cache_hit: boolean;
+  pagination?: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
 }
 
 // Simple rate limiter
@@ -208,6 +220,7 @@ export class PatternLookupService {
           request_id: requestId,
           latency_ms: latency,
           cache_hit: true,
+          pagination: cached.pagination,
         };
       }
 
@@ -334,10 +347,35 @@ export class PatternLookupService {
         throw new InternalError(`Failed to rank patterns: ${sanitized}`);
       }
 
+      // Apply pagination if requested
+      let paginatedRanked = ranked;
+      let paginationInfo = undefined;
+
+      if (request.page !== undefined || request.pageSize !== undefined) {
+        const page = request.page || 1;
+        const pageSize = request.pageSize || 50;
+        const totalItems = ranked.length;
+        const totalPages = Math.ceil(totalItems / pageSize);
+        const startIndex = (page - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+
+        // Slice the ranked results for this page
+        paginatedRanked = ranked.slice(startIndex, endIndex);
+
+        paginationInfo = {
+          page,
+          pageSize,
+          totalItems,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
+        };
+      }
+
       // Build PatternPack with size budget
       const packResult = await this.packBuilder.buildPatternPack(
         request.task,
-        ranked,
+        paginatedRanked,
         {
           budgetBytes: request.max_size,
           debug: false, // Could be controlled by request option
@@ -356,6 +394,7 @@ export class PatternLookupService {
         request_id: requestId,
         latency_ms: latency,
         cache_hit: false,
+        pagination: paginationInfo,
       };
 
       this.cache.set(cacheKey, {

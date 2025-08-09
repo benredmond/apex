@@ -37,6 +37,10 @@ const DiscoverRequestSchema = z.object({
   // Natural language query
   query: z.string().min(3).max(500),
 
+  // Pagination fields
+  page: z.number().min(1).default(1).optional(),
+  pageSize: z.number().min(1).max(50).default(50).optional(),
+
   // AI-provided tags for enhanced discovery [APE-63]
   tags: z.array(z.string()).max(15).optional(),
 
@@ -83,6 +87,14 @@ export interface DiscoverResponse {
   request_id: string;
   latency_ms: number;
   cache_hit: boolean;
+  pagination?: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
 }
 
 // Rate limiter (reuse pattern from lookup.ts)
@@ -353,11 +365,36 @@ export class PatternDiscoverer {
         adjustedScored.sort((a, b) => b.score - a.score);
       }
 
-      // Take top results after adjustment
-      const finalScored = adjustedScored.slice(0, request.max_results);
+      // Apply pagination
+      let paginationInfo = undefined;
+      let pagedResults = adjustedScored;
+
+      if (request.page !== undefined || request.pageSize !== undefined) {
+        const page = request.page || 1;
+        const pageSize = request.pageSize || 50;
+        const totalItems = adjustedScored.length;
+        const totalPages = Math.ceil(totalItems / pageSize);
+        const startIndex = (page - 1) * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+        // Slice for this page
+        pagedResults = adjustedScored.slice(startIndex, endIndex);
+
+        paginationInfo = {
+          page,
+          pageSize,
+          totalItems,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
+        };
+      } else {
+        // Use max_results if no pagination specified (backward compatible)
+        pagedResults = adjustedScored.slice(0, request.max_results);
+      }
 
       // Format response
-      const patterns = finalScored.map((score) => ({
+      const patterns = pagedResults.map((score) => ({
         pattern: score.pattern,
         score: score.score,
         explanation: request.include_explanation ? score.explanation : "",
@@ -385,6 +422,7 @@ export class PatternDiscoverer {
         request_id: requestId,
         latency_ms: Date.now() - startTime,
         cache_hit: false,
+        pagination: paginationInfo,
       };
 
       // Cache response
