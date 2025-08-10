@@ -385,7 +385,7 @@ export class TaskRepository {
       outcome,
       key_learning: keyLearning,
       patterns_used: patternsUsed ? JSON.stringify(patternsUsed) : null,
-      reflection_id: reflectionId,
+      reflection_id: reflectionId || null,
       duration_ms: duration,
     });
   }
@@ -469,5 +469,94 @@ export class TaskRepository {
     }
 
     return Math.min(1, Math.max(0, score));
+  }
+
+  findRecent(limit: number = 20): Task[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM tasks 
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `);
+
+    const rows = stmt.all(limit) as any[];
+    return rows.map((row) => this.deserializeTask(row));
+  }
+
+  async getStatistics(period: string = "week"): Promise<any> {
+    // Calculate date range based on period
+    const now = new Date();
+    let sinceDate = new Date();
+
+    switch (period) {
+      case "today":
+        sinceDate.setHours(0, 0, 0, 0);
+        break;
+      case "week":
+        sinceDate.setDate(now.getDate() - 7);
+        break;
+      case "month":
+        sinceDate.setDate(now.getDate() - 30);
+        break;
+      case "all":
+        sinceDate = new Date(0); // Beginning of time
+        break;
+    }
+
+    const sinceDateStr = sinceDate.toISOString();
+
+    // Get total tasks
+    const totalStmt = this.db.prepare(`
+      SELECT COUNT(*) as count FROM tasks
+      WHERE created_at >= ?
+    `);
+    const totalResult = totalStmt.get(sinceDateStr) as any;
+    const totalTasks = totalResult?.count || 0;
+
+    // Get tasks by status
+    const statusStmt = this.db.prepare(`
+      SELECT status, COUNT(*) as count 
+      FROM tasks 
+      WHERE created_at >= ?
+      GROUP BY status
+    `);
+    const statusResults = statusStmt.all(sinceDateStr) as any[];
+
+    const statusCounts = {
+      active: 0,
+      completed: 0,
+      failed: 0,
+      blocked: 0,
+    };
+
+    for (const row of statusResults) {
+      if (row.status in statusCounts) {
+        statusCounts[row.status as keyof typeof statusCounts] = row.count;
+      }
+    }
+
+    // Calculate completion rate
+    const completionRate =
+      totalTasks > 0 ? statusCounts.completed / totalTasks : 0;
+
+    // Get tasks this week
+    const weekDate = new Date();
+    weekDate.setDate(weekDate.getDate() - 7);
+    const weekStmt = this.db.prepare(`
+      SELECT COUNT(*) as count FROM tasks
+      WHERE created_at >= ?
+    `);
+    const weekResult = weekStmt.get(weekDate.toISOString()) as any;
+    const tasksThisWeek = weekResult?.count || 0;
+
+    return {
+      total_tasks: totalTasks,
+      active_tasks: statusCounts.active,
+      completed_tasks: statusCounts.completed,
+      failed_tasks: statusCounts.failed,
+      completion_rate: completionRate,
+      tasks_this_week: tasksThisWeek,
+      avg_duration: "N/A", // Would need more complex calculation
+      last_updated: new Date().toISOString(),
+    };
   }
 }

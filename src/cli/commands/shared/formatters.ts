@@ -1,7 +1,7 @@
 // [PAT:OUTPUT:FORMATTER] ★★★★☆ (89 uses, 94% success) - Flexible output formatting
 // [PAT:BUILD:MODULE:ESM] ★★★☆☆ (3 uses, 100% success) - ES modules with .js extensions
 
-import * as Table from "cli-table3";
+import Table from "cli-table3";
 import chalk from "chalk";
 import * as yaml from "js-yaml";
 
@@ -40,6 +40,19 @@ export class TableFormatter implements Formatter {
     // Handle single object
     if (!Array.isArray(data)) {
       data = [data];
+    }
+
+    // Check for task data
+    if (
+      data[0]?.task_type !== undefined ||
+      data[0]?.current_phase !== undefined
+    ) {
+      return this.formatTaskTable(data);
+    }
+
+    // Check for task statistics
+    if (data[0]?.total_tasks !== undefined) {
+      return this.formatTaskStatsTable(data[0]);
     }
 
     // Special formatting for pattern data
@@ -180,6 +193,124 @@ export class TableFormatter implements Formatter {
     } else {
       return chalk.red(filled + empty);
     }
+  }
+
+  /**
+   * Format task-specific table
+   */
+  private formatTaskTable(tasks: any[]): string {
+    const table = new (Table as any)({
+      head: [
+        chalk.cyan("ID"),
+        chalk.cyan("Title"),
+        chalk.cyan("Type"),
+        chalk.cyan("Status"),
+        chalk.cyan("Phase"),
+        chalk.cyan("Updated"),
+      ],
+      style: {
+        head: [],
+        border: [],
+      },
+      colWidths: [25, 35, 12, 12, 12, 20],
+    });
+
+    for (const task of tasks) {
+      const id = task.id || "-";
+      const title = task.intent
+        ? task.intent.length > 32
+          ? task.intent.substring(0, 32) + "..."
+          : task.intent
+        : "-";
+      const type = task.task_type || "-";
+      const status = this.formatTaskStatus(task.status);
+      const phase = this.formatPhase(task.current_phase);
+      const updated = task.updated_at
+        ? new Date(task.updated_at).toLocaleDateString()
+        : "-";
+
+      table.push([
+        chalk.yellow(id.substring(0, 22)),
+        title,
+        chalk.gray(type),
+        status,
+        phase,
+        chalk.gray(updated),
+      ]);
+    }
+
+    return table.toString();
+  }
+
+  /**
+   * Format task statistics table
+   */
+  private formatTaskStatsTable(stats: any): string {
+    const table = new (Table as any)({
+      style: {
+        head: [],
+        border: [],
+      },
+      colWidths: [25, 40],
+    });
+
+    const rows = [
+      [chalk.cyan("Total Tasks"), stats.total_tasks || 0],
+      [chalk.cyan("Active Tasks"), stats.active_tasks || 0],
+      [chalk.cyan("Completed Tasks"), stats.completed_tasks || 0],
+      [chalk.cyan("Failed Tasks"), stats.failed_tasks || 0],
+      [
+        chalk.cyan("Completion Rate"),
+        stats.completion_rate
+          ? `${Math.round(stats.completion_rate * 100)}%`
+          : "0%",
+      ],
+      [chalk.cyan("Avg Duration"), stats.avg_duration || "N/A"],
+      [chalk.cyan("This Week"), stats.tasks_this_week || 0],
+      [chalk.cyan("Last Updated"), stats.last_updated || "Never"],
+    ];
+
+    for (const [label, value] of rows) {
+      table.push([label, String(value)]);
+    }
+
+    return table.toString();
+  }
+
+  /**
+   * Format task status with colors
+   */
+  private formatTaskStatus(status: string): string {
+    switch (status) {
+      case "active":
+        return chalk.blue("● Active");
+      case "completed":
+        return chalk.green("✓ Completed");
+      case "failed":
+        return chalk.red("✗ Failed");
+      case "blocked":
+        return chalk.yellow("⚠ Blocked");
+      default:
+        return chalk.gray(status || "-");
+    }
+  }
+
+  /**
+   * Format phase with colors
+   */
+  private formatPhase(phase: string): string {
+    if (!phase) return chalk.gray("-");
+
+    const phaseColors: Record<string, typeof chalk> = {
+      ARCHITECT: chalk.magenta,
+      BUILDER: chalk.blue,
+      VALIDATOR: chalk.yellow,
+      REVIEWER: chalk.cyan,
+      DOCUMENTER: chalk.green,
+    };
+
+    const color = phaseColors[phase] || chalk.gray;
+    return color(phase.substring(0, 10));
   }
 }
 

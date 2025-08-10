@@ -30,7 +30,7 @@ npm run release:major     # Release major version (1.x.x)
 
 1. **CLI System** (`/src/cli/`)
    - `index.js` - Main CLI entry point and command registration
-   - `init-command.js` - Handles `apex init` for project setup
+   - `apex.js` - Main CLI file with `apex start` command (simplified from `apex init`)
    - `pattern-command.js` - Pattern management commands
 
 2. **Intelligence Layer** (`/src/intelligence/`)
@@ -40,7 +40,7 @@ npm run release:major     # Release major version (1.x.x)
 
 3. **Command Templates** (`/src/commands/`)
    - Markdown templates for AI assistants organized by domain
-   - Used by `apex init` to create `.claude/commands/apex/` structure
+   - Previously used by `apex init` (deprecated) to create command structure
 
 ### Key Concepts
 
@@ -49,7 +49,7 @@ npm run release:major     # Release major version (1.x.x)
 - **Trust Score**: Based on usage count and success rate, visualized with star ratings (★★★★★)
 - **5-Phase Workflow**: ARCHITECT → BUILDER → VALIDATOR → REVIEWER → DOCUMENTER
 
-### Project Structure (created by `apex init`)
+### Project Structure (legacy - created by deprecated `apex init`)
 
 ```
 .apex/

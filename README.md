@@ -7,7 +7,7 @@
 
 ```bash
 # See APEX in action - no installation required!
-npx @benredmond/apex init
+npx @benredmond/apex start
 ```
 
 ## The Problem
@@ -46,7 +46,7 @@ Choose your preferred way to start:
 ### 🚀 Try It Now (Recommended)
 ```bash
 # Run this in any project - installs nothing globally
-npx @benredmond/apex init
+npx @benredmond/apex start
 
 # That's it! APEX is now active in your AI assistant
 ```
@@ -55,7 +55,7 @@ npx @benredmond/apex init
 ```bash
 # Install once, use everywhere
 npm install -g @benredmond/apex
-apex init
+apex start
 ```
 
 ### 🛠️ Manual Setup
@@ -72,7 +72,7 @@ Let's fix a bug using APEX intelligence - this takes less than 5 minutes:
 
 ```bash
 # 1. In your project with a failing test
-npx @benredmond/apex init
+npx @benredmond/apex start
 
 # 2. Open your AI assistant (Claude Code, Cursor, etc.)
 
@@ -313,7 +313,7 @@ APEX commands are organized by development phase:
 
 ### ⚙️ System Commands
 ```bash
-apex init                      # Initialize APEX (in terminal)
+apex start                     # Initialize APEX patterns database (in terminal)
 /prime                        # Load APEX context into AI
 /verify                      # Check APEX health
 ```
@@ -396,7 +396,7 @@ your-project/
 
 **"Command not found" in AI assistant**
 - Run `/prime` to load APEX commands into context
-- Ensure you ran `apex init` in your project root
+- Ensure you ran `apex start` in your project root
 - Check that `.claude/commands/apex/` exists
 
 **Patterns not being applied**
@@ -449,6 +449,6 @@ APEX was inspired by the need for AI assistants that truly learn and improve. Sp
 
 ---
 
-**Ready to stop repeating mistakes?** Run `npx @benredmond/apex init` and watch your AI assistant get smarter with every task.
+**Ready to stop repeating mistakes?** Run `npx @benredmond/apex start` and watch your AI assistant get smarter with every task.
 
 Built with ❤️ and Intelligence by the APEX Community

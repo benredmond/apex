@@ -480,6 +480,95 @@ export function createPatternsCommand(): Command {
       }
     });
 
+  patterns
+    .command("books")
+    .description("List pre-loaded book patterns with clean-code tags")
+    .option("--pack <name>", "Filter by book pack name")
+    .option(
+      "--category <cat>",
+      "Filter by category (testing|refactoring|comments|etc)",
+    )
+    .option("-f, --format <type>", "Output format (json|table|yaml)", "table")
+    .option("-l, --limit <number>", "Maximum results", "50")
+    .action(async (options) => {
+      try {
+        const timer = new PerformanceTimer();
+        const validation = validateOptions(options);
+        if (!validation.valid) {
+          displayValidationErrors(validation.errors);
+          process.exit(1);
+        }
+
+        const repo = await getRepository();
+        const query = {
+          limit: parseInt(options.limit || "50"),
+          tags: ["book-pack:clean-code"], // Filter for book patterns
+        };
+
+        const patterns = await repo.list(query);
+        let filtered = patterns;
+
+        // Filter by pack if specified
+        if (validation.validated.pack) {
+          filtered = patterns.filter((p) =>
+            p.tags?.includes(`book-pack:${validation.validated.pack}`),
+          );
+        }
+
+        // Filter by category if specified
+        if (options.category) {
+          filtered = filtered.filter((p) =>
+            p.tags?.some((tag) =>
+              tag.includes(`clean-code:${options.category.toLowerCase()}`),
+            ),
+          );
+        }
+
+        // Format output
+        const formatter = FormatterFactory.create(
+          validation.validated.format || "table",
+        );
+        console.log(formatter.format(filtered));
+
+        // Display summary
+        if (
+          validation.validated.format === "table" ||
+          !validation.validated.format
+        ) {
+          console.log(chalk.gray(`\n${filtered.length} book patterns found`));
+          if (filtered.length > 0) {
+            const categories = new Set<string>();
+            filtered.forEach((p) => {
+              p.tags?.forEach((tag) => {
+                if (tag.startsWith("clean-code:")) {
+                  categories.add(tag.replace("clean-code:", ""));
+                }
+              });
+            });
+            if (categories.size > 0) {
+              console.log(
+                chalk.gray(`Categories: ${Array.from(categories).join(", ")}`),
+              );
+            }
+          }
+        }
+
+        if (!timer.meetsRequirement(100)) {
+          console.warn(
+            chalk.yellow(
+              `Warning: Books operation took ${timer.elapsed().toFixed(0)}ms (target: < 100ms)`,
+            ),
+          );
+        }
+      } catch (error) {
+        console.error(
+          chalk.red("Error:"),
+          error instanceof Error ? error.message : error,
+        );
+        process.exit(1);
+      }
+    });
+
   return patterns;
 }
 
