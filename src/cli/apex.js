@@ -12,8 +12,11 @@ import { createMigrateCommand } from "../../dist/cli/commands/migrate.js";
 import { createBriefCommand } from "../../dist/cli/commands/brief.js";
 import { createPackCommand } from "../../dist/cli/commands/pack.js";
 import { createMCPCommand } from "../../dist/cli/commands/mcp.js";
+import { createTaskCommand } from "./commands/task.js";
+import { createDoctorCommand } from "./commands/doctor.js";
 import { configureMCPForProject } from "../../dist/cli/utils/mcp-config.js";
 import { registerExtractCommand } from "./extract-command.js";
+import { PatternDatabase } from "../../dist/storage/database.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,6 +47,18 @@ program
   .option("--agents", "Seed agent templates into .claude/agents directory")
   .option("--mcp", "Install and configure MCP for APEX")
   .action(async (options) => {
+    // Show deprecation warning
+    console.log(chalk.yellow.bold("\n⚠️  DEPRECATION WARNING"));
+    console.log(
+      chalk.yellow(
+        "The 'apex init' command is deprecated and will be removed in a future version.",
+      ),
+    );
+    console.log(
+      chalk.yellow("Please use 'apex start' instead for a simplified setup.\n"),
+    );
+    console.log(chalk.dim("Continuing with legacy initialization...\n"));
+
     console.log(chalk.cyan(logo));
     console.log(chalk.bold("🚀 Initializing APEX Intelligence...\n"));
 
@@ -295,6 +310,70 @@ This file captures key learnings from completed tasks to inform future work.
     );
   });
 
+// Start command - simplified initialization for MCP
+program
+  .command("start")
+  .description("Start APEX with minimal setup (recommended for MCP)")
+  .action(async () => {
+    console.log(chalk.cyan.bold("\n🚀 Starting APEX...\n"));
+
+    // Check if already initialized
+    if (fs.existsSync(".apex/patterns.db")) {
+      console.log(
+        chalk.green(
+          "✅ APEX patterns database already exists at .apex/patterns.db",
+        ),
+      );
+      console.log(chalk.dim("\nAPEX is ready to use!\n"));
+      process.exit(0);
+    }
+
+    // [PAT:dA0w9N1I9-4m] ★★★★★ - Better-SQLite3 Synchronous Operations
+    // Create only the patterns database - no async operations
+    try {
+      // Ensure .apex directory exists
+      fs.ensureDirSync(".apex");
+
+      // Initialize the database (this creates patterns.db)
+      const db = new PatternDatabase(".apex/patterns.db");
+
+      // Close the database connection
+      db.close();
+
+      console.log(
+        chalk.green(
+          "✅ APEX patterns database initialized at .apex/patterns.db",
+        ),
+      );
+      console.log("");
+      console.log(chalk.cyan("🚀 To use APEX with Claude Code:"));
+      console.log(
+        chalk.dim("   1. Ensure MCP is configured (run: apex mcp install)"),
+      );
+      console.log(
+        chalk.dim(
+          "   2. The APEX MCP server will provide intelligent patterns",
+        ),
+      );
+      console.log("");
+      console.log(
+        chalk.cyan(
+          "💡 Next step: Use 'apex patterns' to explore available patterns",
+        ),
+      );
+      console.log("");
+    } catch (error) {
+      console.error(
+        chalk.red("❌ Failed to initialize patterns database:"),
+        error.message,
+      );
+      console.error(
+        chalk.yellow("\nPlease check file permissions and try again."),
+      );
+      process.exit(1);
+    }
+  });
+
 // Patterns command is now added via createPatternsCommand() below
 
 // Pattern lint command
@@ -380,6 +459,9 @@ program
 // Add patterns command
 program.addCommand(createPatternsCommand());
 
+// Add task command
+program.addCommand(createTaskCommand());
+
 // Add migrate command
 program.addCommand(createMigrateCommand());
 
@@ -391,6 +473,9 @@ program.addCommand(createPackCommand());
 
 // Add MCP command
 program.addCommand(createMCPCommand());
+
+// Add doctor command
+program.addCommand(createDoctorCommand());
 
 // Add extract command for book pattern extraction
 registerExtractCommand(program);
