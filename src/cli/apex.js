@@ -71,10 +71,10 @@ async function setupClaudeCodeIntegration() {
     return;
   }
 
-  // Determine installation location
+  // Determine installation location - PREFER PROJECT LEVEL TO AVOID OVERWRITING USER FILES
   let targetDir;
   if (userClaudeExists && projectClaudeExists) {
-    // Both exist, let user choose
+    // Both exist, let user choose but default to project
     const { location } = await inquirer.prompt([
       {
         type: "list",
@@ -82,22 +82,57 @@ async function setupClaudeCodeIntegration() {
         message: "Where would you like to install the APEX commands?",
         choices: [
           {
+            name: "Project level (./.claude) - Only for this project (RECOMMENDED)",
+            value: "project",
+          },
+          {
             name: "User level (~/.claude) - Available across all projects",
             value: "user",
           },
-          {
-            name: "Project level (./.claude) - Only for this project",
-            value: "project",
-          },
         ],
+        default: "project", // Default to project to avoid overwriting user files
       },
     ]);
     targetDir = location === "user" ? userClaudeDir : projectClaudeDir;
+    
+    // Extra warning if user level is selected
+    if (location === "user") {
+      const { confirmUser } = await inquirer.prompt([
+        {
+          type: "confirm",
+          name: "confirmUser",
+          message: chalk.yellow(
+            "⚠️  Installing to ~/.claude may overwrite existing commands. Continue?"
+          ),
+          default: false,
+        },
+      ]);
+      if (!confirmUser) {
+        console.log(chalk.dim("Installation cancelled."));
+        return;
+      }
+    }
+  } else if (projectClaudeExists) {
+    // Prefer project level if it exists
+    targetDir = projectClaudeDir;
+    console.log(chalk.dim(`Installing to project level: ${targetDir}`));
   } else {
-    // Only one exists, use that
-    targetDir = userClaudeExists ? userClaudeDir : projectClaudeDir;
-    const level = userClaudeExists ? "user" : "project";
-    console.log(chalk.dim(`Installing to ${level} level: ${targetDir}`));
+    // Only user level exists - warn before installing
+    targetDir = userClaudeDir;
+    const { confirmUser } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "confirmUser",
+        message: chalk.yellow(
+          `⚠️  Only ~/.claude exists. Installing there may overwrite existing commands. Continue?`
+        ),
+        default: false,
+      },
+    ]);
+    if (!confirmUser) {
+      console.log(chalk.dim("Installation cancelled. Consider creating ./.claude in your project instead."));
+      return;
+    }
   }
 
   // Copy the command files and agents
@@ -120,8 +155,35 @@ async function setupClaudeCodeIntegration() {
 
     if (await fs.pathExists(taskSource)) {
       if (await fs.pathExists(taskTarget)) {
-        skippedCount++;
-        spinner.text = "Skipped execute_task.md (already exists)";
+        // Check if it's different from ours
+        const existingContent = await fs.readFile(taskTarget, 'utf8');
+        const sourceContent = await fs.readFile(taskSource, 'utf8');
+        
+        if (existingContent === sourceContent) {
+          skippedCount++;
+          spinner.text = "Skipped execute_task.md (identical file exists)";
+        } else {
+          // Ask before overwriting
+          spinner.stop();
+          const { overwrite } = await inquirer.prompt([
+            {
+              type: "confirm",
+              name: "overwrite",
+              message: `execute_task.md already exists and differs. Overwrite?`,
+              default: false,
+            },
+          ]);
+          spinner.start();
+          
+          if (overwrite) {
+            await fs.copy(taskSource, taskTarget);
+            copiedCount++;
+            spinner.text = "Updated execute_task.md";
+          } else {
+            skippedCount++;
+            spinner.text = "Skipped execute_task.md (kept existing)";
+          }
+        }
       } else {
         await fs.copy(taskSource, taskTarget);
         copiedCount++;
@@ -213,7 +275,6 @@ program
   .command("start")
   .description("Start using APEX (one-command setup)")
   .option("--no-mcp", "Skip MCP information")
-  .option("--no-claude", "Skip Claude Code integration")
   .action(async (options) => {
     try {
       console.log(chalk.bold("\n🚀 Starting APEX...\n"));
@@ -225,12 +286,39 @@ program
       const apexDir = path.join(process.cwd(), ApexConfig.APEX_DIR);
       await fs.ensureDir(apexDir);
 
-      // 3. Setup Claude Code integration if not skipped
-      if (options.claude !== false) {
+      // 3. Ask user which AI platform they're using
+      console.log(chalk.bold("\n🤖 AI Platform Selection\n"));
+      
+      const { platform } = await inquirer.prompt([
+        {
+          type: "list",
+          name: "platform",
+          message: "Which AI assistant are you using?",
+          choices: [
+            { name: "Claude (claude.ai)", value: "claude" },
+            { name: "Other (ChatGPT, Gemini, local LLMs, etc.)", value: "other" }
+          ]
+        }
+      ]);
+
+      // 4. Handle platform-specific setup
+      if (platform === "claude") {
+        // Setup Claude Code integration
         await setupClaudeCodeIntegration();
+      } else {
+        // Generate composed prompts for non-Claude platforms
+        const { generateComposedPrompts } = await import("../prompts/composer.js");
+        await generateComposedPrompts();
+        
+        console.log(chalk.green("\n✅ APEX prompts generated in apex-prompts/\n"));
+        console.log(chalk.yellow("📋 To use APEX with your AI assistant:"));
+        console.log(chalk.dim("   1. Open apex-prompts/execute-task.md"));
+        console.log(chalk.dim("   2. Copy the entire content"));
+        console.log(chalk.dim("   3. Paste it into your AI assistant"));
+        console.log(chalk.dim("   4. The AI will have access to APEX MCP tools"));
       }
 
-      // 4. Show MCP info if requested
+      // 5. Show MCP info if requested
       if (options.mcp !== false) {
         console.log(chalk.dim("\n💡 To connect APEX to your AI assistant:"));
         console.log(
