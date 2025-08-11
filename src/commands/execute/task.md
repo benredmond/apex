@@ -1,594 +1,471 @@
 # Execute.Task - Process Tasks with APEX Intelligence
 
 **Domain**: Execution
-**Purpose**: Implement tasks using intelligent 5-phase workflow
-**Hierarchy**: Works on tasks created by planning phase
+**Purpose**: Implement tasks using intelligent 5-phase workflow with PatternPack integration
+**Hierarchy**: Works on tasks from ANY source (text, issues, files)
 
 ## Quick Reference
 
 **When to use**: Implementing any development task (features, bugs, refactors)
 **Typical duration**: 1-4 hours depending on complexity
 **Complexity**: Adaptive (uses intelligence to determine approach)
-**Prerequisites**: Task file in .simone/ directory
+**Prerequisites**: Task source (text, issue ID, file path, or database ID)
 **Output**: Completed implementation with tests and documentation
 
 ## Core Workflow
 
-**CREATE A TODO LIST** with exactly these 7 items:
+**CREATE A TODO LIST** with exactly these 6 items:
 
-1. Analyse scope from argument
-2. Identify task file
-3. Execute Intelligence Phase
-4. Analyse the task and determine current phase
-5. Validate task readiness
-6. Set status to in_progress
-7. Execute phases until task complete
+1. Analyse scope from argument (what kind of input?)
+2. Identify or create task (get it into database)
+3. Optimize and improve prompt (enhance clarity and specificity)
+4. Execute Comprehensive Intelligence & Context Assembly
+5. Set status to in_progress (begin phase workflow)
+6. Execute phases until task complete
 
-**Note**: TODO items correspond to workflow steps, not section numbers. Some steps have detailed sections, others are quick actions.
+**Note**: TODO items correspond to workflow steps, not section numbers. The prompt optimization step (after task creation) ensures we work with the clearest, most effective version of the user's intent. The intelligence phase now consolidates all context gathering, validation, and preparation into a single comprehensive step.
 
 **IMPORTANT SUBAGENT RULE**: Subagents MUST NOT create .md files or documentation files in any phase except DOCUMENTER. They should return their analysis as structured text responses only. No reports, no markdown files, no documentation files - just return the information directly.
 
-### Phase Execution Flow (TODO Item 7)
+### Phase Execution Flow (TODO Item 6)
 
-Execute the current phase based on task.current_phase:
+Execute phases sequentially:
 
-- Read the phase section (ARCHITECT, BUILDER, etc.)
+- Call apex_task_get_phase to check current phase
+- Read the corresponding phase section (ARCHITECT, BUILDER, etc.)
 - Complete all phase actions
-- Phase will update current_phase when done
-- Continue with next phase until DOCUMENTER completes
+- Call apex_task_set_phase to transition to next phase
+- Continue until DOCUMENTER completes
 
 **Phase Progression**: ARCHITECT → BUILDER → VALIDATOR → REVIEWER → DOCUMENTER
 
 ## 1 · Analyse scope from argument
 
-<$ARGUMENTS> ⇒ Task ID, Sprint ID, or empty (select next open task in current sprint).
+<$ARGUMENTS> ⇒ Can be:
+- **Text description**: "implement dark mode toggle" → Create task from description
+- **Linear/JIRA ID**: "APE-59" or "PROJ-123" → Fetch from issue tracker
+- **Markdown file path**: "T026_feature.md" or ".apex/03_ACTIVE_SPRINTS/S02/T026.md" → Read file
+- **Database task ID**: "dS2y_DqSHdRpcLO5GYSIy" → Use existing task
+- **Empty**: Use user's current request as task intent
 
-## 2 · Identify task file
+## 2 · Identify or Create Task
 
-Search .simone/03_ACTIVE_SPRINTS/, .simone/05_ARCHIVED_SPRINTS/, and .simone/04_GENERAL_TASKS/.
-If no open task matches, pause and ask the user how to proceed.
+**Determine task source and get/create task:**
 
-## 3 · Execute Intelligence Phase (runs after task identification)
+### If Linear/JIRA ID (e.g., "APE-59"):
+1. Use mcp__linear-server__get_issue or similar to fetch details
+2. Extract title, description, type from issue
+3. Call apex_task_create with:
+   - intent: Issue title + description
+   - type: Inferred from issue
+   - identifier: The Linear/JIRA ID
 
-**INTELLIGENCE PROMPT**: "Analyze this task to predict patterns, complexity, and optimal approach. DO NOT implement, only analyze."
+### If markdown file path:
+1. Use Read tool to get file content
+2. Parse frontmatter and content for task details
+3. Call apex_task_create with:
+   - intent: Parsed content
+   - type: From frontmatter or inferred
+   - identifier: Filename without extension
 
-### 3.1 · Gemini Integration Configuration
+### If database task ID (long alphanumeric):
+1. Call apex_task_find to retrieve existing task
+2. Use returned task details
+3. Skip to intelligence gathering if found
 
-<details>
-<summary><strong>Gemini Integration Details</strong></summary>
+### If text description or empty:
+1. Call apex_task_create with:
+   - intent: The text or user's request
+   - type: Inferred from content
+   - identifier: Optional
 
-**GEMINI USAGE**: Targeted analysis at complexity thresholds for maximum value.
+**Result**: Store `taskId` and `brief` for all subsequent operations.
 
-```yaml
-gemini_integration:
-  command: npx https://github.com/google-gemini/gemini-cli -p "<prompt>"
-  benefits:
-    - Gives Gemini full context in the codebase
-    - More powerful analysis with file awareness
-    - Better architectural recommendations
+## 3 · Optimize and Improve Prompt
 
-  thresholds_justification:
-    - Complexity < 5: Simple tasks, patterns suffice ($0 cost)
-    - Complexity 5-6: Gemini review catches edge cases (~$0.05/task)
-    - Complexity 7+: Gemini architecture prevents costly mistakes (~$0.10/task)
+**PURPOSE**: After creating/identifying the task, enhance the task's intent/brief for maximum clarity, specificity, and effectiveness before proceeding with intelligence gathering and execution.
 
-  usage_rules:
-    - ONLY targeted, deep analysis at key decision points
-    - Give Gemini deep context when using it
-    - When interacting with Gemini, act as a world class prompt engineer
-    - ENGAGE IN DIALOGUE: Have back-and-forth discussions with Gemini
-    - Continue conversation until reaching consensus or clear action plan
-    - Ask follow-up questions based on Gemini's responses
-    - Challenge assumptions and explore alternatives together
+### Prompt Enhancement Process
 
-  parallel_execution_note: |
-    - Intelligence operations MUST use parallel Task agents
-    - Group by data source to minimize conflicts
-    - Aggregate results before display
-    - Fall back to sequential if parallel fails
+**When to Apply Prompt Optimization:**
+- Always apply when task brief/intent is vague or incomplete
+- Apply when Linear/JIRA descriptions need clarification
+- Apply when markdown file content needs structuring
+- Skip only if task already has a crystal-clear, well-structured brief
 
-  discussion_guidelines: |
-    HAVING PRODUCTIVE DISCUSSIONS WITH GEMINI:
+### Intelligent Prompt Rewriting
 
-    1. Start with Context:
-       - Always provide task context and current thinking
-       - Share relevant code snippets or architecture decisions
-       - Explain what you've already considered
-
-    2. Iterative Refinement:
-       - Don't accept first answer as final
-       - Ask "What are the trade-offs of this approach?"
-       - Probe with "What edge cases am I missing?"
-       - Challenge with "Is there a simpler/better way?"
-
-    3. Collaborative Problem-Solving:
-       - Treat Gemini as a peer reviewer
-       - Share your concerns and get second opinions
-       - Work together to find optimal solutions
-       - Build on each other's ideas
-
-    4. Document the Journey:
-       - Keep track of key insights from discussion
-       - Note why certain approaches were rejected
-       - Record consensus decisions and rationale
-       - Include important caveats or warnings raised
-
-    5. Know When to Stop:
-       - When you have clear, actionable next steps
-       - When all major concerns are addressed
-       - When further discussion yields diminishing returns
-       - When you need to test ideas in practice
-```
-
-</details>
-
-**Execute in parallel using Task agents:**
+**Use prompt engineering expertise to improve the task's brief/intent:**
 
 ```yaml
-parallel_intelligence_analysis:
-  - Extract keywords from task argument/description
-  - Search for configuration/system change history in completed tasks
-  - Pattern match against CONVENTIONS.md and CONVENTIONS.pending.md
-  - Gather context according to INTELLIGENCE_TRIGGERS.md
-  - Check failures.jsonl for rollback/revert patterns
-  - Calculate complexity factors with change history weight
+prompt_enhancement:
+  input: "Current task brief/intent from database or creation"
+  
+  optimization_steps:
+    1. Clarify_Intent:
+       - Extract core objective
+       - Identify implicit requirements
+       - Resolve ambiguities
+       
+    2. Add_Specificity:
+       - Define success criteria
+       - Add constraints and boundaries
+       - Specify expected outputs
+       
+    3. Structure_Requirements:
+       - Break down complex asks into clear steps
+       - Prioritize requirements (must-have vs nice-to-have)
+       - Add technical context if missing
+       
+    4. Enhance_Context:
+       - Include relevant domain knowledge
+       - Add APEX-specific patterns if applicable
+       - Reference similar completed tasks
+       
+    5. Optimize_for_Execution:
+       - Format for 5-phase workflow
+       - Add measurable acceptance criteria
+       - Include testing requirements
 ```
 
-### 3.2 · Calculate Complexity Score
+### Prompt Rewriting Examples
 
-**Complexity Scoring (1-10 scale):**
+**Example 1: Vague to Specific**
+```yaml
+original: "fix the bug in authentication"
 
-- Base score: 1
-- Number of systems involved: +1 per system beyond first
-- Authentication/security mentions: +2
-- Database/state management: +2
-- UI/UX complexity: +1-3 (based on component count)
-- Testing requirements: +1
-- External API integrations: +2
-- Cross-team dependencies: +1
+improved: |
+  Fix authentication bug where users cannot log in after password reset.
+  
+  Requirements:
+  - Diagnose root cause of login failure post-password-reset
+  - Fix the authentication flow to handle reset tokens correctly
+  - Ensure session persistence after successful reset
+  - Add tests for password reset → login flow
+  - Verify no regression in normal login flow
+  
+  Success Criteria:
+  - Users can log in immediately after password reset
+  - All authentication tests pass
+  - No performance degradation
+```
 
-**Gemini Integration Thresholds:**
+**Example 2: Feature Request Enhancement**
+```yaml
+original: "add dark mode"
 
-- Complexity < 5: No Gemini involvement
-- Complexity 5-6: Gemini REVIEWER only
-- Complexity 7+: Gemini ARCHITECT + REVIEWER
+improved: |
+  Implement dark mode theme toggle for the application.
+  
+  Technical Requirements:
+  - Create theme context/provider for global theme state
+  - Implement CSS variables or theme system for colors
+  - Add toggle component in settings/header
+  - Persist theme preference in localStorage
+  - Ensure all components support both themes
+  - Handle system preference detection
+  
+  Acceptance Criteria:
+  - Toggle switches between light/dark themes instantly
+  - Theme preference persists across sessions
+  - Respects system dark mode preference on first visit
+  - All UI elements have appropriate dark mode colors
+  - No contrast/accessibility issues in either theme
+```
 
-### 3.3 · Load Historical Intelligence (PARALLEL EXECUTION)
+**Example 3: Complex Task Structuring**
+```yaml
+original: "refactor the API"
 
-**Pattern System Overview:**
+improved: |
+  Refactor REST API to improve performance and maintainability.
+  
+  Scope:
+  - Analyze current API performance bottlenecks
+  - Implement consistent error handling patterns
+  - Add request/response validation middleware
+  - Standardize endpoint naming conventions
+  - Optimize database queries (eliminate N+1 problems)
+  - Add comprehensive API documentation
+  
+  Constraints:
+  - Maintain backward compatibility for v1 endpoints
+  - Zero downtime deployment required
+  - Complete within current sprint (5 days)
+  
+  Deliverables:
+  - Refactored API code with consistent patterns
+  - Performance improvement metrics (target: 30% faster)
+  - Updated API documentation
+  - Migration guide for deprecated endpoints
+```
+
+### Pattern-Based Enhancement
+
+**If patterns are relevant, enhance the prompt with pattern context:**
 
 ```yaml
-pattern_format:
-  id: "[TYPE:CATEGORY:SPECIFIC]"
-  types:
-    CMD: Command patterns (git, npm, pytest)
-    PAT: Code patterns (async, error handling)
-    FIX: Failure fixes (known issues)
-    ARCH: Architecture patterns
-    PROJ: Project-specific patterns
-
-trust_score:
-  initial: 3 stars (★★★☆☆)
-  success: ×1.05 (max 5★)
-  failure: ×0.85 (min 1★)
-  promotion: 3+ uses with 80%+ success → CONVENTIONS.md
-
-pattern_locations:
-  active: .simone/CONVENTIONS.md (91 patterns)
-  pending: .simone/CONVENTIONS.pending.md (50+ patterns)
-  project: .simone/10_KNOWLEDGE/PROJECT_PATTERNS.md
-  failures: .simone/09_LEARNING/failures.jsonl
-  metadata: .simone/PATTERN_METADATA.json
+pattern_enhancement:
+  - Identify applicable patterns from task description
+  - Add pattern references to improved prompt
+  - Include anti-patterns to avoid
+  - Reference similar successful tasks
+  
+example:
+  original: "implement caching"
+  pattern_enhanced: |
+    Implement caching layer using Redis pattern.
+    
+    Apply patterns:
+    - [PAT:CACHE:REDIS] for connection management
+    - [PAT:CACHE:TTL] for expiration strategies
+    - [PAT:ERROR:CACHE_MISS] for fallback handling
+    
+    Avoid anti-patterns:
+    - No cache stampede issues
+    - Prevent memory leaks from unbounded caches
 ```
 
-**Execute parallel intelligence gathering:**
-Use the specialized intelligence-gatherer subagent for comprehensive analysis:
+### Store Enhanced Prompt
+
+**CRITICAL**: After enhancing the prompt, use it as the working brief for the remainder of execution:
+
+```yaml
+enhanced_prompt_storage:
+  # The improved prompt becomes the working brief for all subsequent steps
+  working_brief: "[Enhanced version of the original task brief]"
+  
+  # Document the enhancement for learning
+  enhancement_metadata:
+    original_length: X tokens
+    enhanced_length: Y tokens
+    clarity_improvements: [list of clarifications]
+    specificity_additions: [list of specifics added]
+    patterns_identified: [relevant patterns]
+```
+
+**Use the enhanced prompt/brief for:**
+- Intelligence gathering in step 4
+- All phase executions
+- Final reflection and learning capture
+
+### Update Task Brief (Optional)
+
+**If significant improvements were made, consider updating the task in the database:**
+
+```yaml
+# Only if the enhancement significantly improves clarity
+if enhancement_is_significant:
+  apex_task_update:
+    id: taskId
+    # Update with enhanced brief or add to notes
+    # This helps future similar tasks
+```
+
+### Quick Enhancement Checklist
+
+✅ **Before proceeding, ensure the enhanced brief has:**
+- [ ] Clear, measurable objective
+- [ ] Specific requirements and constraints
+- [ ] Success criteria defined
+- [ ] Technical context included
+- [ ] Complexity appropriately scoped
+- [ ] Test requirements specified
+- [ ] Pattern opportunities identified
+
+**If the original brief is already excellent** (rare but possible):
+- Note that no enhancement was needed
+- Proceed with original as working brief
+- Document why it was already optimal
+
+## 4 · Execute Comprehensive Intelligence & Context Assembly
+
+Record initial checkpoint:
+- Call apex_task_checkpoint with:
+  - id: taskId
+  - message: "Starting intelligence gathering phase"
+  - confidence: 0.3
+
+**INTELLIGENCE PROMPT**: "Orchestrate comprehensive intelligence gathering to create a unified context pack containing ALL information needed for task execution based on the task details."
+
+### Overview
+
+This phase consolidates all intelligence gathering, context loading, validation, and preparation into a single comprehensive operation. The output is a "context pack" that serves as the single source of truth for the entire task execution.
+
+### Execute Intelligence Orchestration
+
+**Use the enhanced intelligence-gatherer subagent to orchestrate all operations:**
 
 ```markdown
-<Task subagent_type="intelligence-gatherer" description="Gather comprehensive intelligence">
-Analyze task [TASK_ID] for:
-- Pattern matching from CONVENTIONS.md and CONVENTIONS.pending.md
-- System change history (replacements, migrations, rollbacks)
-- Hidden dependencies and unstated assumptions
-- Implementation archaeology and git history
-- Similar tasks and their outcomes
-- Predicted failures based on historical data
+<Task subagent_type="intelligence-gatherer" description="Orchestrate comprehensive intelligence">
+Orchestrate complete intelligence gathering and context assembly for task [TASK_ID]:
+- Coordinate parallel subagent calls for all intelligence operations
+- Gather patterns, context, validation, and historical data
+- Calculate complexity and determine execution strategy
+- Produce unified context pack for entire task execution
+- Display human-readable report and return structured YAML
 </Task>
 ```
 
-**PARALLELISM NOTE**: The intelligence-gatherer subagent internally executes multiple searches in parallel:
+**The intelligence-gatherer will:**
+1. Execute ALL intelligence operations in parallel using subagents
+2. Aggregate and deduplicate all results
+3. Calculate complexity score and determine Gemini needs
+4. Validate task readiness and resolve ambiguities
+5. Generate execution strategy with parallelization opportunities
+6. Produce comprehensive context pack
 
-- Pattern searches across convention files (parallel)
-- Git history analysis (parallel)
-- Task similarity matching (parallel)
-- Failure pattern detection (parallel)
-- Dependency mapping (parallel)
-  This provides the same parallelism benefits as multiple Task agents but with better coordination.
+### Context Pack Structure
 
-**Intelligence-gatherer subagent will:**
-
-- Execute searches in parallel for efficiency
-- Aggregate and deduplicate results
-- Prioritize patterns by trust score
-- Provide structured intelligence report
-- **NO .md FILES**: Return analysis as text response only
-
-**Result Aggregation:**
-After parallel execution completes, aggregate results:
-
-1. Merge pattern findings by trust score (highest first)
-2. Deduplicate similar patterns
-3. Group failures by category
-4. Rank similar tasks by relevance score
-
-<details>
-<summary><strong>Intelligence Loading Details</strong></summary>
-
-**Note: These operations are now executed in parallel batches above**
+The intelligence-gatherer returns a complete context pack:
 
 ```yaml
-historical_data_loading:
-  - Search 09_LEARNING/TASK_LEARNINGS.md for similar task keywords
-  - Extract patterns from CONVENTIONS.md with trust scores
-  - Check CONVENTIONS.pending.md for emerging patterns
-  - Load project patterns from KNOWLEDGE/PROJECT_PATTERNS.md
-  - Search 09_LEARNING/failures.jsonl for error prevention patterns
-  - Check PATTERN_METADATA.json for usage statistics
-  - Check INTELLIGENCE_TRIGGERS.md for any triggers
-  - Distinguish between types: CMD, PAT, FIX, ARCH, PROJ
-  - Prioritize by trust score (5★ > 4★ > 3★)
-  - Look for similar complexity scores in past tasks
-```
-
-</details>
-
-### 3.4 · Display Intelligence Report
-
-```
-┌─────────────────────────────────────────────┐
-│ 📊 Task Intelligence Report                 │
-├─────────────────────────────────────────────┤
-│ Complexity: X/10 (factors...)              │
-│ Similar Tasks: TXX (Xh), TXX (Xh)          │
-│ Pattern Analysis:                           │
-│   - Active: 91 patterns (avg ★★★★☆)       │
-│   - Pending: 50+ patterns (testing)        │
-│   - Relevant: X patterns for this task     │
-│ Known Risks: [from 09_LEARNING/failures.jsonl] │
-│ Suggested Approach: [based on analysis]    │
-│ Gemini Integration: [YES/NO] at phase X    │
-└─────────────────────────────────────────────┘
-```
-
-### 3.5 · Store Intelligence Context
-
-Create structured intelligence context for phase injection:
-
-```yaml
-# === INTELLIGENCE CONTEXT ===
-intelligence:
-  relevant_patterns:
-    - id: PAT:CATEGORY:NAME
-      trust: ★★★★☆
-      usage_context: "When to apply this pattern"
-      code_template: |
-        # Pre-filled code template
-  similar_tasks:
-    - task_id: TX99
-      similarity: 0.85
-      duration: "2h actual vs 4h estimated"
-      key_learnings: ["Use pattern X", "Avoid approach Y"]
-      implementation_path: "path/to/similar/implementation.js"
-  predicted_failures:
-    - pattern: "F001"
-      probability: 0.7
-      prevention: "Apply FIX:CATEGORY:NAME pattern"
-      context: "Occurs when implementing X without Y"
-  complexity_factors:
-    actual: 6
-    reasoning: "Multiple systems + UI complexity"
-  recommended_approach: |
-    Based on analysis, recommend:
-    1. Start with pattern PAT:X:Y from TX99
-    2. Pre-apply failure prevention for F001
-    3. Use parallel execution for file updates
-
+# === CONTEXT PACK ===
+context_pack:
+  task_analysis:
+    id: "T26_S02"
+    title: "Task title from file"
+    type: "feature_implementation|bug_fix|test_fix|refactor|documentation"
+    complexity: 6  # 1-10 scale
+    validation_status: "ready|blocked"
+    current_phase: "ARCHITECT"
+    
+  pattern_cache:
+    architecture: 
+      - id: "ARCH:API:REST"
+        trust: "★★★★★"
+        usage_count: 156
+        success_rate: "94%"
+    implementation: [patterns]
+    testing: [patterns]
+    fixes: [patterns]
+    anti_patterns: [patterns to avoid]
+    
+  loaded_context:
+    files:
+      - path: "path/to/file"
+        tokens: 1200
+        relevance: 0.95
+        purpose: "API structure reference"
+    total_tokens: 24500
+    token_budget: 30000
+    
+  historical_intelligence:
+    similar_tasks: [with learnings]
+    system_history: [changes, migrations]
+    predicted_failures: [with prevention strategies]
+    
+  validation_results:
+    requirements_complete: true
+    missing_requirements: []
+    ambiguities_resolved: []
+    assumptions_verified: []
+    
+  execution_strategy:
+    recommended_approach: "Pattern-based implementation"
+    gemini_integration:
+      required: true
+      phases: ["ARCHITECT", "REVIEWER"]
+    parallelization_opportunities: []
+    
+  metadata:
+    intelligence_timestamp: "2024-01-15T10:30:00"
+    confidence_score: 0.85
+    cache_hit_rate: "93%"
 # ===
 ```
 
-### 3.6 · Intelligence Display Standards
+### Intelligence Display Standards
 
-Present intelligence insights consistently across all phases:
+For any intelligence insights used in subsequent phases:
 
 ```yaml
 display_format:
   inline_hints:
-    format: "💡 Intelligence: [insight]"
-    example: "💡 Intelligence: TX99 used PAT:UI:TOOLTIP successfully here"
-
+    format: "💡 Intelligence: [insight from context pack]"
+    
   code_comments:
-    format: "// [PATTERN_ID] ★★★★☆ (X uses, Y% success) - Intelligence: [context]"
-    example: "// [PAT:TEST:MOCK] ★★★★☆ (45 uses, 92% success) - Intelligence: Similar to TX99 line 125"
-
+    format: "// [PATTERN_ID] ★★★★☆ - From context pack"
+    
   warning_blocks:
     format: |
-      ⚠️ INTELLIGENCE WARNING: [Predicted Issue]
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      Probability: X% based on Y similar cases
-      Prevention: [Specific action to take]
-      Reference: [Task IDs where this occurred]
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      ⚠️ INTELLIGENCE WARNING: [From context pack]
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      Probability: X% based on historical data
+      Prevention: [Specific action]
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-## 4 · Analyse the task and determine current phase
+### Validation Gate
 
-Read the task file and check:
-
-- `current_phase` in frontmatter (default: ARCHITECT if not present)
-- Phase history to understand what's been done
-- Any existing handoff documentation
-
-### 4.1 · Determine task type for staged context loading
-
-**STAGED CONTEXT LOADING**: Use the context-loader subagent for intelligent context management:
-
-```markdown
-<Task subagent_type="context-loader" description="Load task-specific context">
-Classify and load minimal context for task [TASK_ID]:
-- Analyze task type based on keywords and description
-- Load only relevant files (~20-30k tokens)
-- Prepare recommendations for additional context if needed
-</Task>
-```
-
-**Context-loader subagent will:**
-
-- Classify task as: test_fix, feature_implementation, bug_fix, refactor, or documentation
-- Load appropriate patterns, files, and documentation (in parallel)
-- Track token usage to stay within limits
-- Provide relevance scores for loaded items
-- **NO .md FILES**: Return context summary as text response only
-
-**PARALLELISM**: The subagent loads multiple context sources concurrently:
-
-- Pattern files (CONVENTIONS.md, etc.) - parallel read
-- Relevant code files - parallel glob/read
-- Documentation - parallel fetch
-- Similar task analysis - parallel search
-
-### 4.2 · Execute parallel validation
-
-**CRITICAL CONTEXT VALIDATION:** Leverage parallelism for efficiency:
-
-```markdown
-# Execute context validation using parallel approaches:
-
-# Option 1: Use specialized subagents in parallel (ONE message):
-
-<Task subagent_type="context-loader" description="Load requirements">
-Load requirements and specifications for task [TASK_ID]
-</Task>
-
-<Task subagent_type="intelligence-gatherer" description="Gather codebase context">
-Gather targeted codebase context based on task type classification
-</Task>
-
-# Option 2: For quick parallel operations, use standard Task agents:
-
-<Task description="Load API contracts">
-Load relevant API specifications and contracts
-</Task>
-
-<Task description="Find test patterns">
-Search for relevant test patterns and examples
-</Task>
-
-<Task description="Check dependencies">
-Verify all required dependencies are available
-</Task>
-```
-
-**REMEMBER**: Always send multiple Task/subagent invocations in ONE message for true parallel execution.
-
-## 5 · Validate task readiness
-
-**VALIDATION PROMPT**: "You are validating task readiness. This is NOT a phase - it's a pre-execution checkpoint. You MUST NOT proceed with execution if critical information is missing."
-
-Before investing time in architecture and implementation, validate the task is ready for execution:
-
-### 5.1 · Task Specification Validation
-
-**Execute validation checks in parallel:**
-
-For validation, execute all three checks in parallel using a single message with multiple Task invocations:
-
-```markdown
-# Execute all three validation tasks in ONE message for true parallel execution:
-
-<Task description="Validate task structure">
-- Read the task file completely
-- Check: Has clear description that explains the goal?
-- Check: Contains acceptance criteria (even if high-level)?
-- Check: Any "TBD" or "TODO" sections that would block implementation?
-- Report: Validation status and any missing elements
-</Task>
-
-<Task description="Verify referenced resources">
-- Check: Do all mentioned files/components exist?
-- Check: Is referenced documentation accessible?
-- Check: Are parent tasks (if any) completed?
-- Use Glob/Grep to verify file existence
-- Report: List of missing resources (if any)
-</Task>
-
-<Task description="Assess requirement clarity">
-- Analyze: Are success criteria measurable?
-- Analyze: Can technical approach be determined?
-- Check: Any contradictory requirements?
-- Report: Clarity assessment and any ambiguities
-</Task>
-```
-
-**IMPORTANT**: Send all three Task invocations in a single message to ensure parallel execution.
-
-### 5.2 · Context Availability Check
-
-Verify you have access to necessary context:
-
-- Required codebases/files are accessible
-- Any mentioned APIs or services are documented
-- Dependencies and their versions are clear
-- Test data/credentials (if needed) are available
-
-### 5.3 · Ambiguity Detection and Clarification
-
-Before proceeding with validation decision, check for ambiguous requirements:
-
-**Common Ambiguity Patterns:**
-
-1. **Subjective Analysis** - "analyze/evaluate/assess what you think", "check quality" without criteria
-   - Example from T169: "analyze the output to see what you think" → Need specific evaluation criteria
-2. **Undefined Terms** - Technical terms or phrases not defined in task context
-   - Example from T169: "simple modes" → Which parameter combinations qualify as "simple"?
-3. **Missing Output Format** - Analysis/report tasks without specified format
-   - Example: "provide analysis" → Should this be a metrics table, narrative report, or bullet points?
-4. **Unmeasurable Criteria** - Success metrics without measurement method
-   - Example from T169: "quality scores > 0.75" → How is "quality" calculated? What metrics compose it?
-5. **Pipeline Assumptions** - Assuming tools/frameworks produce expected output without verification
-   - Example from T169: Evaluation framework produced empty metrics {} → Need to verify output capability
-
-**If ambiguities detected:**
-
-```markdown
-## ⚠️ Clarification Needed
-
-I found the following ambiguities that need clarification before proceeding:
-
-1. **[Ambiguity Type]**: "[quoted text from task]"
-   → [Specific clarifying question]
-
-2. **[Ambiguity Type]**: "[quoted text from task]"
-   → [Specific clarifying question]
-
-Please provide clarifications to continue with the task.
-```
-
-**Example Questions:**
-
-- Subjective analysis: "What specific criteria should I use to evaluate [X]? (e.g., response naturalness, vocabulary usage, coherence)"
-- Undefined terms: "What does '[term]' mean in this context? Please provide specific examples or criteria."
-- Missing output: "What format should the [analysis/report] take? (e.g., bullet points, metrics table, narrative summary)"
-- Unmeasurable criteria: "How should I measure '[metric]'? What specific calculation or assessment method should I use?"
-
-**After receiving clarifications:**
-
-1. Add to task file:
-
-   ```markdown
-   ## Validation Clarifications
-
-   _Added during validation phase to clarify ambiguous requirements:_
-
-   - **[Original ambiguous text]**: [User's clarification]
-   - **[Original ambiguous text]**: [User's clarification]
-   ```
-
-2. Re-run validation with clarified requirements
-3. Continue to validation decision gate
-
-**Real Example - How T169 Would Have Been Handled:**
-
-```markdown
-## ⚠️ Clarification Needed
-
-I found the following ambiguities that need clarification before proceeding:
-
-1. **Subjective Analysis**: "analyze the output to see what you think"
-   → What specific aspects of the AI responses should I analyze? (e.g., coherence, vocabulary diversity, cultural appropriateness, response length)
-
-2. **Undefined Term**: "simple modes"
-   → Which parameter combinations should I test? Please specify exact values for temperature, top_p, etc.
-
-3. **Unmeasurable Criteria**: "quality scores > 0.75"
-   → How should quality be calculated? What metrics should compose the quality score?
-
-4. **Missing Output Format**: Task asks for analysis but doesn't specify format
-   → What format should the analysis take? (e.g., detailed report with examples, metrics table, comparison chart)
-
-Please provide clarifications to continue with the task.
-```
-
-### 5.4 · Validation Decision Gate
-
-**STOP if any of these conditions are true:**
-
-- ❌ Task description provides insufficient context to understand the goal
-- ❌ No acceptance criteria defined (even high-level)
-- ❌ Critical "TODO" or "TBD" sections that block implementation
-- ❌ Referenced files/systems don't exist and are required
-- ❌ Contradictory or impossible requirements detected
-- ❌ Technical approach cannot be determined from available information
-- ❌ Ambiguities remain after clarification request
-
-**If validation fails:**
+If `context_pack.validation_results.validation_status` is "blocked":
 
 1. Update task status to "blocked"
-2. Document specific missing information in task file:
-
-   ```markdown
-   ## Validation Failed - Blocked
-
-   **Missing Requirements:**
-
-   - [ ] Specific item 1
-   - [ ] Specific item 2
-
-   **Questions for Task Author:**
-
-   - Question 1?
-   - Question 2?
-   ```
-
+2. Document missing requirements from validation_results
 3. Report to user with actionable next steps
-4. STOP execution - do not proceed to ARCHITECT
+4. STOP execution - do not proceed
 
-**If validation passes:**
-
+If validation_status is "ready":
 - Continue to next step (Set status to in_progress)
-- Pass validated context forward:
-  - Confirmed file/component locations
-  - Task type classification from section 4.1
-  - List of available resources and APIs
-  - Any constraints or special requirements identified
-  - Any clarifications received during validation
-- This context will enhance the intelligence phase pattern matching
+- The context pack contains all validated information
+- All subsequent phases will reference this context pack
 
-## 6 · Set status to in_progress
+### Store Context Pack as Evidence
 
-- Find out the current local timestamp (YYYY-MM-DD HH:MM)
-- Update front-matter to **status: in_progress** and set Updated time
-- Update current_phase if needed
+**CRITICAL**: Store the complete context pack as evidence for future reference:
 
-**AUTO-TRACKING**: Create a minimal tracking block in the task file:
+Call apex_task_append_evidence with:
+- task_id: The taskId from step 2
+- type: "decision"
+- content: "Intelligence context pack generated"
+- metadata: Include the full context_pack data
+
+This preserved context pack:
+- Serves as reference for all execution phases
+- Documents what patterns were available at execution time
+- Provides learning data for future similar tasks
+- Can be referenced by future intelligence gathering
+
+## 5 · Set status to in_progress
+
+- Set initial phase to ARCHITECT:
+
+Call apex_task_set_phase with:
+- task_id: The taskId
+- phase: "ARCHITECT"
+
+Then record the start of execution by calling apex_task_append_evidence with:
+- task_id: The taskId
+- type: "decision"
+- content: "Task execution started"
+- metadata: Include the execution strategy and context pack timestamp
+
+**AUTO-TRACKING**: Track patterns and errors via evidence collection:
 
 ```yaml
 # === TRACKING (remove after complete) ===
-decision: [one line - what approach?]
+decision: [from context_pack.execution_strategy.recommended_approach]
+context_pack_id: [timestamp from context_pack.metadata.intelligence_timestamp]
+context_pack_location: "See ## Intelligence Context Pack section above"
+patterns_used: {id: ✓|⚠|✗}  # Track which patterns from context_pack were actually used
+predictions_accuracy: {failure_id: occurred|prevented|false_positive}
 files: [count only, list at completion]
-patterns: {id: ✓|⚠|✗}
 errors: [only if they occur]
 # ===
 
 # Example filled out:
 # === TRACKING (remove after complete) ===
-decision: Grid-aligned math scale with tiered fonts
+decision: Pattern-based tooltip implementation with floating-ui
+context_pack_id: 2024-01-15T10:30:00
+context_pack_location: "See ## Intelligence Context Pack section above"
+patterns_used: {PAT:UI:TOOLTIP: ✓, PAT:TEST:MOCK: ✓, PAT:ERROR:HANDLING: ⚠}
+predictions_accuracy: {F001: prevented, F023: false_positive}
 files: 9 created, 1 modified
-patterns: {PAT:CSS:TAILWIND_V4: ✓, F021: ✓}
 errors: none
 # ===
 ```
 
-## 7 · Execute ARCHITECT phase
+## 6 · Execute ARCHITECT phase
 
 **PHASE PROMPT**: "You are in ARCHITECT phase. You MUST NOT write implementation code. Focus on research, design, and specifications only. Think hard before answering. DO NOT create any .md files or documentation - only update the task file with your handoff."
 
@@ -621,39 +498,29 @@ gemini_architect:
 
 </details>
 
-**If current_phase == ARCHITECT:**
+**Check current phase:**
 
-### 🧠 Intelligence Injection Point
+Call apex_task_get_phase with task_id to get current phase and any handoff.
 
-Before starting architecture design, review intelligence context:
+If phase is "ARCHITECT", proceed with ARCHITECT phase execution.
+
+### 🧠 Using Context Pack Intelligence
+
+Review the context pack from the intelligence phase:
 
 ```yaml
-intelligence_review:
-  - Display relevant patterns with trust scores and usage contexts
-  - Show implementation paths from similar tasks
-  - Highlight predicted failure points with prevention strategies
-  - Present recommended approach from intelligence analysis
+# Access patterns from context_pack.pattern_cache.architecture
+# Use recommendations from context_pack.execution_strategy
+# Apply learnings from context_pack.historical_intelligence.similar_tasks
+# Prevent failures using context_pack.historical_intelligence.predicted_failures
 ```
 
-**Example display:**
-
-```
-┌─────────────────────────────────────────────┐
-│ 📊 Intelligence Recommendations             │
-├─────────────────────────────────────────────┤
-│ Similar Implementation:                     │
-│ • TX99 (85% similar) - See path/to/impl   │
-│ • Key insight: Used PAT:UI:TOOLTIP_ARROW  │
-│                                            │
-│ ⚠️ Predicted Issues:                       │
-│ • F001: Test mocks (70% probability)       │
-│   → Pre-apply FIX:TEST:MOCK pattern       │
-│                                            │
-│ 🎯 Recommended Patterns:                   │
-│ • PAT:UI:COMPONENT (★★★★★) - Auto-apply   │
-│ • PAT:TEST:MOCK (★★★★☆) - For testing    │
-└─────────────────────────────────────────────┘
-```
+**The context pack already contains:**
+- All relevant architecture patterns with trust scores
+- Implementation paths from similar tasks  
+- Predicted failure points with prevention strategies
+- Recommended approach based on comprehensive analysis
+- Gemini integration requirements
 
 ### 🔍 Mandatory Assumption Verification
 
@@ -661,35 +528,24 @@ intelligence_review:
 
 #### State Archaeology (What Created Current State)
 
-**Verify architectural assumptions using specialized subagent:**
+**Review architectural assumptions from context pack:**
 
-```markdown
-<Task subagent_type="architecture-validator" description="Validate architectural assumptions">
-Validate all assumptions for task [TASK_ID]:
-- Trace current state origin and change history
-- Discover what systems were replaced and why
-- Map dependencies and impact radius
-- Find previous attempts and failures
-- Identify any contradictions or conflicts
-- Check for rollback/revert patterns
-</Task>
+```yaml
+# Check context_pack.validation_results.assumptions_verified
+# Review context_pack.historical_intelligence.system_history
+# Apply anti-patterns from context_pack.pattern_cache.anti_patterns
 ```
 
-**PARALLELISM WITHIN SUBAGENT**:
+**The context pack already validated:**
+- Current state origin and change history
+- What systems were replaced and why
+- Dependencies and impact radius
+- Previous attempts and failures
+- Contradictions or conflicts
+- Rollback/revert patterns
 
-- Git archaeology operations (parallel git commands)
-- Configuration change searches (parallel grep)
-- Dependency mapping (parallel file analysis)
-- Task history searches (parallel .simone/ searches)
-  All executed concurrently and results aggregated
-
-**Architecture-validator subagent will:**
-
-- Execute comprehensive git archaeology
-- Search for configuration changes and migrations
-- Verify assumptions with evidence
-- Flag critical issues that require stopping
-- **NO .md FILES**: Return validation results as text response only
+**If additional verification needed beyond context pack:**
+Only then use architecture-validator subagent for specific deep-dive validation.
 
 #### Historical Context Verification
 
@@ -699,6 +555,7 @@ historical_checks:
   - Failure patterns: "Why is the current solution this way?"
   - Architectural decisions: "What constraints led to current design?"
   - Team preferences: "Are there documented reasons for current choices?"
+  - Pattern conflicts: "Do cached patterns conflict with current architecture?"
 ```
 
 #### Assumption Verification Gate
@@ -711,6 +568,7 @@ historical_checks:
 ✅ **Assumption**: [Current system uses X]
 **Evidence**: Found in <file:line>, implemented in TX123
 **History**: Changed from Y to X in TX111 due to [reason]
+**Patterns**: Compatible with PAT:ARCH:X from cache
 
 ✅ **Assumption**: [No other systems depend on this]
 **Evidence**: Grep found no imports/references
@@ -728,6 +586,7 @@ historical_checks:
 - [ ] Dependencies mapped (what will be affected)
 - [ ] Previous attempts found (what failed before)
 - [ ] Contradictions identified (conflicting requirements/history)
+- [ ] Pattern compatibility verified (no anti-pattern conflicts)
 
 **STOP if you find:**
 
@@ -735,6 +594,7 @@ historical_checks:
 - 🚨 Task asks to implement something previously removed
 - 🚨 Hidden dependencies not mentioned in task description
 - 🚨 Conflicting architectural decisions in history
+- 🚨 Cached patterns conflict with discovered constraints
 
 **If verification reveals critical context:**
 
@@ -743,32 +603,20 @@ historical_checks:
 3. Document why previous approaches failed
 4. Get user confirmation if task fundamentally conflicts with discoveries
 
-5. **Check prior learnings (PARALLEL EXECUTION):**
-   For initial research, you can execute multiple quick searches in parallel:
+Record any critical discoveries as evidence:
+- Call apex_task_append_evidence with type "decision"
+- Include discovered conflicts and previous attempts in metadata
 
-   ```markdown
-   # Option A: Use multiple specialized subagents in parallel:
+5. **Pattern-Based Architecture Design:**
+   Use cached architecture patterns from pattern_cache:
 
-   <Task subagent_type="intelligence-gatherer" description="Search patterns">
-   Find all relevant patterns for [TASK_ID] architecture design
-   </Task>
-
-   <Task subagent_type="context-loader" description="Load architecture docs">
-   Load architecture documentation and similar implementations
-   </Task>
-
-   # Option B: Use parallel Task agents for quick searches:
-
-   <Task description="Search established patterns">
-   Search PROJECT_PATTERNS.md, CONVENTIONS.md for architecture patterns
-   </Task>
-
-   <Task description="Find similar implementations">
-   Search codebase for similar architectural approaches
-   </Task>
+   ```yaml
+   architecture_design:
+     - Review architecture patterns in cache
+     - Select primary pattern based on trust score
+     - Check for anti-pattern conflicts
+     - Document pattern selection rationale
    ```
-
-   **PARALLELISM TIP**: Send multiple Task/subagent invocations in ONE message for true parallel execution.
 
 6. Research existing patterns in codebase
 7. Design solution approach avoiding known pitfalls
@@ -780,6 +628,7 @@ historical_checks:
    <Task subagent_type="gemini-orchestrator" description="Orchestrate Gemini review">
    Facilitate architecture review for task [TASK_ID] (complexity: [X]):
    - Provide comprehensive context and current plan
+   - Share pattern cache and intelligence findings
    - Focus on: security, performance, edge cases, alternatives
    - Guide iterative discussion to consensus
    - Document key insights and decisions
@@ -787,7 +636,7 @@ historical_checks:
    ```
 
    **Gemini-orchestrator subagent will:**
-   - Set context effectively
+   - Set context effectively including patterns
    - Ask probing follow-up questions
    - Challenge assumptions
    - Build toward actionable solutions
@@ -795,20 +644,27 @@ historical_checks:
    - **NO .md FILES**: Return discussion summary as text response only
 
 10. Document decisions in handoff section
-11. Update phase to BUILDER when complete
+11. Update phase to BUILDER when complete:
+
+Call apex_task_set_phase to transition to BUILDER:
+- task_id: The taskId
+- phase: "BUILDER"
+- handoff: The complete ARCHITECT → BUILDER handoff text
 
 **Key outputs:**
 
 - Technical decisions with rationale
 - File/API specifications
-- Patterns to follow (reference CONVENTIONS.md and others)
+- Patterns to follow from cache
 - Complete ARCHITECT → BUILDER handoff section
 
-**PATTERN TRACKING**: Update tracking block with patterns selected:
+**PATTERN TRACKING**: Record patterns selected as evidence:
 
-```yaml
-# patterns_used: ["ARCH:STATE:FRONTEND", "ARCH:API:STRUCTURE"]
-```
+Record selected patterns by calling apex_task_append_evidence:
+- task_id: The taskId
+- type: "pattern"
+- content: "Architecture patterns selected"
+- metadata: List the pattern IDs selected
 
 **HANDOFF TEMPLATE** (auto-populate what you can):
 
@@ -818,6 +674,10 @@ historical_checks:
 ### Architecture Decision
 
 [REUSE FROM: architecture_decision in tracking block]
+Based on cached patterns:
+
+- Primary: [ARCH:PATTERN] ★★★★★ (from cache)
+- Supporting: [Additional patterns]
 
 ### Files to Create/Modify
 
@@ -829,7 +689,7 @@ historical_checks:
 [Detailed specs here]
 ```
 
-## 8 · Execute BUILDER phase
+## 7 · Execute BUILDER phase
 
 **PHASE PROMPT**: "You are in BUILDER phase. You MUST follow the ARCHITECT's specifications exactly. Do not redesign. DO NOT create any .md files or documentation - only implement code."
 
@@ -838,13 +698,13 @@ historical_checks:
 
 ### Proactive Pattern Application
 
-Before implementing, check pattern trust scores:
+Before implementing, check pattern trust scores from cache:
 
 ```yaml
 pattern_application:
-  Sources (in priority order): 1. CONVENTIONS.md (active patterns)
-    2. PROJECT_PATTERNS.md (domain-specific)
-    3. CONVENTIONS.pending.md (testing patterns)
+  From cache (in priority order): 1. High-trust patterns (★★★★★)
+    2. Project-specific patterns
+    3. Lower-trust patterns with caution
 
   Decision process:
     - 5★ → Apply with confidence (verify context)
@@ -853,14 +713,14 @@ pattern_application:
     - <3★ → Find alternative
 
   Always include trust comment:
-    # [PAT:ERROR:HANDLING] ★★★★★ (156 uses, 100% success)
+    # [PAT:ERROR:HANDLING] ★★★★★ (156 uses, 100% success) - From cache
 ```
 
 ### Failure Prevention System
 
 ````yaml
 failure_check:
-  - Search failures.jsonl before modifications
+  - Check cached FIX patterns before modifications
   - If match found (frequency >= 5):
     ```
     ⚠️ FAILURE PREVENTION ALERT
@@ -887,7 +747,8 @@ For complex algorithms or logic not in patterns:
    npx https://github.com/google-gemini/gemini-cli -p "Generate code for: [specific requirements]
    - Language: [language]
    - Constraints: [constraints]
-   - Context: [relevant context]"
+   - Context: [relevant context]
+   - Patterns to follow: [from cache]"
 ````
 
 2. **Refinement Discussion:**
@@ -907,70 +768,72 @@ For complex algorithms or logic not in patterns:
 
 </details>
 
-**If current_phase == BUILDER:**
+**Check current phase:**
+
+Call apex_task_get_phase to check current phase.
+
+If phase is "BUILDER":
+- Read the handoff from previous phase
+- Execute BUILDER phase implementation
 
 ### 🧠 Intelligence-Driven Implementation
 
-Before implementing, the intelligence system prepares your workspace:
+Record a checkpoint at BUILDER start:
+- Call apex_task_checkpoint with taskId
+- message: "Starting implementation phase"
+- confidence: 0.5
 
-**1. Auto-Generated Code Templates:**
-Based on intelligence analysis, pre-populate files with relevant patterns:
+Use patterns and insights from the context pack:
+
+**1. Pattern-Based Code Templates:**
+Apply patterns from context_pack.pattern_cache.implementation:
 
 ```yaml
-template_generation:
-  trigger: Pattern confidence > 80% AND trust_score >= ★★★★☆
-  process:
-    - Match task description to pattern contexts
-    - Load code templates from similar successful tasks
-    - Pre-fill with pattern code including trust comments
-    - Highlight sections requiring customization
+# Use patterns from context_pack.pattern_cache.implementation
+# Each pattern includes trust score, usage count, and success rate
+# Apply high-trust patterns (★★★★☆+) with confidence
+# Reference similar implementations from context_pack.historical_intelligence.similar_tasks
 ```
 
-**Example Auto-Generated Template:**
+**Example Pattern Application:**
 
-```javascript
-// AUTO-GENERATED FROM: TX99 (85% similar) + PAT:UI:TOOLTIP_ARROW
-// CUSTOMIZE: Replace 'ComponentName' and adjust props
-
-import { arrow } from "@floating-ui/react"; // [PAT:IMPORT:FLOATING_UI] ★★★★★
-
-// Intelligence: TX99 used this exact pattern successfully
-const TooltipComponent = () => {
-  const arrowRef = useRef(null); // [PAT:UI:ARROW_REF] ★★★★★
-
-  // PREDICTED ISSUE: Mock this in tests (F001)
-  const { middlewareData } = useFloating({
-    middleware: [
-      arrow({ element: arrowRef }), // [PAT:UI:ARROW_MIDDLEWARE] ★★★★★
-    ],
-  });
-
-  // TODO: Customize component logic here
+```
+# Example pattern application (not JavaScript):
+# [PAT:ERROR:HANDLING] ★★★★★ (156 uses, 100% success) - From cache
+# Source: CONVENTIONS.md
+# Adapted: Added specific error codes for this service
+export const handleError = (error: Error): APIResponse => {
+  // Pattern implementation with context-specific adaptations
+  if (error instanceof ValidationError) {
+    // [PAT:ERROR:VALIDATION_RESPONSE] ★★★★☆ (67 uses, 89% success) - From cache
+    return {
+      status: 400,
+      code: 'VALIDATION_FAILED',
+      errors: formatValidationErrors(error)
+    };
+  }
+  // ... rest of pattern implementation
 };
 ```
 
 **2. Failure Prevention Checkpoints:**
 
 ```yaml
-Before writing code, check predicted failures:
-failure_prevention:
-  - Issue: [F001 description]
-    Prevention: [Pre-applied fix code]
-    Confidence: [X%]
+# Use predicted failures from context_pack.historical_intelligence.predicted_failures
+# Each prediction includes probability, prevention strategy, and last occurrence
+# Apply FIX patterns from context_pack.pattern_cache.fixes proactively
 ```
 
 **3. Similar Implementation Reference:**
-Display relevant code from similar tasks in a side panel:
 
 ```yaml
-reference_panel:
-  - File: similar/task/implementation.js
-  - Lines: 45-120 (most relevant section)
-  - Key differences: [what to adapt]
+# Reference implementations from context_pack.historical_intelligence.similar_tasks
+# Each similar task includes implementation_path and key_learnings
+# Adapt patterns based on documented learnings
 ```
 
 **4. Pre-emptive Error Handling:**
-Based on 09_LEARNING/failures.jsonl patterns, automatically add:
+Based on cached FIX patterns, automatically add:
 
 ```python
 # [FIX:ASYNC:SYNC] ★★★★★ (47 uses) - MongoDB is SYNC in this project
@@ -986,78 +849,38 @@ def test_function(mock_api):
     # Mocking pattern that actually works
 ```
 
-**4. Smart Import Detection:**
-
-```yaml
-auto_imports:
-  - Based on [PAT:IMPORT:*] patterns from CONVENTIONS.md
-  - Common detections:
-    * "HTTPException" → "from fastapi import HTTPException"
-    * "Depends" → "from fastapi import Depends"
-    * "pytest" → "import pytest" # [CMD:TEST:BE] requires PYTHONPATH
-    * "capture_event" → "from app.core.analytics import capture_event"
-  - Show: "🔧 Auto-imported X modules based on patterns"
-  - Track import patterns for success rate
-```
-
-**5. Post-Generation Validation:**
-After generating any code:
-
-- Run syntax validation on generated content
-- Check for known error patterns from failures.jsonl
-- Apply automatic fixes for common issues:
-  - `async async` → `async`
-  - Missing semicolons (if project uses them)
-  - Incorrect import syntax
-- If unfixable errors found, regenerate the affected section
-
 ### FAILURE PRE-EMPTION SYSTEM
 
-**Before ANY file modification, use the failure-predictor subagent:**
-
-```markdown
-<Task subagent_type="failure-predictor" description="Predict potential failures">
-Analyze planned changes for task [TASK_ID]:
-- Operation types: [list operations]
-- Files affected: [list files]
-- Check against failures.jsonl patterns
-- Calculate failure probabilities
-- Provide prevention strategies
-</Task>
-```
-
-**Failure-predictor subagent will:**
-
-- Match operations against historical failures
-- Calculate probability based on frequency and context
-- Provide specific FIX patterns to apply
-- Show example fixes from successful tasks
-- **NO .md FILES**: Return predictions as text response only
-
-**High-Risk Operations Alert:**
+**Use failure predictions from context pack:**
 
 ```yaml
-high_risk_patterns:
-  - Modifying authentication → Check F005, F011
-  - Async/await changes → Check F002, F013, F089
-  - Import modifications → Check F001, F049
-  - Redis/cache operations → Check F003, F012
-  - Test modifications → Check F006, F013
+# Review context_pack.historical_intelligence.predicted_failures
+# Each failure includes pattern ID, probability, and prevention strategy
+# Apply prevention strategies proactively based on probability thresholds:
+#   - >70% probability: Apply prevention automatically
+#   - 50-70%: Apply with caution comment
+#   - <50%: Document risk but proceed
 ```
+
+**High-Risk Operations (from context pack):**
+The context pack already identified high-risk patterns and their prevention strategies based on historical data.
 
 ### Standard BUILDER Implementation
 
 1. Read ARCHITECT handoff carefully
-2. **With PROACTIVE PATTERNS**: Implementation now includes:
-   - Auto-inserted pattern code with trust scores
-   - Pre-filled error handling
-   - Smart imports already added
+2. **With CACHED PATTERNS**: Implementation now includes:
+   - Pattern code from cache with trust scores
+   - Pre-filled error handling from FIX patterns
    - Failure prevention alerts shown
 3. Implement exactly as specified (patterns assist, not replace specs)
 4. If spec unclear, document question (don't guess)
    - **If architect buy-in is required or specification needs revision, update phase to ARCHITECT and document the reasons.**
-5. Create/modify code following documented patterns
-6. Update phase to VALIDATOR when complete
+5. Create/modify code following cached patterns
+6. Update phase to VALIDATOR when complete:
+
+Transition to VALIDATOR phase:
+- Call apex_task_set_phase with phase "VALIDATOR"
+- Include the BUILDER → VALIDATOR handoff content
 
 **Key outputs:**
 
@@ -1065,16 +888,10 @@ high_risk_patterns:
 - List of files modified
 - Complete BUILDER → VALIDATOR handoff section
 
-**PATTERN TRACKING**: Update tracking with implementation patterns:
-
-```yaml
-patterns: {
-    "PAT:ASYNC:TEST": ✓, # Worked perfectly
-    "CMD:TEST:BE": ⚠, # Needed adjustment
-    "FIX:MODULE": ✗, # Didn't work
-  }
-# Add new patterns to new_patterns list if discovered
-```
+**PATTERN TRACKING**: Record implementation patterns as evidence:
+- Call apex_task_append_evidence with type "pattern"
+- Include patterns used and their effectiveness in metadata
+- Note which patterns worked, needed adjustment, or failed
 
 **PARALLEL EXECUTION STRATEGIES:**
 
@@ -1099,7 +916,7 @@ patterns: {
 3. **Pattern Application:**
    ```yaml
    pattern_reuse:
-     - Check CONVENTIONS for exact patterns to apply
+     - Apply cached patterns consistently
      - Use find/replace for consistent patterns
      - Apply known fixes from similar completed tasks
    ```
@@ -1132,7 +949,7 @@ When modifying multiple similar files, use parallel processing:
      - Use parallel Task agents for multiple files
    ```
 
-3. **Parallel Implementation Strategy:**
+3. **Example Implementation:**
 
    ```markdown
    # Execute multiple file modifications in ONE message:
@@ -1150,27 +967,13 @@ When modifying multiple similar files, use parallel processing:
    </Task>
    ```
 
-4. **Example Implementation:**
-
-   ```yaml
-   # For test migration (like T144):
-   test_groups:
-     simple_components: [Button.test, Input.test, ...]
-     complex_components: [ChatWindow.test, ...]
-
-   parallel_execution:
-     - Task 1: Migrate all simple_components (parallel)
-     - Task 2: Update all imports (MultiEdit batch)
-     - Task 3: Fix all mock patterns (parallel)
-   ```
-
-5. **Error Handling in Parallel:**
+4. **Error Handling in Parallel:**
    - Collect all errors before stopping
    - Report which files succeeded/failed
    - Allow partial success with clear reporting
    - Provide rollback strategy if needed
 
-6. **Progress Tracking:**
+5. **Progress Tracking:**
    ```yaml
    # Update tracking block with parallel progress:
    files: 15 processing (5 complete, 2 failed, 8 pending)
@@ -1202,7 +1005,13 @@ Before completing BUILDER phase, validate all modified files:
 
 3. **If syntax errors found:**
    - Fix immediately before proceeding
-   - Add error pattern to tracking block
+   - Record error as evidence:
+   
+   Record the error as evidence:
+   - Call apex_task_append_evidence with type "error"
+   - Include file, error description, and fix in metadata
+   
+   - Consider adding to pattern cache if recurring
    - Do NOT transition to VALIDATOR with syntax errors
 
 **SYNTAX CHECK GATE**: Must pass before updating phase to VALIDATOR
@@ -1214,47 +1023,41 @@ Before completing BUILDER phase, validate all modified files:
 - If you need design clarification, add to tracking block instead of full phase switch
 - Group similar changes and apply them in batches
 - When fixing tests, identify common issues and fix all instances at once
+- Leverage cached patterns to avoid reinventing solutions
 
-## 9 · Execute VALIDATOR phase
+## 8 · Execute VALIDATOR phase
 
 **PHASE PROMPT**: "You are in VALIDATOR phase. You MUST run tests AND validate code quality. DO NOT fix code - only document issues. DO NOT create any .md files or reports - document issues in the task file handoff only."
 
-**INTELLIGENCE INJECTION**: Predict likely test failures based on history:
+**INTELLIGENCE INJECTION**: Use test predictions from context pack:
 
-```
-⚠️ Predicted Test Risks:
-- [Test type] failures likely (60% probability) - Similar to T093
-- Common cause: [specific issue]
-- Prevention: [specific action]
+```yaml
+# Review context_pack.historical_intelligence.predicted_failures
+# Focus on test-related failure patterns
+# Apply FIX patterns from context_pack.pattern_cache.fixes
+# Reference similar task test outcomes from context_pack.historical_intelligence.similar_tasks
 ```
 
-**If current_phase == VALIDATOR:**
+**Check current phase:**
+
+Check current phase by calling apex_task_get_phase.
+
+If phase is "VALIDATOR", proceed with validation.
 
 ### 🧠 Intelligence-Driven Validation
 
-Before running standard tests, check intelligence predictions:
+Record checkpoint at VALIDATOR start:
+- Call apex_task_checkpoint
+- message: "Starting validation phase - running tests"
+- confidence: 0.7
+
+Use test patterns and predictions from context pack:
 
 ```yaml
-predictive_validation:
-  - Expected failures: [List from intelligence]
-  - Did they occur? [Track prediction accuracy]
-  - Prevention effectiveness: [Did pre-applied fixes work?]
-```
-
-**Validation Enhancement:**
-
-```
-┌─────────────────────────────────────────────┐
-│ 🔍 Predictive Validation Results           │
-├─────────────────────────────────────────────┤
-│ Predicted Issues:                          │
-│ ✅ F001: Prevented (mock pattern worked)   │
-│ ❌ F023: Occurred (new context)            │
-│ ➕ F045: Unexpected (not predicted)        │
-│                                            │
-│ Intelligence Accuracy: 66% (2/3)           │
-│ → Update patterns for F023, F045          │
-└─────────────────────────────────────────────┘
+# Apply test patterns from context_pack.pattern_cache.testing
+# Check if predicted failures from context_pack occurred
+# Track prediction accuracy for learning capture
+# Use parallelization opportunities from context_pack.execution_strategy
 ```
 
 **Use the test-validator subagent for comprehensive validation:**
@@ -1266,6 +1069,7 @@ Validate all changes for task [TASK_ID]:
 - Run syntax validation, linting, formatting checks
 - Execute unit and integration tests
 - Generate coverage report
+- Check against cached test patterns
 - Categorize issues by severity
 </Task>
 ```
@@ -1310,6 +1114,11 @@ backend: ruff check & pytest & mypy
    1. [Critical] Syntax error in file.js:123
    2. [Warning] Linting error: unused variable
    3. [Info] Code formatting needed in 3 files
+
+   ### Pattern Effectiveness
+
+   - Cached patterns that prevented errors: X
+   - New error patterns discovered: Y
    ```
 
 5. **Decision Logic:**
@@ -1318,7 +1127,9 @@ backend: ruff check & pytest & mypy
    - **If only warnings/formatting issues:**
      → Document for REVIEWER phase consideration
    - **If all validations pass:**
-     → Update phase to REVIEWER
+     → Update phase to REVIEWER:
+
+Transition to REVIEWER phase by calling apex_task_set_phase with phase "REVIEWER".
 
 **PARALLEL VALIDATION STRATEGIES:**
 
@@ -1353,14 +1164,15 @@ backend: ruff check & pytest & mypy
 - Complete validation report
 - Categorized issues (Critical/Warning/Info)
 - Clear pass/fail status for each check
+- Pattern effectiveness tracking
 - Complete VALIDATOR → REVIEWER or VALIDATOR → BUILDER handoff
 
-**PATTERN TRACKING**: Update with test patterns used:
+**PATTERN TRACKING**: Record test patterns and errors as evidence:
 
-```yaml
-# patterns_used: [...existing, "CMD:TEST:COV", "PAT:TEST:ISOLATION"]
-# errors_encountered: [...existing, "Test failure - pattern FIX:ASYNC:ACT applied"]
-```
+Record test patterns and errors:
+- Call apex_task_append_evidence for patterns used
+- If errors encountered, record them with type "error"
+- Include any fixes applied in metadata
 
 **AUTO-HANDOFF**: If all tests pass and acceptance criteria met:
 
@@ -1372,10 +1184,11 @@ backend: ruff check & pytest & mypy
 - All tests passing
 - Coverage: [X%] (meets target)
 - No issues found
+- Cached patterns effective: X/Y
   → Proceeding to REVIEWER
 ```
 
-## 10 · Execute REVIEWER phase
+## 9 · Execute REVIEWER phase
 
 **PHASE PROMPT**: "You are in REVIEWER phase. You are an expert code reviewer. You may only suggest fixes or approve/reject. DO NOT create any .md files or documentation - only update the task file with your review."
 
@@ -1386,32 +1199,44 @@ YOU MUST USE quality-reviewer SUBAGENT TO PERFORM THE REVIEW
 Review implementation for task [TASK_ID]:
 - Check against original specifications
 - Analyze code quality and patterns
+- Verify cached patterns were applied correctly
 - Identify potential issues
 - Suggest improvements
+- Check for new patterns to add to cache
 - DO NOT create any .md files or reports - return review as text
 </Task>
 ```
 
-**INTELLIGENCE INJECTION**: Focus review on low-trust pattern usage:
+**INTELLIGENCE INJECTION**: Focus review using context pack insights:
 
-```
-🔍 Review Focus Areas:
-- Low-trust pattern used: [Pattern] (★★☆☆☆) - Verify implementation
-- New pattern detected: Consider documenting for future use
+```yaml
+# Review pattern applications from context_pack.pattern_cache
+# Check implementation against context_pack.execution_strategy.recommended_approach
+# Verify Gemini was used per context_pack.execution_strategy.gemini_integration
+# Compare actual implementation with context_pack.historical_intelligence.similar_tasks
 ```
 
-**If current_phase == REVIEWER:**
+**Check current phase:**
+
+Check phase with apex_task_get_phase.
+
+If phase is "REVIEWER", proceed with code review.
 
 ### 🧠 Intelligence Effectiveness Review
 
-Evaluate how well intelligence predictions and recommendations performed:
+Record checkpoint:
+- Call apex_task_checkpoint
+- message: "Starting review phase"
+- confidence: 0.85
+
+Evaluate how well the context pack performed:
 
 ```yaml
-intelligence_metrics:
-  - Pattern applications: [Which worked, which didn't]
-  - Time saved: [Actual vs without intelligence]
-  - Prediction accuracy: [% of correct predictions]
-  - New patterns discovered: [Patterns to add to system]
+# Compare actual outcomes with context_pack predictions
+# Calculate: Did we use recommended patterns?
+# Measure: Were failure predictions accurate?
+# Assess: Was complexity score correct?
+# Track: Which patterns from context_pack were most valuable?
 ```
 
 1. Review implementation against original specs
@@ -1424,16 +1249,17 @@ intelligence_metrics:
    Facilitate code review for task [TASK_ID] (complexity: [X]):
    - Review for: logic errors, security, performance, maintainability
    - Modified files: [list files]
+   - Share pattern cache effectiveness data
    - Guide discussion to concrete solutions
    - Get Gemini's approval on fixes
    </Task>
    ```
 
    **For Gemini Review (complexity >= 5):**
-   Include intelligence context: "Here's what our pattern system predicted vs what actually happened..."
+   Include pattern context: "Here's which cached patterns worked vs what actually happened..."
 
    **Interactive Review Discussion:**
-   - Share pattern predictions with Gemini
+   - Share pattern effectiveness with Gemini
    - Ask: "Do you agree with these pattern applications? Any concerns?"
    - Discuss discrepancies between predictions and actual results
    - Collaborate on improving pattern trust scores
@@ -1447,61 +1273,734 @@ intelligence_metrics:
 4. Suggest minor improvements only, major improvements can be tackled in a follow-up
 5. Make approval decision
    - **If rejected: Return to BUILDER phase with specific requirements and reasons for rejection.**
-6. Update phase to DOCUMENTER when approved
+6. Update phase to DOCUMENTER when approved:
+
+Transition to DOCUMENTER phase:
+- Call apex_task_set_phase with:
+  - task_id: The taskId
+  - phase: "DOCUMENTER"
+  - handoff: The REVIEWER → DOCUMENTER handoff content
 
 **Key outputs:**
 
 - Approval status
 - Fixes applied
 - Patterns discovered
+- Pattern effectiveness assessment
 - Complete REVIEWER → DOCUMENTER handoff section
 
-**PATTERN TRACKING**: Finalize pattern effectiveness using ✓/⚠/✗ notation from tracking block.
+**PATTERN TRACKING**: Finalize pattern effectiveness as evidence:
 
-## 11 · Execute DOCUMENTER phase and finalize
+Record final pattern effectiveness:
+- Call apex_task_append_evidence with:
+  - task_id: The taskId
+  - type: "pattern"
+  - content: "Final pattern effectiveness assessment"
+  - metadata: Include patterns that worked, needed adjustment, or failed
 
-**PHASE PROMPT**: "You are in DOCUMENTER phase. Update project documentation based on what was learned. Do not modify code. THIS IS THE ONLY PHASE where you should create or update .md files for documentation."
+## 10 · Execute DOCUMENTER phase and finalize
 
-**INTELLIGENCE INJECTION**: Automatically extract and document new patterns:
+**PHASE PROMPT**: "You are in DOCUMENTER phase. Update project documentation based on what was learned. Do not modify code. THIS IS THE ONLY PHASE where you should create or update .md files for documentation. CRITICAL: You MUST call apex.reflect at the end."
 
+**INTELLIGENCE INJECTION**: Document context pack effectiveness:
+
+```yaml
+# Document which patterns from context_pack.pattern_cache were used
+# Record accuracy of context_pack.historical_intelligence.predicted_failures
+# Compare context_pack.task_analysis.complexity vs actual complexity
+# Note context_pack.metadata.cache_hit_rate effectiveness
+# Track new patterns discovered beyond context_pack
 ```
-📚 Learning Capture:
-- Patterns Used: [ID] Pattern Name (★★★☆☆ → ★★★★☆ effectiveness)
-- New Pattern Discovered: [Description] - Add to CONVENTIONS.pending.md
-- Time Estimate Update: Expected 3h → Actual 2.5h
-- Failure Avoided: [What could have gone wrong based on predictions]
-```
 
-**If current_phase == DOCUMENTER:**
+**Check current phase:**
+
+- Call apex_task_get_phase with task_id
+- If phase is "DOCUMENTER", proceed with documentation
 
 1. Read all handoffs to understand full implementation
 
-2. **AUTOMATED USAGE TRACKING AND TRUST SCORE UPDATE:**
-   Use the pattern-analyst subagent for pattern lifecycle management:
+Final checkpoint and evidence retrieval:
+- Call apex_task_checkpoint with confidence 0.95
+- Call apex_task_get_evidence to retrieve all collected evidence for summary
 
-   ```markdown
-   <Task subagent_type="pattern-analyst" description="Update pattern statistics">
-   Process pattern usage for task [TASK_ID]:
-   - Patterns used: [patterns dictionary from tracking]
-   - Update usage counts and success rates
-   - Adjust trust scores based on effectiveness
-   - Check promotion eligibility
-   - Document new patterns discovered
-   </Task>
+2. **COMPLETE TASK AND REFLECT - TWO SEPARATE STEPS:**
+   
+   **STEP 1 - Complete the task (returns reflection draft):**
+   
+   Call apex_task_complete with:
+   - id: The taskId
+   - outcome: "success", "partial", or "failure"
+   - key_learning: Key insight from the implementation
+   - patterns_used: List of pattern IDs used
+   
+   This returns a ReflectionDraft that you can review and modify.
+   
+   **STEP 2 - Deep Pattern Extraction & Reflection (THINK DEEPLY):**
+   
+   ### 🧠 ULTRA-DEEP PATTERN REFLECTION PROCESS
+   
+   **⏸️ PAUSE HERE: Take 30-60 seconds to deeply analyze the implementation.**
+   
+   **Reflection Mindset:**
+   - Imagine you'll encounter this exact problem 10 more times
+   - What knowledge would save you 2+ hours next time?
+   - What subtle insight took you longest to discover?
+   - What would you tell yourself at the start if you could?
+   - What pattern emerges that isn't immediately obvious?
+   
+   **Look for patterns at multiple levels:**
+   
+   #### A. Patterns USED from Cache
+   For each cached pattern applied, analyze:
+   - **Effectiveness Score**: ✓ Perfect / ⚠ Adapted / ✗ Failed
+   - **Adaptations Required**: What had to change? Why?
+   - **Context Sensitivity**: Did it work because of specific conditions?
+   - **Improvement Ideas**: How could the pattern be enhanced?
+   
+   #### B. NEW Patterns DISCOVERED (Be Creative!)
+   Look beyond the obvious - find the subtle, reusable gems:
+   
+   **Code Patterns:**
+   - Elegant solutions to tricky problems
+   - Creative uses of language features
+   - Performance optimizations that worked
+   - Clean abstractions or interfaces created
+   - Smart error handling approaches
+   - Clever test strategies that caught bugs
+   
+   **Architecture Patterns:**
+   - Module organization that improved clarity
+   - Dependency injection techniques
+   - State management approaches
+   - API design patterns that emerged
+   - Service layer abstractions
+   
+   **Process Patterns:**
+   - Debugging techniques that worked
+   - Testing strategies that revealed issues
+   - Refactoring sequences that were effective
+   - Migration patterns for schema changes
+   
+   **Integration Patterns:**
+   - Tool combinations that worked well
+   - Library usage patterns
+   - Configuration patterns
+   - Build/deploy optimizations
+   
+   #### C. ANTI-PATTERNS Discovered
+   Document what DIDN'T work (equally valuable!):
+   - Approaches that seemed good but failed
+   - Performance bottlenecks discovered
+   - Testing strategies that missed bugs
+   - Architectural decisions that caused issues
+   - Tool limitations encountered
+   
+   #### D. LEARNINGS & INSIGHTS
+   Meta-patterns and wisdom:
+   - "When X condition exists, always check for Y"
+   - "Pattern A works better than Pattern B when..."
+   - "This type of bug often hides in..."
+   - "The root cause was actually..."
+   
+   #### E. Pattern Quality Checklist
+   Before documenting a pattern, verify:
+   - [ ] Is it genuinely reusable in other contexts?
+   - [ ] Can you describe it in a single sentence?
+   - [ ] Would it save time if encountered again?
+   - [ ] Is it non-obvious enough to be valuable?
+   - [ ] Does it have clear triggers/conditions for use?
+   
+   ### 📝 Pattern Documentation Template
+   
+   For each significant pattern discovered:
+   ```yaml
+   pattern:
+     title: "Descriptive Name"
+     problem: "What specific problem does this solve?"
+     solution: "How does it solve it?"
+     when_to_use: "Specific conditions/triggers"
+     when_not_to_use: "Anti-conditions"
+     example: "Concrete code example"
+     trade_offs: "Pros/cons"
+     related: "Similar or complementary patterns"
+   ```
+   
+   ## 🔴 STEP 2.5 - MANDATORY GIT COMMIT (DO NOT SKIP!)
+   
+   **⚠️ CRITICAL: You MUST commit changes before apex_reflect or it will fail!**
+   
+   ```bash
+   # Check what files were modified
+   git status --short
+   
+   # Stage all changes
+   git add -A
+   
+   # Create a meaningful commit message
+   git commit -m "Task [TASK_ID]: [Brief description of what was done]
+   
+   - [Key change 1]
+   - [Key change 2]
+   - [Key fixes or improvements]
+   - Patterns: [List any patterns applied/discovered]
+   
+   Co-authored-by: Claude <noreply@anthropic.com>"
+   
+   # Verify commit succeeded
+   git log -1 --oneline
+   ```
+   
+   **✅ Commit Checklist:**
+   - [ ] All modified files are staged (`git add -A`)
+   - [ ] Commit message describes what was done
+   - [ ] Commit includes pattern information
+   - [ ] Commit succeeded (check with `git log -1`)
+   
+   **If commit fails:** Fix any issues before proceeding to apex_reflect!
+   
+   **STEP 3 - Call apex_reflect with comprehensive pattern data:**
+
+   ## 🚨 CRITICAL apex_reflect Documentation
+
+   ### ⚠️ IMPORTANT: Pass Parameters as Objects, NOT Strings!
+   
+   **The most common error is passing `claims` or `batch_patterns` as JSON strings instead of actual objects/arrays.**
+
+   ### 🔴 CRITICAL: Common apex_reflect Mistakes to Avoid
+
+   #### 1. **Anti-patterns Structure**
+   Anti-patterns require `title` and `reason` fields, NOT `pattern_id`:
+   
+   ❌ **WRONG**:
+   ```javascript
+   anti_patterns: [{
+     pattern_id: "ASYNC_IN_SQLITE",  // ❌ Wrong field name
+     reason: "Causes failure"
+   }]
+   ```
+   
+   ✅ **CORRECT**:
+   ```javascript
+   anti_patterns: [{
+     title: "Async in SQLite Transaction",  // ✅ Required field
+     reason: "Using async/await inside db.transaction() fails",  // ✅ Required field
+     evidence: []  // Optional but recommended empty if no specific evidence
+   }]
    ```
 
-   **Pattern-analyst subagent will:**
-   - Locate patterns across all convention files (parallel search)
-   - Update statistics (usage count, success rate) - batch updates
-   - Calculate new trust scores (×1.05 for success, ×0.85 for failure)
-   - Identify patterns ready for promotion
-   - Add new patterns to appropriate locations
-   - **NO .md FILES**: Return pattern analysis as text response only
+   #### 2. **Evidence Validation Issues**
+   
+   **IMPORTANT**: Even with committed files, evidence validation can fail. The safest approach is to minimize evidence usage:
+   
+   ✅ **RECOMMENDED - Minimal Evidence Pattern**:
+   ```javascript
+   apex_reflect({
+     task: { id: "TASK_ID", title: "Task Title" },
+     outcome: "success",
+     claims: {
+       patterns_used: [],  // Keep empty to avoid evidence validation issues
+       trust_updates: [
+         { pattern_id: "PAT:ID", outcome: "worked-perfectly" }
+       ],
+       new_patterns: [
+         {
+           title: "Pattern Name",
+           summary: "Description",
+           snippets: [],  // Can include code snippets
+           evidence: []   // Keep empty to avoid validation
+         }
+       ],
+       anti_patterns: [
+         {
+           title: "Anti-pattern Name",  // NOT pattern_id!
+           reason: "Why this is bad",
+           evidence: []
+         }
+       ],
+       learnings: [
+         { 
+           assertion: "What you learned", 
+           evidence: []  // Keep empty
+         }
+       ]
+     }
+   })
+   ```
+   
+   #### 3. **When You MUST Use Evidence**
+   
+   If evidence is required, use string evidence which auto-converts safely:
+   ```javascript
+   batch_patterns: [
+     {
+       pattern: "PAT:TEST",
+       outcome: "worked-perfectly",
+       evidence: "Simple string description"  // Safer than git_lines objects
+     }
+   ]
+   ```
+   
+   ❌ **WRONG** - This will fail with "Expected object, received string":
+   ```javascript
+   // DON'T DO THIS - passing claims as a string
+   claims: '{"patterns_used": [], "trust_updates": []}'
+   
+   // DON'T DO THIS - passing batch_patterns as a string  
+   batch_patterns: '[{"pattern": "PAT:TEST", "outcome": "worked-perfectly"}]'
+   ```
+   
+   ✅ **CORRECT** - Pass as actual JavaScript objects/arrays:
+   ```javascript
+   // DO THIS - claims as an object
+   claims: {
+     patterns_used: [],
+     trust_updates: [],
+     new_patterns: [],
+     anti_patterns: [],
+     learnings: []
+   }
+   
+   // DO THIS - batch_patterns as an array
+   batch_patterns: [
+     {
+       pattern: "PAT:API:ERROR_HANDLING",
+       outcome: "worked-perfectly",
+       evidence: "Applied in api.ts:45-78"
+     }
+   ]
+   ```
 
-   **PARALLELISM**: The subagent processes multiple patterns concurrently:
-   - Searches CONVENTIONS.md, CONVENTIONS.pending.md, PROJECT_PATTERNS.md in parallel
-   - Updates multiple pattern statistics simultaneously
-   - Batch writes changes back to files
+   ### Two Accepted Formats
+
+   #### Format 1: Traditional Claims (Full Control)
+   When calling apex_reflect, use this structure with `claims` as an OBJECT:
+   ```javascript
+   apex_reflect({
+     task: { id: "T28_S02", title: "Implement feature X" },
+     outcome: "success",  // success|partial|failure
+     claims: {  // ← OBJECT, not a string!
+       patterns_used: [...],
+       trust_updates: [...],
+       new_patterns: [...],
+       anti_patterns: [...],
+       learnings: [...]
+     },
+     options: { dry_run: false }
+   })
+   ```
+
+   #### Format 2: Batch Patterns (Simplified)
+   When calling apex_reflect, use this structure with `batch_patterns` as an ARRAY:
+   ```javascript
+   apex_reflect({
+     task: { id: "T28_S02", title: "Implement feature X" },
+     outcome: "success",
+     batch_patterns: [  // ← ARRAY, not a string!
+       {
+         pattern: "PAT:API:ERROR_HANDLING",
+         outcome: "worked-perfectly",  // See outcome values below
+         evidence: "Applied in api.ts:45-78",  // String or array
+         notes: "Worked without modification"
+       }
+     ]
+   })
+   ```
+
+   ### 📌 Evidence Format Rules
+
+   #### ✅ CORRECT Evidence Objects
+   ```json
+   // Git lines evidence (MOST COMMON)
+   {
+     "kind": "git_lines",     // ✅ NOT "code_lines"!
+     "file": "src/api.ts",
+     "sha": "HEAD",           // ✅ Required! Use "HEAD" for uncommitted
+     "start": 45,             // ✅ Line numbers required
+     "end": 78
+   }
+
+   // Commit evidence
+   {
+     "kind": "commit",
+     "sha": "abc123def456789012345678901234567890abcd"  // 40 chars
+   }
+
+   // PR evidence
+   {
+     "kind": "pr",
+     "number": 123,
+     "repo": "owner/repo"     // Optional
+   }
+
+   // CI run evidence
+   {
+     "kind": "ci_run",
+     "id": "run-123",
+     "provider": "github-actions"
+   }
+   ```
+
+   #### ✅ String Evidence (Auto-converted)
+   ```json
+   // These strings are auto-converted to proper evidence:
+   "evidence": "Applied in auth.ts:45-78"
+   // Becomes: { kind: "git_lines", file: "reflection-note", sha: "HEAD", start: 1, end: 1 }
+   ```
+
+   ### 📊 Trust Update Outcomes
+
+   Use these outcome values for pattern effectiveness:
+   - `"worked-perfectly"` = 100% success (α:1.0, β:0.0)
+   - `"worked-with-tweaks"` = 70% success (α:0.7, β:0.3)
+   - `"partial-success"` = 50% success (α:0.5, β:0.5)
+   - `"failed-minor-issues"` = 30% success (α:0.3, β:0.7)
+   - `"failed-completely"` = 0% success (α:0.0, β:1.0)
+
+   ### ✅ Complete Working Examples
+
+   #### Example 1: Simple Batch Format (RECOMMENDED)
+   When calling apex_reflect, remember to pass `batch_patterns` as an ARRAY, not a string:
+   ```javascript
+   apex_reflect({
+     task: { id: "T123_S02", title: "Fix authentication bug" },
+     outcome: "success",
+     batch_patterns: [  // ← This is an ARRAY, not a JSON string!
+       {
+         pattern: "FIX:AUTH:SESSION",
+         outcome: "worked-perfectly",
+         evidence: "Fixed session handling in auth.ts:234-256"
+       },
+       {
+         pattern: "PAT:ERROR:BOUNDARY",
+         outcome: "worked-with-tweaks",
+         evidence: [{
+           kind: "git_lines",
+           file: "src/components/Login.tsx",
+           sha: "HEAD",
+           start: 45,
+           end: 67
+         }],
+         notes: "Had to adapt for React 18"
+       }
+     ]
+   })
+   ```
+
+   #### Example 2: Full Claims with New Pattern
+   When calling apex_reflect, remember to pass `claims` as an OBJECT, not a string:
+   ```javascript
+   apex_reflect({
+     task: { id: "T124_S02", title: "Add caching layer" },
+     outcome: "success",
+     claims: {  // ← This is an OBJECT, not a JSON string!
+       patterns_used: [{
+         pattern_id: "PAT:CACHE:REDIS",
+         evidence: [{
+           kind: "git_lines",
+           file: "src/cache/redis.ts",
+           sha: "HEAD",
+           start: 50,
+           end: 100
+         }],
+         notes: "Redis pattern worked perfectly"
+       }],
+       trust_updates: [{
+         pattern_id: "PAT:CACHE:REDIS",
+         outcome: "worked-perfectly"
+       }],
+       new_patterns: [{
+         title: "Redis Connection Pooling",
+         summary: "Efficient connection management",
+         snippets: [{
+           snippet_id: "redis-pool-v1",
+           source_ref: {
+             kind: "git_lines",
+             file: "src/cache/pool.ts",
+             sha: "HEAD",
+             start: 1,
+             end: 45
+           },
+           language: "typescript",
+           code: "export class RedisPool {\n  // implementation\n}"
+         }],
+         evidence: [{
+           kind: "git_lines",
+           file: "src/cache/pool.ts",
+           sha: "HEAD",
+           start: 1,
+           end: 45
+         }]
+       }]
+     }
+   })
+   ```
+   
+   #### Example 3: THOUGHTFUL Pattern Discovery (Deep Reflection)
+   ```javascript
+   apex_reflect({
+     task: { id: "T061", title: "Fix test failures" },
+     outcome: "success",
+     claims: {  // ← OBJECT, not a string!
+       patterns_used: [],  // No patterns from cache were used
+       trust_updates: [],
+       new_patterns: [
+         {
+           title: "Test Isolation with Skip Flags",
+           summary: "Add skip flags to prevent background operations during testing",
+           snippets: [{
+             snippet_id: "test-isolation-v1",
+             source_ref: {
+               kind: "git_lines",
+               file: "src/service.ts",
+               sha: "HEAD",
+               start: 101,
+               end: 103
+             },
+             language: "typescript",
+             code: "if (!options.skipPrecompute) {\n  this.precomputeActiveTasks();\n}"
+           }],
+           evidence: [{
+             kind: "git_lines",
+             file: "tests/service.test.ts",
+             sha: "HEAD",
+             start: 77,
+             end: 78
+           }]
+         },
+         {
+           title: "Async Test Cleanup Pattern",
+           summary: "Ensure database connections are properly closed in afterEach hooks to prevent test pollution",
+           snippets: [{
+             snippet_id: "async-cleanup-v1",
+             source_ref: {
+               kind: "git_lines",
+               file: "tests/setup.ts",
+               sha: "HEAD",
+               start: 45,
+               end: 52
+             },
+             language: "typescript",
+             code: "afterEach(async () => {\n  await db.close();\n  await cache.flush();\n  jest.clearAllMocks();\n});"
+           }],
+           evidence: [{
+             kind: "git_lines",
+             file: "tests/setup.ts",
+             sha: "HEAD",
+             start: 45,
+             end: 52
+           }]
+         },
+         {
+           title: "Mock Validation Pattern",
+           summary: "Validate mock implementations match interface contracts using TypeScript strict checks",
+           snippets: [{
+             snippet_id: "mock-validation-v1",
+             source_ref: {
+               kind: "git_lines",
+               file: "tests/mocks/service.mock.ts",
+               sha: "HEAD",
+               start: 12,
+               end: 18
+             },
+             language: "typescript",
+             code: "// Ensures mock matches interface at compile time\nconst mockService: IService = {\n  method: jest.fn().mockImplementation(async (x) => {\n    // Implementation that matches interface signature\n    return { success: true, data: x };\n  })\n} satisfies IService;"
+           }],
+           evidence: [{
+             kind: "git_lines",
+             file: "tests/mocks/service.mock.ts",
+             sha: "HEAD",
+             start: 12,
+             end: 18
+           }]
+         }
+       ],
+       anti_patterns: [
+         {
+           title: "Hardcoded Status Values in SQL",
+           reason: "Using string literals for status values without constants leads to interface mismatches",
+           evidence: [{
+             kind: "git_lines",
+             file: "src/service.ts",
+             sha: "HEAD",
+             start: 116,
+             end: 116
+           }]
+         },
+         {
+           title: "Global Test State Mutation",
+           reason: "Modifying global state in tests causes flaky failures when tests run in parallel",
+           evidence: [{
+             kind: "git_lines",
+             file: "tests/old-test.ts",
+             sha: "HEAD",
+             start: 23,
+             end: 25
+           }]
+         }
+       ],
+       learnings: [
+         {
+           assertion: "Test failures often cascade from improper async cleanup in previous tests",
+           evidence: [{
+             kind: "git_lines",
+             file: "tests/debug.log",
+             sha: "HEAD",
+             start: 1,
+             end: 5
+           }]
+         },
+         {
+           assertion: "Background processes must be explicitly disabled in test environments",
+           evidence: [{
+             kind: "git_lines",
+             file: "src/config/test.config.ts",
+             sha: "HEAD",
+             start: 8,
+             end: 12
+           }]
+         },
+         {
+           assertion: "TypeScript 'satisfies' operator prevents mock drift from interfaces",
+           evidence: [{
+             kind: "git_lines",
+             file: "tests/mocks/README.md",
+             sha: "HEAD",
+             start: 15,
+             end: 20
+           }]
+         }
+       ]
+     }
+   })
+   ```
+
+   #### Example 4: Documenting Anti-Patterns
+   ```javascript
+   apex_reflect({
+     task: { id: "T125_S02", title: "Performance optimization" },
+     outcome: "partial",
+     claims: {  // ← OBJECT, not a string!
+       patterns_used: [],
+       trust_updates: [],
+       anti_patterns: [{
+         title: "Synchronous Database Calls in Loop",
+         reason: "Causes N+1 query problem, degrades performance",
+         evidence: [{
+           kind: "git_lines",
+           file: "src/services/user.ts",
+           sha: "HEAD",
+           start: 234,
+           end: 245
+         }]
+       }],
+       learnings: [{
+         assertion: "Always use batch queries for related data",
+         evidence: [{
+           kind: "git_lines",
+           file: "src/services/user.ts",
+           sha: "HEAD",
+           start: 250,
+           end: 260
+         }]
+       }]
+     }
+   })
+   ```
+
+   ### ❌ Common Mistakes & Auto-Fixes
+
+   The apex_reflect tool automatically fixes these common AI mistakes:
+
+   | Mistake | Auto-Fix Applied |
+   |---------|------------------|
+   | `"kind": "code_lines"` | → `"kind": "git_lines"` |
+   | Missing `sha` field | → Adds `"sha": "HEAD"` |
+   | Evidence as string in arrays | → Converts to evidence object |
+   | Single-word pattern IDs | → Adds `:DEFAULT:DEFAULT:DEFAULT` |
+
+   #### ❌ WRONG Examples (But Auto-Fixed!)
+   ```json
+   // These are WRONG but will be auto-corrected:
+   
+   // Wrong: code_lines → Fixed to git_lines
+   { "kind": "code_lines", "file": "test.ts", "start": 1, "end": 10 }
+   
+   // Wrong: Missing SHA → Fixed by adding "HEAD"
+   { "kind": "git_lines", "file": "test.ts", "start": 1, "end": 10 }
+   
+   // Wrong: String evidence → Converted to object
+   "evidence": ["This pattern worked well"]
+   
+   // Wrong: Single-part pattern → Fixed to 4 parts
+   "pattern_id": "JWT"  // Becomes: "JWT:DEFAULT:DEFAULT:DEFAULT"
+   ```
+
+   ### 🔍 Validation Rules
+
+   1. **Pattern IDs**: Must have 2+ parts (e.g., `PAT:AUTH` or `PAT:AUTH:JWT`)
+   2. **SHA Format**: 7-40 hex chars, "HEAD", or branch/tag names
+   3. **Line Numbers**: Must be positive integers, start ≤ end
+   4. **Evidence Arrays**: Can mix evidence types in one array
+   5. **Duplicate Patterns**: Last occurrence wins in batch mode
+
+   ### 💡 Best Practices
+
+   1. **Use Batch Format** for simple reflections - it's cleaner
+   2. **Always include evidence** - even a simple string description
+   3. **Be specific with outcomes** - helps train the system
+   4. **Document failures** - anti-patterns are valuable
+   5. **Group related patterns** - process in one reflection
+   6. **Think deeply** - Spend time extracting non-obvious patterns
+   7. **Look for meta-patterns** - Patterns about when to use patterns
+
+   ### 🎯 Examples of Patterns Often Missed Without Deep Thinking
+
+   **Subtle but Valuable Patterns:**
+   - "Always check for X before Y" conditions
+   - Order dependencies that aren't obvious
+   - Hidden coupling between components
+   - Performance patterns that only emerge at scale
+   - Error recovery sequences that work
+   - Testing patterns that catch edge cases
+   - Configuration patterns that prevent issues
+   - Migration ordering that prevents data loss
+   - Debugging sequences that isolate problems
+   - Refactoring patterns that maintain compatibility
+
+   ### 🚀 Minimal Working Example
+   ```javascript
+   apex_reflect({
+     task: { id: "T99", title: "Quick fix" },
+     outcome: "success",
+     batch_patterns: [{  // ← ARRAY, not a string!
+       pattern: "FIX:BUG:NULL_CHECK",
+       outcome: "worked-perfectly",
+       evidence: "Added null check in utils.ts:45"
+     }]
+   })
+   ```
+
+   ### 🔧 Working Example for Uncommitted Files
+   ```javascript
+   // WORKAROUND for uncommitted files: Use trust_updates WITHOUT patterns_used
+   apex_reflect({
+     task: { id: "T100", title: "Feature with uncommitted files" },
+     outcome: "success",
+     claims: {
+       patterns_used: [],  // Leave empty to avoid evidence validation
+       trust_updates: [{
+         pattern_id: "PAT:API:ERROR_HANDLING",
+         outcome: "worked-perfectly"  // Still updates trust scores!
+       }],
+       new_patterns: [],  // Skip new patterns if uncommitted
+       learnings: []  // Skip learnings if they reference uncommitted files
+     }
+   })
+   
+   // Alternative: Commit files first, then use full reflection
+   // git add . && git commit -m "Work in progress"
+   // Then use normal apex_reflect with full evidence
+   ```
 
 3. **COMPLETE LEARNING DOCUMENTATION:**
    Use the learning-documenter subagent for comprehensive capture:
@@ -1511,25 +2010,22 @@ intelligence_metrics:
    Document learnings for task [TASK_ID]:
    - Update TASK_LEARNINGS.md
    - Add failures to failures.jsonl
-   - Update PATTERN_METADATA.json
-   - Promote eligible patterns
+   - Document pattern effectiveness from apex.reflect results
    - Create follow-up tasks for outstanding issues
    </Task>
    ```
 
    **Learning-documenter subagent will:**
-   - Process all pattern promotions (batch operations)
-   - Document new patterns in appropriate locations (parallel writes)
+   - Process reflection results from apex.reflect
+   - Document pattern effectiveness (parallel writes)
    - Update all learning files concurrently:
      - TASK_LEARNINGS.md
      - failures.jsonl
-     - PATTERN_METADATA.json
-     - Convention files
+     - Pattern documentation
    - Create follow-up tasks as needed
-   - Update metadata statistics
    - **THIS IS THE ONLY SUBAGENT** that should create/update .md files
 
-   **PARALLELISM**: Updates multiple documentation files simultaneously rather than sequentially
+   **PARALLELISM**: Updates multiple documentation files simultaneously
 
 ### 🧠 Intelligence System Feedback
 
@@ -1538,18 +2034,17 @@ Update intelligence system with task outcomes:
 ```yaml
 intelligence_feedback:
   pattern_effectiveness:
-    - Update trust scores based on actual usage
-    - Document pattern modifications needed
-    - Record new pattern variations discovered
+    - Document trust score changes from apex.reflect
+    - Record pattern modifications needed
+    - Note new pattern variations discovered
 
   prediction_accuracy:
     - Update failure prediction confidence scores
-    - Add new failure patterns to failures.jsonl
+    - Add new failure patterns to documentation
     - Adjust complexity calculation factors
 
   task_similarity:
     - Record actual similarity score vs predicted
-    - Update similarity matching algorithms
     - Add this task as reference for future
 ```
 
@@ -1559,11 +2054,16 @@ intelligence_feedback:
 {
   "task_id": "T26_S02",
   "intelligence_accuracy": 0.75,
+  "pattern_cache_effectiveness": {
+    "cache_hit_rate": "93%",
+    "patterns_from_cache": 15,
+    "new_lookups": 1
+  },
   "pattern_hits": ["PAT:UI:ARROW", "PAT:TEST:MOCK"],
   "pattern_misses": ["PAT:ANIMATION:SCALE"],
   "new_patterns": ["PAT:UI:FLOATING_UI_ARROW"],
-  "time_saved_estimate": "39h (1h actual vs 40h estimated)",
-  "key_learning": "Floating-ui patterns need specific mock structure"
+  "time_saved_estimate": "2h (pattern reuse)",
+  "key_learning": "Pattern caching dramatically reduced context switching"
 }
 ```
 
@@ -1578,6 +2078,7 @@ intelligence_feedback:
    ### Patterns Used
 
    - [PAT:ID] ✅/⚠️ Notes on effectiveness
+   - Cache hit rate: X%
 
    ### New Discoveries
 
@@ -1601,49 +2102,26 @@ intelligence_feedback:
     "frequency": 1, "last_seen": "[date]", "contexts": ["tags"]}
    ```
 
-7. **Check EVOLUTION_RULES.md:**
-   - Patterns with 3+ successes → Promote from pending to main
-   - Patterns with multiple failures → Decrease trust score
-   - Document any pattern relationships discovered
+7. **Create Follow-up Task for Outstanding Issues:**
+   Review all phase handoffs and notes for:
+   - Outstanding issues that were not resolved
+   - Architectural deficits identified
+   - Desirable refactoring or improvements deferred
+   - Any other work items noted for future action
 
-8. **Update PATTERN_METADATA.json:**
-
-   ```yaml
-   metadata_update:
-     - Update statistics.total_usage_count (increment by patterns used)
-     - Recalculate statistics.average_trust_score
-     - Update patterns_by_trust_score distribution
-     - Add any promotion_candidates identified above
-     - Update recent_activity:
-       * patterns_used_today: increment count
-       * last_task_completed: current task ID
-       * active_learning_sessions: add if multiple patterns used
-     - If new patterns discovered:
-       * Update statistics.pending_patterns count
-       * Update patterns_by_category counts
-       * Set pattern_discovery_rate based on frequency
-   ```
-
-9. **Create Follow-up Task for Outstanding Issues:**
-   Review all phase handoffs, 'Common Gotchas', and any other notes made during this task's execution. Look for any documented:
-   - Outstanding issues that were not resolved.
-   - Architectural deficits identified.
-   - Desirable refactoring or improvements deferred.
-   - Any other work items noted for future action.
-     If such items exist, create a **new task file** (e.g., in `.simone/03_ACTIVE_SPRINTS/` or `.simone/04_GENERAL_TASKS/`). This new task should:
-   - Have a title clearly indicating it's a follow-up (e.g., "Follow-up: Address architectural concerns from TX[Original_Task_ID]").
-   - Copy or clearly reference the details of the outstanding issues from this task's notes.
-   - Be assigned an appropriate initial phase (e.g., `ARCHITECT` if design is needed, `BUILDER` if it's a straightforward implementation).
-   - Be added to the `.simone/00_PROJECT_MANIFEST.md` as a new, open task.
+   If such items exist, create a **new task** with clear reference to original task:
+   
+   Call apex_task_create with:
+   - intent: "Follow-up: [description of outstanding issues from original task]"
+   - type: Appropriate type (refactor, bug, feature, etc.)
+   - identifier: Optional reference to original task
 
 **Final steps - YOU MUST DO THESE:**
 
-- Remove the Phase Tracking block from task file
-- Set the Task status to **completed**
-- Get current timestamp: `date '+%Y-%m-%dT%H:%M:%S%z'`
-- Update task frontmatter with completion time
-- **AUTO-RENAME**: `mv T[ID]_*.md TX[ID]_*.md`
-- Report end result in the this file and to the user
+- Call apex_reflect with complete pattern usage data (CRITICAL)
+- Task is automatically marked as completed by apex_task_complete
+- No file operations needed - all handled by database
+- Report end result to the user
 
 **Report** the result to the user:
 
@@ -1660,82 +2138,13 @@ intelligence_feedback:
 
 💬 **Summary**: [Comprehensive yet concise summary of what was done]
 
-📚 **Learning Capture**:
+📚 **Pattern Intelligence**:
 
-- Patterns Used: [Count] patterns ([list most effective])
-- Trust Score Updates: [Which patterns improved/declined]
-- New Patterns: [Count] added to CONVENTIONS.pending.md
-- Failures Documented: [Count] added to 09_LEARNING/failures.jsonl
-
-⏭️ **Next steps**: [Follow-up task created or recommended actions]
-
-**Suggestions** for the User:
-
-- 🛠️ Commit the changes to git
-- 🧹 Use `/clear` to clear the context before starting the next Task
-- 📋 Review follow-up task: `T[ID]_*.md` (if created)
-  - Document any pattern relationships discovered
-
-7. **Update PATTERN_METADATA.json:**
-
-   ```yaml
-   metadata_update:
-     - Update statistics.total_usage_count (increment by patterns used)
-     - Recalculate statistics.average_trust_score
-     - Update patterns_by_trust_score distribution
-     - Add any promotion_candidates identified above
-     - Update recent_activity:
-       * patterns_used_today: increment count
-       * last_task_completed: current task ID
-       * active_learning_sessions: add if multiple patterns used
-     - If new patterns discovered:
-       * Update statistics.pending_patterns count
-       * Update patterns_by_category counts
-       * Set pattern_discovery_rate based on frequency
-   ```
-
-8. **Create Follow-up Task for Outstanding Issues:**
-   Review all phase handoffs, 'Common Gotchas', and any other notes made during this task's execution. Look for any documented:
-   - Outstanding issues that were not resolved.
-   - Architectural deficits identified.
-   - Desirable refactoring or improvements deferred.
-   - Any other work items noted for future action.
-     If such items exist, create a **new task file** (e.g., in `.simone/03_ACTIVE_SPRINTS/` or `.simone/04_GENERAL_TASKS/`). This new task should:
-   - Have a title clearly indicating it's a follow-up (e.g., "Follow-up: Address architectural concerns from TX[Original_Task_ID]").
-   - Copy or clearly reference the details of the outstanding issues from this task's notes.
-   - Be assigned an appropriate initial phase (e.g., `ARCHITECT` if design is needed, `BUILDER` if it's a straightforward implementation).
-   - Be added to the `.simone/00_PROJECT_MANIFEST.md` as a new, open task.
-
-**Final steps - YOU MUST DO THESE:**
-
-- Remove the Phase Tracking block from task file
-- Set the Task status to **completed**
-- Get current timestamp: `date '+%Y-%m-%dT%H:%M:%S%z'`
-- Update task frontmatter with completion time
-- **AUTO-RENAME**: `mv T[ID]_*.md TX[ID]_*.md`
-- Report end result in the this file and to the user
-
-**Report** the result to the user:
-
-✅ **Result**: [Task title] - [Primary achievement]
-
-📊 **Key Metrics**:
-
-- Complexity Score: X/10 (predicted vs actual)
-- Coverage: [before] → [after] (if applicable)
-- Files: [created], [modified]
-- Tests: [pass/fail counts]
-- Duration: [total time] (vs. predicted: [predicted time])
-- Risk predictions: [Which risks materialized?]
-
-💬 **Summary**: [Comprehensive yet concise summary of what was done]
-
-📚 **Learning Capture**:
-
-- Patterns Used: [Count] patterns ([list most effective])
-- Trust Score Updates: [Which patterns improved/declined]
-- New Patterns: [Count] added to CONVENTIONS.pending.md
-- Failures Documented: [Count] added to 09_LEARNING/failures.jsonl
+- Cache Hit Rate: X% (Y patterns from cache, Z new lookups)
+- Pattern Effectiveness: ↑A improved, ↓B declined via apex.reflect
+- New Patterns: C documented via apex.reflect
+- Time Saved: ~Xh through pattern reuse
+- Reflection: ✅ apex_reflect called with evidence
 
 ⏭️ **Next steps**: [Follow-up task created or recommended actions]
 
@@ -1743,4 +2152,5 @@ intelligence_feedback:
 
 - 🛠️ Commit the changes to git
 - 🧹 Use `/clear` to clear the context before starting the next Task
-- 📋 Review follow-up task: `T[ID]_*.md` (if created)
+- 📋 Review follow-up task (if created)
+- 🔄 Pattern updates processed automatically via apex_reflect

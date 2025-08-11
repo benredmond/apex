@@ -1,4 +1,6 @@
-# Execute.Task - Process Tasks with APEX Intelligence
+# [DEPRECATED] Execute.Task - Process Tasks with APEX Intelligence
+
+> **⚠️ DEPRECATION NOTICE**: This is an outdated intermediate version. Please use `task.md` for the latest implementation with database integration and enhanced intelligence features.
 
 **Domain**: Execution
 **Purpose**: Implement tasks using intelligent 5-phase workflow with PatternPack integration
