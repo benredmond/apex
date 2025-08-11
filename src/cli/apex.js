@@ -722,13 +722,12 @@ program
 
         case "serve": {
           // Start the MCP server in stdio mode
-          console.log(chalk.cyan("Starting APEX MCP server..."));
-
+          // Don't log to stdout - it breaks MCP protocol
           const serverPath = path.join(
             path.resolve(path.join(__dirname, "../..")),
             "dist",
             "mcp",
-            "server.js",
+            "index.js",
           );
           const dbPath =
             process.env.APEX_PATTERNS_DB ||
@@ -738,8 +737,10 @@ program
           process.env.APEX_PATTERNS_DB = dbPath;
 
           try {
-            await import(serverPath);
+            const { startMCPServer } = await import(serverPath);
+            await startMCPServer();
           } catch (error) {
+            // Log to stderr only - stdout is reserved for MCP protocol
             console.error(
               chalk.red("Failed to start MCP server:"),
               error.message,

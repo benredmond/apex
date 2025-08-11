@@ -69,21 +69,23 @@ export class ApexMCPServer {
     try {
       // Use the actual patterns database
       const dbPath = process.env.APEX_PATTERNS_DB || "patterns.db";
-      console.error(`[APEX MCP] Using database: ${dbPath}`);
+      // Silent operation for MCP protocol
+      // console.error(`[APEX MCP] Using database: ${dbPath}`);
 
       // Create repository with actual database
       this.repository = new PatternRepository({ dbPath });
 
       // Initialize the repository (loads patterns)
       await this.repository.initialize();
-      console.error(`[APEX MCP] Repository initialized`);
+      // console.error(`[APEX MCP] Repository initialized`);
 
       // Initialize tools with repository and shared database instance
       const sharedDb = this.repository.getDatabase();
       initializeTools(this.repository, sharedDb);
-      console.error(`[APEX MCP] Tools initialized`);
+      // console.error(`[APEX MCP] Tools initialized`);
     } catch (error) {
-      console.error("[APEX MCP] Failed to initialize pattern system:", error);
+      // Only log critical errors to stderr
+      // console.error("[APEX MCP] Failed to initialize pattern system:", error);
     }
   }
 
@@ -194,9 +196,9 @@ export class ApexMCPServer {
     // Register tool implementations after initialization
     try {
       await registerTools(this.server);
-      console.error("[APEX MCP] Tools registered successfully");
+      // console.error("[APEX MCP] Tools registered successfully");
     } catch (error) {
-      console.error("[APEX MCP] Failed to register tools:", error);
+      // console.error("[APEX MCP] Failed to register tools:", error);
       throw error;
     }
 
@@ -204,7 +206,7 @@ export class ApexMCPServer {
     await this.transport.connect(this.server);
     await this.transport.start();
 
-    console.error("[APEX MCP] Server started with stdio transport");
+    // console.error("[APEX MCP] Server started with stdio transport");
   }
 
   /**
@@ -214,7 +216,7 @@ export class ApexMCPServer {
     if (this.transport) {
       await this.transport.close();
     }
-    console.error("[APEX MCP] Server stopped");
+    // console.error("[APEX MCP] Server stopped");
   }
 
   /**

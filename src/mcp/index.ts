@@ -30,13 +30,13 @@ export async function startMCPServer(): Promise<void> {
 
   // Handle shutdown gracefully
   process.on("SIGINT", async () => {
-    console.error("\n[APEX MCP] Shutting down...");
+    // console.error("\n[APEX MCP] Shutting down...");
     await server.stop();
     process.exit(0);
   });
 
   process.on("SIGTERM", async () => {
-    console.error("[APEX MCP] Shutting down...");
+    // console.error("[APEX MCP] Shutting down...");
     await server.stop();
     process.exit(0);
   });
@@ -45,7 +45,7 @@ export async function startMCPServer(): Promise<void> {
   try {
     await server.startStdio();
   } catch (error) {
-    console.error("[APEX MCP] Failed to start server:", error);
+    // console.error("[APEX MCP] Failed to start server:", error);
     process.exit(1);
   }
 }
@@ -53,7 +53,7 @@ export async function startMCPServer(): Promise<void> {
 // If this module is run directly, start the server
 if (import.meta.url === `file://${process.argv[1]}`) {
   startMCPServer().catch((error) => {
-    console.error("[APEX MCP] Fatal error:", error);
+    // console.error("[APEX MCP] Fatal error:", error);
     process.exit(1);
   });
 }

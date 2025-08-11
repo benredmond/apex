@@ -16,14 +16,14 @@ export const migration = {
     db.transaction(() => {
       console.log("Starting pattern tags migration from CSV to JSON...");
 
-      // Get all patterns with tags_csv (the old column name)
+      // Get all patterns with tags (the old column name)
       // Include empty strings as they should become empty arrays
       const patterns = db
         .prepare(
           `
-        SELECT id, tags_csv 
+        SELECT id, tags 
         FROM patterns 
-        WHERE tags_csv IS NOT NULL
+        WHERE tags IS NOT NULL
       `,
         )
         .all();
@@ -33,7 +33,7 @@ export const migration = {
       // Prepare update statement
       const updateStmt = db.prepare(`
         UPDATE patterns 
-        SET tags_csv = ? 
+        SET tags = ? 
         WHERE id = ?
       `);
 
@@ -43,7 +43,7 @@ export const migration = {
       for (const pattern of patterns) {
         try {
           // Check if already JSON (starts with '[')
-          if (pattern.tags_csv && pattern.tags_csv.trim().startsWith("[")) {
+          if (pattern.tags && pattern.tags.trim().startsWith("[")) {
             console.log(
               `Pattern ${pattern.id} already uses JSON format, skipping`,
             );
@@ -53,8 +53,8 @@ export const migration = {
 
           // Convert CSV to JSON array
           const csvTags =
-            pattern.tags_csv && pattern.tags_csv.trim()
-              ? pattern.tags_csv
+            pattern.tags && pattern.tags.trim()
+              ? pattern.tags
                   .split(",")
                   .map((tag) => tag.trim())
                   .filter((tag) => tag.length > 0)
@@ -67,7 +67,7 @@ export const migration = {
           migratedCount++;
 
           console.log(
-            `Migrated ${pattern.id}: "${pattern.tags_csv}" -> ${jsonTags}`,
+            `Migrated ${pattern.id}: "${pattern.tags}" -> ${jsonTags}`,
           );
         } catch (error) {
           console.error(`Failed to migrate pattern ${pattern.id}:`, error);
@@ -147,16 +147,16 @@ export const migration = {
       const patterns = db
         .prepare(
           `
-        SELECT id, tags_csv 
+        SELECT id, tags 
         FROM patterns 
-        WHERE tags_csv IS NOT NULL AND tags_csv != ''
+        WHERE tags IS NOT NULL AND tags != ''
       `,
         )
         .all();
 
       const updateStmt = db.prepare(`
         UPDATE patterns 
-        SET tags_csv = ? 
+        SET tags = ? 
         WHERE id = ?
       `);
 
@@ -165,19 +165,19 @@ export const migration = {
       for (const pattern of patterns) {
         try {
           // Check if JSON format
-          if (!pattern.tags_csv.trim().startsWith("[")) {
+          if (!pattern.tags.trim().startsWith("[")) {
             continue;
           }
 
           // Parse JSON and convert to CSV
-          const jsonTags = JSON.parse(pattern.tags_csv);
+          const jsonTags = JSON.parse(pattern.tags);
           const csvTags = jsonTags.join(",");
 
           updateStmt.run(csvTags, pattern.id);
           revertedCount++;
 
           console.log(
-            `Reverted ${pattern.id}: ${pattern.tags_csv} -> "${csvTags}"`,
+            `Reverted ${pattern.id}: ${pattern.tags} -> "${csvTags}"`,
           );
         } catch (error) {
           console.error(`Failed to revert pattern ${pattern.id}:`, error);
@@ -239,9 +239,9 @@ export const migration = {
       const patterns = db
         .prepare(
           `
-        SELECT id, tags_csv 
+        SELECT id, tags 
         FROM patterns 
-        WHERE tags_csv IS NOT NULL AND tags_csv != ''
+        WHERE tags IS NOT NULL AND tags != ''
         LIMIT 100
       `,
         )
@@ -252,20 +252,20 @@ export const migration = {
 
       for (const pattern of patterns) {
         try {
-          const tags = JSON.parse(pattern.tags_csv);
+          const tags = JSON.parse(pattern.tags);
           if (Array.isArray(tags)) {
             validCount++;
           } else {
             console.error(
               `Pattern ${pattern.id} has non-array JSON tags:`,
-              pattern.tags_csv,
+              pattern.tags,
             );
             invalidCount++;
           }
         } catch (error) {
           console.error(
             `Pattern ${pattern.id} has invalid JSON tags:`,
-            pattern.tags_csv,
+            pattern.tags,
           );
           invalidCount++;
         }
@@ -277,12 +277,12 @@ export const migration = {
         return false;
       }
 
-      // Test querying with JSON tags (using tags_csv since column not renamed yet)
+      // Test querying with JSON tags (using tags since column not renamed yet)
       const testQuery = db
         .prepare(
           `
         SELECT id FROM patterns 
-        WHERE tags_csv LIKE ? 
+        WHERE tags LIKE ? 
         LIMIT 1
       `,
         )

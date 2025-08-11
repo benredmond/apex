@@ -21,12 +21,12 @@ export class ApexStdioTransport {
 
     // Handle errors
     this.transport.onerror = (error) => {
-      console.error("[APEX MCP] Transport error:", error);
+      // console.error("[APEX MCP] Transport error:", error);
     };
 
     // Handle close
     this.transport.onclose = () => {
-      console.error("[APEX MCP] Transport closed");
+      // console.error("[APEX MCP] Transport closed");
       process.exit(0);
     };
   }
@@ -36,7 +36,7 @@ export class ApexStdioTransport {
    */
   async start(): Promise<void> {
     // The stdio transport starts automatically when connected
-    console.error("[APEX MCP] Stdio transport started");
+    // console.error("[APEX MCP] Stdio transport started");
   }
 
   /**
