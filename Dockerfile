@@ -1,19 +1,19 @@
 # Multi-stage Dockerfile for APEX development and production
 
 # Stage 1: Dependencies
-FROM node:20-alpine AS dependencies
+FROM node:24-alpine AS dependencies
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 
 # Stage 2: Development dependencies
-FROM node:20-alpine AS dev-dependencies
+FROM node:24-alpine AS dev-dependencies
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
 # Stage 3: Development environment
-FROM node:20 AS development
+FROM node:24 AS development
 WORKDIR /app
 
 # Install useful development tools
@@ -34,7 +34,7 @@ EXPOSE 3000
 CMD ["npm", "run", "test:watch"]
 
 # Stage 4: Build stage
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 # Copy everything needed for build
@@ -45,7 +45,7 @@ COPY . .
 RUN if [ -f "tsconfig.json" ]; then npm run build; fi
 
 # Stage 5: Production
-FROM node:20-alpine AS production
+FROM node:24-alpine AS production
 WORKDIR /app
 
 # Install dumb-init for proper signal handling
