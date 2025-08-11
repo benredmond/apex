@@ -62,7 +62,7 @@ async function setupClaudeCodeIntegration() {
       type: "confirm",
       name: "shouldInstall",
       message:
-        "Would you like to install APEX command templates for Claude Code?",
+        "Would you like to install APEX command templates and agents for Claude Code?",
       default: true,
     },
   ]);
@@ -100,23 +100,23 @@ async function setupClaudeCodeIntegration() {
     console.log(chalk.dim(`Installing to ${level} level: ${targetDir}`));
   }
 
-  // Copy the command files
-  const spinner = ora("Installing APEX commands...").start();
+  // Copy the command files and agents
+  const spinner = ora("Installing APEX commands and agents...").start();
 
   try {
-    // Source directory for APEX commands
-    const sourceDir = path.join(__dirname, "..", "commands");
+    let copiedCount = 0;
+    let skippedCount = 0;
+
+    // 1. Copy commands
+    const commandsSourceDir = path.join(__dirname, "..", "commands");
     const targetCommandsDir = path.join(targetDir, "commands", "apex");
 
     // Ensure target directory exists
     await fs.ensureDir(targetCommandsDir);
 
     // Copy execute/task.md if it exists
-    const taskSource = path.join(sourceDir, "execute", "task.md");
+    const taskSource = path.join(commandsSourceDir, "execute", "task.md");
     const taskTarget = path.join(targetCommandsDir, "execute_task.md");
-
-    let copiedCount = 0;
-    let skippedCount = 0;
 
     if (await fs.pathExists(taskSource)) {
       if (await fs.pathExists(taskTarget)) {
@@ -129,23 +129,48 @@ async function setupClaudeCodeIntegration() {
       }
     }
 
-    // Add more command files here as needed in the future
-    // For now, we only have the task.md command
+    // 2. Copy agents
+    const agentsSourceDir = path.join(__dirname, "..", "agents");
+    const targetAgentsDir = path.join(targetDir, "agents");
+
+    if (await fs.pathExists(agentsSourceDir)) {
+      // Ensure target agents directory exists
+      await fs.ensureDir(targetAgentsDir);
+
+      // Get all agent files
+      const agentFiles = await fs.readdir(agentsSourceDir);
+      const mdFiles = agentFiles.filter(f => f.endsWith('.md'));
+
+      for (const agentFile of mdFiles) {
+        const sourceFile = path.join(agentsSourceDir, agentFile);
+        const targetFile = path.join(targetAgentsDir, agentFile);
+
+        if (await fs.pathExists(targetFile)) {
+          skippedCount++;
+          spinner.text = `Skipped ${agentFile} (already exists)`;
+        } else {
+          await fs.copy(sourceFile, targetFile);
+          copiedCount++;
+          spinner.text = `Copied ${agentFile}`;
+        }
+      }
+    }
 
     spinner.succeed(
       chalk.green(
-        `✅ APEX commands installed (${copiedCount} copied, ${skippedCount} skipped)`,
+        `✅ APEX commands and agents installed (${copiedCount} copied, ${skippedCount} skipped)`,
       ),
     );
 
     console.log(chalk.dim(`\n📁 Commands installed to: ${targetCommandsDir}`));
+    console.log(chalk.dim(`📁 Agents installed to: ${path.join(targetDir, "agents")}`));
     console.log(
       chalk.dim(
-        "💡 These commands enhance Claude Code's ability to work with APEX patterns",
+        "💡 These enhance Claude Code's ability to work with APEX patterns",
       ),
     );
   } catch (error) {
-    spinner.fail(chalk.red("Failed to install APEX commands"));
+    spinner.fail(chalk.red("Failed to install APEX commands and agents"));
     console.error(chalk.yellow(`\n⚠️  ${error.message}`));
     console.log(
       chalk.dim("APEX will continue without Claude Code integration"),
