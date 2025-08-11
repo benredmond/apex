@@ -33,16 +33,22 @@ describe("MCP Tools Orchestration", () => {
       patternsDir: path.join(tempDir, "patterns"),
     });
 
-    // Run migrations to create required tables
+    // Run ALL migrations to create required tables
     const db = (repository as any).db.database;
-    const migration006 = await import("../../../src/migrations/migrations/006-add-task-system-schema.js");
-    const migration007 = await import("../../../src/migrations/migrations/007-add-evidence-log-table.js");
+    const { MigrationRunner } = await import("../../../src/migrations/migrations/MigrationRunner.js");
+    const { MigrationLoader } = await import("../../../src/migrations/migrations/MigrationLoader.js");
     
-    try {
-      migration006.migration.up(db);
-      migration007.migration.up(db);
-    } catch (error) {
-      // Ignore if tables already exist
+    const migrationRunner = new MigrationRunner(db);
+    const loader = new MigrationLoader();
+    
+    // Load all migrations
+    const migrationsDir = path.resolve(__dirname, "../../../src/migrations/migrations");
+    const migrations = loader.loadMigrations(migrationsDir);
+    
+    // Run pending migrations
+    const status = migrationRunner.getStatus(migrations);
+    for (const migration of status.pending) {
+      migrationRunner.apply(migration);
     }
 
     await repository.initialize();

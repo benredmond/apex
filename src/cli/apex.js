@@ -94,7 +94,7 @@ async function setupClaudeCodeIntegration() {
       },
     ]);
     targetDir = location === "user" ? userClaudeDir : projectClaudeDir;
-    
+
     // Extra warning if user level is selected
     if (location === "user") {
       const { confirmUser } = await inquirer.prompt([
@@ -102,7 +102,7 @@ async function setupClaudeCodeIntegration() {
           type: "confirm",
           name: "confirmUser",
           message: chalk.yellow(
-            "⚠️  Installing to ~/.claude may overwrite existing commands. Continue?"
+            "⚠️  Installing to ~/.claude may overwrite existing commands. Continue?",
           ),
           default: false,
         },
@@ -124,13 +124,17 @@ async function setupClaudeCodeIntegration() {
         type: "confirm",
         name: "confirmUser",
         message: chalk.yellow(
-          `⚠️  Only ~/.claude exists. Installing there may overwrite existing commands. Continue?`
+          `⚠️  Only ~/.claude exists. Installing there may overwrite existing commands. Continue?`,
         ),
         default: false,
       },
     ]);
     if (!confirmUser) {
-      console.log(chalk.dim("Installation cancelled. Consider creating ./.claude in your project instead."));
+      console.log(
+        chalk.dim(
+          "Installation cancelled. Consider creating ./.claude in your project instead.",
+        ),
+      );
       return;
     }
   }
@@ -156,9 +160,9 @@ async function setupClaudeCodeIntegration() {
     if (await fs.pathExists(taskSource)) {
       if (await fs.pathExists(taskTarget)) {
         // Check if it's different from ours
-        const existingContent = await fs.readFile(taskTarget, 'utf8');
-        const sourceContent = await fs.readFile(taskSource, 'utf8');
-        
+        const existingContent = await fs.readFile(taskTarget, "utf8");
+        const sourceContent = await fs.readFile(taskSource, "utf8");
+
         if (existingContent === sourceContent) {
           skippedCount++;
           spinner.text = "Skipped execute_task.md (identical file exists)";
@@ -174,7 +178,7 @@ async function setupClaudeCodeIntegration() {
             },
           ]);
           spinner.start();
-          
+
           if (overwrite) {
             await fs.copy(taskSource, taskTarget);
             copiedCount++;
@@ -201,7 +205,7 @@ async function setupClaudeCodeIntegration() {
 
       // Get all agent files
       const agentFiles = await fs.readdir(agentsSourceDir);
-      const mdFiles = agentFiles.filter(f => f.endsWith('.md'));
+      const mdFiles = agentFiles.filter((f) => f.endsWith(".md"));
 
       for (const agentFile of mdFiles) {
         const sourceFile = path.join(agentsSourceDir, agentFile);
@@ -225,7 +229,9 @@ async function setupClaudeCodeIntegration() {
     );
 
     console.log(chalk.dim(`\n📁 Commands installed to: ${targetCommandsDir}`));
-    console.log(chalk.dim(`📁 Agents installed to: ${path.join(targetDir, "agents")}`));
+    console.log(
+      chalk.dim(`📁 Agents installed to: ${path.join(targetDir, "agents")}`),
+    );
     console.log(
       chalk.dim(
         "💡 These enhance Claude Code's ability to work with APEX patterns",
@@ -288,7 +294,7 @@ program
 
       // 3. Ask user which AI platform they're using
       console.log(chalk.bold("\n🤖 AI Platform Selection\n"));
-      
+
       const { platform } = await inquirer.prompt([
         {
           type: "list",
@@ -296,9 +302,12 @@ program
           message: "Which AI assistant are you using?",
           choices: [
             { name: "Claude (claude.ai)", value: "claude" },
-            { name: "Other (ChatGPT, Gemini, local LLMs, etc.)", value: "other" }
-          ]
-        }
+            {
+              name: "Other (ChatGPT, Gemini, local LLMs, etc.)",
+              value: "other",
+            },
+          ],
+        },
       ]);
 
       // 4. Handle platform-specific setup
@@ -307,15 +316,21 @@ program
         await setupClaudeCodeIntegration();
       } else {
         // Generate composed prompts for non-Claude platforms
-        const { generateComposedPrompts } = await import("../prompts/composer.js");
+        const { generateComposedPrompts } = await import(
+          "../prompts/composer.js"
+        );
         await generateComposedPrompts();
-        
-        console.log(chalk.green("\n✅ APEX prompts generated in apex-prompts/\n"));
+
+        console.log(
+          chalk.green("\n✅ APEX prompts generated in apex-prompts/\n"),
+        );
         console.log(chalk.yellow("📋 To use APEX with your AI assistant:"));
         console.log(chalk.dim("   1. Open apex-prompts/execute-task.md"));
         console.log(chalk.dim("   2. Copy the entire content"));
         console.log(chalk.dim("   3. Paste it into your AI assistant"));
-        console.log(chalk.dim("   4. The AI will have access to APEX MCP tools"));
+        console.log(
+          chalk.dim("   4. The AI will have access to APEX MCP tools"),
+        );
       }
 
       // 5. Show MCP info if requested

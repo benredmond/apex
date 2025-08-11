@@ -90,7 +90,9 @@ pattern:
 ## Pattern Categories to Discover
 
 ### 1. Error Handling Patterns
+
 Look for consistent error handling approaches:
+
 - Try-catch structures
 - Error recovery strategies
 - Error logging patterns
@@ -98,26 +100,28 @@ Look for consistent error handling approaches:
 - Error propagation patterns
 
 **Example Discovery**:
+
 ```javascript
 // If you see this pattern 5+ times:
 try {
   const result = await someOperation();
   return { success: true, data: result };
 } catch (error) {
-  logger.error('Operation failed:', error);
+  logger.error("Operation failed:", error);
   return { success: false, error: error.message };
 }
 
 // Extract as:
-pattern:
-  suggested_id: "PAT:ERROR:ASYNC_RESULT_WRAPPER"
-  title: "Async Operation Result Wrapper"
-  problem: "Need consistent success/error response format"
-  solution: "Wrap async operations in try-catch with standard response"
+pattern: suggested_id: "PAT:ERROR:ASYNC_RESULT_WRAPPER";
+title: "Async Operation Result Wrapper";
+problem: "Need consistent success/error response format";
+solution: "Wrap async operations in try-catch with standard response";
 ```
 
 ### 2. API Patterns
+
 Identify consistent API structures:
+
 - Endpoint organization
 - Request validation
 - Response formatting
@@ -125,22 +129,21 @@ Identify consistent API structures:
 - Rate limiting
 
 **Example Discovery**:
+
 ```javascript
 // If multiple endpoints follow this structure:
-router.post('/resource', 
-  authenticate,
-  validate(schema),
-  async (req, res) => {
-    const result = await service.create(req.body);
-    res.json({ success: true, data: result });
-  }
-);
+router.post("/resource", authenticate, validate(schema), async (req, res) => {
+  const result = await service.create(req.body);
+  res.json({ success: true, data: result });
+});
 
 // Extract as reusable pattern
 ```
 
 ### 3. Database Patterns
+
 Find common database operations:
+
 - Query builders
 - Transaction patterns
 - Connection management
@@ -148,7 +151,9 @@ Find common database operations:
 - Caching strategies
 
 ### 4. Testing Patterns
+
 Extract valuable test approaches:
+
 - Test setup/teardown
 - Mock creation
 - Test data builders
@@ -156,7 +161,9 @@ Extract valuable test approaches:
 - Integration test patterns
 
 ### 5. State Management Patterns
+
 Discover state handling approaches:
+
 - Redux patterns
 - Context patterns
 - Local state patterns
@@ -164,7 +171,9 @@ Discover state handling approaches:
 - Synchronization patterns
 
 ### 6. Component Patterns (Frontend)
+
 Find reusable UI patterns:
+
 - Form handling
 - List rendering
 - Modal management
@@ -172,7 +181,9 @@ Find reusable UI patterns:
 - Error boundaries
 
 ### 7. Authentication/Authorization Patterns
+
 Security-related patterns:
+
 - JWT handling
 - Permission checks
 - Role-based access
@@ -180,7 +191,9 @@ Security-related patterns:
 - OAuth flows
 
 ### 8. Performance Patterns
+
 Optimization approaches:
+
 - Caching strategies
 - Lazy loading
 - Debouncing/throttling
@@ -200,16 +213,17 @@ Optimization approaches:
 ### Pattern Quality Score
 
 Calculate quality score (0-1):
+
 ```javascript
 function calculatePatternQuality(pattern) {
   const weights = {
-    frequency: 0.25,      // How often it appears
-    consistency: 0.20,    // How consistently it's used
-    complexity: 0.20,     // Problem complexity
-    reusability: 0.20,   // How reusable it is
-    clarity: 0.15        // How clear the pattern is
+    frequency: 0.25, // How often it appears
+    consistency: 0.2, // How consistently it's used
+    complexity: 0.2, // Problem complexity
+    reusability: 0.2, // How reusable it is
+    clarity: 0.15, // How clear the pattern is
   };
-  
+
   return weighted_sum(pattern_metrics, weights);
 }
 ```
@@ -248,12 +262,12 @@ discovered_patterns:
       frequency: 7
       confidence: 0.85
       category: "error_handling"
-      
+
   - pattern:
       suggested_id: "PAT:API:PAGINATED_LIST"
       title: "Paginated List Endpoint"
       # ... more pattern details
-      
+
 metadata:
   total_files_analyzed: 256
   patterns_discovered: 23
@@ -264,14 +278,15 @@ metadata:
 ## Discovery Strategies
 
 ### Strategy 1: AST-Based Pattern Mining
+
 ```javascript
 function discoverPatternsViaAST(files) {
   const patterns = new Map();
-  
+
   for (const file of files) {
     const ast = parse(file);
     const functions = extractFunctions(ast);
-    
+
     for (const func of functions) {
       const signature = normalizeSignature(func);
       const existing = patterns.get(signature) || [];
@@ -279,55 +294,56 @@ function discoverPatternsViaAST(files) {
       patterns.set(signature, existing);
     }
   }
-  
+
   // Return patterns with 3+ occurrences
   return Array.from(patterns.entries())
     .filter(([_, occurrences]) => occurrences.length >= 3)
     .map(([signature, occurrences]) => ({
       pattern: generalizePattern(signature, occurrences),
       frequency: occurrences.length,
-      examples: occurrences.slice(0, 3)
+      examples: occurrences.slice(0, 3),
     }));
 }
 ```
 
 ### Strategy 2: Diff-Based Pattern Detection
+
 ```javascript
 function discoverPatternsViaDiff(files) {
   const patterns = [];
-  
+
   // Group similar files
   const groups = groupBySimilarity(files);
-  
+
   for (const group of groups) {
     // Find common structures via diff
     const common = findCommonStructures(group);
-    
+
     if (common.length > 0) {
       patterns.push({
         pattern: extractPattern(common),
         frequency: group.length,
-        confidence: calculateSimilarity(common)
+        confidence: calculateSimilarity(common),
       });
     }
   }
-  
+
   return patterns;
 }
 ```
 
 ### Strategy 3: Statistical Pattern Recognition
+
 ```javascript
 function discoverPatternsStatistically(codebase) {
   // Build n-gram model of code structures
   const ngrams = buildNGramModel(codebase);
-  
+
   // Find statistically significant patterns
-  const significant = ngrams.filter(n => 
-    n.frequency > threshold && 
-    n.entropy < maxEntropy
+  const significant = ngrams.filter(
+    (n) => n.frequency > threshold && n.entropy < maxEntropy,
   );
-  
+
   // Convert to reusable patterns
   return significant.map(convertToPattern);
 }

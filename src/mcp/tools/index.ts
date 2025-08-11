@@ -147,7 +147,9 @@ export async function registerTools(server: Server): Promise<void> {
         // Task management tools
         case "apex_task_create":
           if (!taskService) {
-            throw new Error("Task service not initialized. Please ensure APEX MCP server is properly started.");
+            throw new Error(
+              "Task service not initialized. Please ensure APEX MCP server is properly started.",
+            );
           }
           const createResponse = await taskService.create(args);
           return {

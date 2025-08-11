@@ -38,6 +38,7 @@ sqlite3 patterns.db "SELECT COUNT(*) FROM patterns;" 2>/dev/null || echo "Patter
 ```
 
 **If APEX not initialized:**
+
 ```bash
 npx @benredmond/apex init
 ```
@@ -89,7 +90,9 @@ Use the pattern-discovery subagent to discover NEW, reusable patterns from the c
 Analyze the entire codebase to discover NEW, reusable patterns that developers can apply in future work. Look for:
 
 ## 1. Recurring Code Structures
+
 Analyze the codebase for code that appears multiple times with slight variations:
+
 - Similar function structures
 - Repeated error handling approaches
 - Common validation patterns
@@ -98,7 +101,9 @@ Analyze the codebase for code that appears multiple times with slight variations
 - Test setup/teardown patterns
 
 ## 2. Clever Solutions
+
 Identify elegant or clever solutions to common problems:
+
 - Performance optimizations
 - Clean abstractions
 - Elegant error handling
@@ -107,7 +112,9 @@ Identify elegant or clever solutions to common problems:
 - Creative uses of language features
 
 ## 3. Project-Specific Conventions
+
 Find patterns unique to this project that should be followed:
+
 - Custom middleware patterns
 - Project-specific decorators/annotations
 - Unique architectural decisions
@@ -115,7 +122,9 @@ Find patterns unique to this project that should be followed:
 - Consistent approaches to async operations
 
 ## 4. Integration Patterns
+
 Discover how external services/libraries are integrated:
+
 - API client patterns
 - Database connection patterns
 - Third-party service wrappers
@@ -124,7 +133,9 @@ Discover how external services/libraries are integrated:
 - WebSocket/real-time patterns
 
 ## 5. Testing Patterns
+
 Extract valuable testing approaches:
+
 - Mock/stub creation patterns
 - Test data builders
 - Integration test setups
@@ -132,6 +143,7 @@ Extract valuable testing approaches:
 - Performance test patterns
 
 ## Discovery Process:
+
 1. Scan multiple files of the same type (e.g., all controllers, all services)
 2. Identify common structures and approaches
 3. Extract the generalizable pattern
@@ -139,11 +151,12 @@ Extract valuable testing approaches:
 5. Document when and how to use it
 
 ## Output Format:
+
 For each discovered pattern, provide:
 
 ```yaml
 pattern:
-  suggested_id: "PAT:DOMAIN:DESCRIPTIVE_NAME"  # Generate appropriate ID
+  suggested_id: "PAT:DOMAIN:DESCRIPTIVE_NAME" # Generate appropriate ID
   title: "Human-friendly pattern name"
   problem: "What problem does this pattern solve?"
   solution: "How does this pattern solve it?"
@@ -161,24 +174,26 @@ pattern:
     - file: "path/to/example2.js"
       lines: "23-45"
       description: "How it's used for API validation"
-  frequency: 5  # How many times this pattern appears
-  confidence: 0.8  # How confident you are this is a valuable pattern
+  frequency: 5 # How many times this pattern appears
+  confidence: 0.8 # How confident you are this is a valuable pattern
   category: "error_handling|api|database|testing|auth|etc"
 ```
 
 Focus on patterns that:
+
 - Appear at least 3 times in the codebase
 - Solve a real problem
 - Are not obvious/trivial
 - Would save time if reused
 - Represent best practices in this codebase
-</Task>
+  </Task>
 
 ## 4 · Advanced Pattern Discovery
 
 Run multiple specialized discovery agents in parallel:
 
 ### Code Pattern Discovery
+
 <Task subagent_type="pattern-discovery" description="Discover code patterns">
 Focus on discovering patterns in application code:
 - Controller patterns (how endpoints are structured)
@@ -194,6 +209,7 @@ Return discovered patterns in the specified YAML format.
 </Task>
 
 ### Test Pattern Discovery
+
 <Task subagent_type="pattern-discovery" description="Discover test patterns">
 Focus on discovering patterns in test files:
 - Test structure patterns (describe/it organization)
@@ -204,11 +220,12 @@ Focus on discovering patterns in test files:
 - Integration test patterns
 - E2E test patterns
 
-Scan test/, spec/, __tests__/ directories.
+Scan test/, spec/, **tests**/ directories.
 Return discovered patterns in the specified YAML format.
 </Task>
 
 ### Configuration Pattern Discovery
+
 <Task subagent_type="pattern-discovery" description="Discover configuration patterns">
 Focus on discovering patterns in configuration:
 - Environment variable patterns
@@ -237,14 +254,14 @@ function validatePattern(pattern) {
     highConfidence: pattern.confidence >= 0.6,
     hasProblemStatement: pattern.problem?.length > 0,
     hasSolutionDescription: pattern.solution?.length > 0,
-    hasUsageGuidance: pattern.when_to_use?.length > 0
+    hasUsageGuidance: pattern.when_to_use?.length > 0,
   };
-  
+
   const score = Object.values(criteria).filter(Boolean).length;
   return {
     isValid: score >= 5,
     score,
-    criteria
+    criteria,
   };
 }
 
@@ -258,21 +275,21 @@ function enhancePattern(pattern) {
     trust_beta: 1.0,
     usage: {
       successes: 0,
-      failures: 0
+      failures: 0,
     },
     tags: [
-      'discovered',
-      'codebase',
+      "discovered",
+      "codebase",
       pattern.category,
-      new Date().toISOString().split('T')[0] // date tag
+      new Date().toISOString().split("T")[0], // date tag
     ],
     metadata: {
-      discovered_by: 'apex_init',
+      discovered_by: "apex_init",
       discovery_date: new Date().toISOString(),
       codebase_examples: pattern.examples.length,
       frequency_count: pattern.frequency,
-      discovery_confidence: pattern.confidence
-    }
+      discovery_confidence: pattern.confidence,
+    },
   };
 }
 ```
@@ -283,8 +300,8 @@ Use synchronous SQLite operations to insert discovered patterns:
 
 ```javascript
 // [PAT:dA0w9N1I9-4m] ★★☆☆☆ - SQLite operations MUST be synchronous
-const Database = require('better-sqlite3');
-const db = new Database('patterns.db');
+const Database = require("better-sqlite3");
+const db = new Database("patterns.db");
 
 // Prepare insert statement
 const insertPattern = db.prepare(`
@@ -309,43 +326,47 @@ const insertPattern = db.prepare(`
 const insertPatterns = db.transaction((patterns) => {
   for (const pattern of patterns) {
     // Build snippets from implementation
-    const snippets = [{
-      label: pattern.title,
-      language: pattern.implementation.language,
-      code: pattern.implementation.code,
-      children: pattern.examples.map(ex => ({
-        label: ex.description,
+    const snippets = [
+      {
+        label: pattern.title,
         language: pattern.implementation.language,
-        code: `// Example from ${ex.file}:${ex.lines}`,
-        source_ref: {
-          kind: 'git_lines',
-          file: ex.file,
-          sha: 'HEAD',
-          start: parseInt(ex.lines.split('-')[0]),
-          end: parseInt(ex.lines.split('-')[1])
-        }
-      }))
-    }];
-    
+        code: pattern.implementation.code,
+        children: pattern.examples.map((ex) => ({
+          label: ex.description,
+          language: pattern.implementation.language,
+          code: `// Example from ${ex.file}:${ex.lines}`,
+          source_ref: {
+            kind: "git_lines",
+            file: ex.file,
+            sha: "HEAD",
+            start: parseInt(ex.lines.split("-")[0]),
+            end: parseInt(ex.lines.split("-")[1]),
+          },
+        })),
+      },
+    ];
+
     // Extract keywords
     const keywords = [
       ...pattern.title.toLowerCase().split(/\s+/),
       ...pattern.problem.toLowerCase().split(/\s+/),
-      pattern.category
-    ].filter(k => k.length > 2).join(',');
-    
+      pattern.category,
+    ]
+      .filter((k) => k.length > 2)
+      .join(",");
+
     // Determine domain from category
-    const domain = pattern.category || 'general';
-    const technology = pattern.implementation.language || 'multi';
-    
+    const domain = pattern.category || "general";
+    const technology = pattern.implementation.language || "multi";
+
     // Build applicability rules
     const applicability = {
       when_to_use: pattern.when_to_use,
       when_not_to_use: pattern.when_not_to_use,
       frequency: pattern.frequency,
-      confidence: pattern.confidence
+      confidence: pattern.confidence,
     };
-    
+
     insertPattern.run({
       id: pattern.id,
       title: pattern.title,
@@ -362,7 +383,7 @@ const insertPatterns = db.transaction((patterns) => {
       domain: domain,
       technology: technology,
       applicability: JSON.stringify(applicability),
-      metadata: JSON.stringify(pattern.metadata)
+      metadata: JSON.stringify(pattern.metadata),
     });
   }
 });
@@ -371,12 +392,12 @@ const insertPatterns = db.transaction((patterns) => {
 try {
   const validPatterns = discoveredPatterns
     .map(enhancePattern)
-    .filter(p => validatePattern(p).isValid);
-    
+    .filter((p) => validatePattern(p).isValid);
+
   insertPatterns(validPatterns);
   console.log(`✅ Inserted ${validPatterns.length} discovered patterns`);
 } catch (error) {
-  console.error('❌ Database insertion failed:', error);
+  console.error("❌ Database insertion failed:", error);
 }
 ```
 
@@ -388,6 +409,7 @@ After pattern discovery and seeding:
 ## APEX Pattern Discovery Report
 
 ### Discovery Summary
+
 - **Codebase analyzed**: [project name]
 - **Files scanned**: [count]
 - **Patterns discovered**: [count]
@@ -395,6 +417,7 @@ After pattern discovery and seeding:
 - **Patterns inserted**: [count]
 
 ### Discovered Patterns by Category
+
 - Error Handling: [count] patterns
 - API Design: [count] patterns
 - Database: [count] patterns
@@ -404,6 +427,7 @@ After pattern discovery and seeding:
 - Other: [count] patterns
 
 ### High-Value Discoveries (Confidence > 0.8)
+
 1. **[Pattern Title]** (appears [N] times)
    - Problem: [What it solves]
    - Confidence: [score]
@@ -415,15 +439,18 @@ After pattern discovery and seeding:
    - Examples: [list of files]
 
 ### Pattern Statistics
+
 - Average frequency: [X] occurrences per pattern
 - Average confidence: [X]%
 - Most common category: [category]
 - Unique solutions discovered: [count]
 
 ### Notable Discoveries
+
 [Highlight 3-5 most interesting or valuable patterns discovered]
 
 ### Next Steps
+
 1. Review discovered patterns: `apex patterns list --tag discovered`
 2. Test pattern effectiveness in real development
 3. Use `apex reflect` to update trust scores based on usage
@@ -433,64 +460,70 @@ After pattern discovery and seeding:
 ## 8 · Pattern Discovery Strategies
 
 ### Cross-File Analysis
+
 Compare similar files to find patterns:
+
 ```javascript
 // Example: Find common controller patterns
-const controllers = glob.sync('**/*Controller.{js,ts}');
+const controllers = glob.sync("**/*Controller.{js,ts}");
 const patterns = analyzeCommonStructures(controllers);
 ```
 
 ### Statistical Pattern Detection
+
 Use frequency analysis to find patterns:
+
 ```javascript
 function findFrequentPatterns(files) {
   const codeBlocks = {};
-  
+
   for (const file of files) {
     const ast = parseFile(file);
     const structures = extractStructures(ast);
-    
+
     for (const structure of structures) {
       const normalized = normalizeStructure(structure);
       const hash = hashStructure(normalized);
-      
+
       codeBlocks[hash] = codeBlocks[hash] || {
         pattern: normalized,
         files: [],
-        count: 0
+        count: 0,
       };
-      
+
       codeBlocks[hash].files.push(file);
       codeBlocks[hash].count++;
     }
   }
-  
+
   // Return patterns that appear 3+ times
   return Object.values(codeBlocks)
-    .filter(p => p.count >= 3)
+    .filter((p) => p.count >= 3)
     .sort((a, b) => b.count - a.count);
 }
 ```
 
 ### Semantic Pattern Recognition
+
 Look for semantic patterns beyond syntax:
+
 ```javascript
 // Example: Find error handling patterns
 function findErrorPatterns(code) {
   const patterns = [];
-  
+
   // Look for try-catch patterns
   const tryCatchPattern = /try\s*{([^}]+)}\s*catch\s*\(([^)]+)\)\s*{([^}]+)}/g;
-  
+
   // Look for Promise error handling
   const promisePattern = /\.catch\s*\(([^)]+)\s*=>\s*{([^}]+)}/g;
-  
+
   // Look for error middleware
   const middlewarePattern = /\(err,\s*req,\s*res,\s*next\)\s*=>\s*{([^}]+)}/g;
-  
+
   // Extract and generalize patterns
   // ...
-  
+
   return patterns;
 }
 ```
@@ -505,17 +538,17 @@ quality_metrics:
     files_analyzed: 500
     files_with_patterns: 234
     coverage_percentage: 46.8
-  
+
   pattern_quality:
-    high_confidence: 15  # > 0.8
-    medium_confidence: 23  # 0.6-0.8
-    low_confidence: 8  # < 0.6
-  
+    high_confidence: 15 # > 0.8
+    medium_confidence: 23 # 0.6-0.8
+    low_confidence: 8 # < 0.6
+
   pattern_distribution:
-    single_file: 5  # Patterns only in one file (might be too specific)
-    few_files: 18  # 2-5 files
-    many_files: 23  # 6+ files (highly reusable)
-  
+    single_file: 5 # Patterns only in one file (might be too specific)
+    few_files: 18 # 2-5 files
+    many_files: 23 # 6+ files (highly reusable)
+
   code_coverage:
     total_lines: 50000
     lines_in_patterns: 3500
@@ -525,11 +558,18 @@ quality_metrics:
 ## Security and Performance
 
 ### Security Measures
+
 1. **Skip sensitive files**:
+
    ```javascript
    const SKIP_PATTERNS = [
-     /\.env/, /\.key$/, /\.pem$/, /password/i,
-     /secret/i, /credential/i, /private/i
+     /\.env/,
+     /\.key$/,
+     /\.pem$/,
+     /password/i,
+     /secret/i,
+     /credential/i,
+     /private/i,
    ];
    ```
 
@@ -539,6 +579,7 @@ quality_metrics:
    - Skip patterns containing secrets
 
 ### Performance Optimization
+
 1. **Progressive discovery**:
    - Start with most common file types
    - Process in batches of 50 files
@@ -557,6 +598,7 @@ quality_metrics:
 ## Examples of Discoverable Patterns
 
 ### Example 1: API Endpoint Pattern
+
 ```yaml
 pattern:
   suggested_id: "PAT:API:EXPRESS_CRUD"
@@ -578,6 +620,7 @@ pattern:
 ```
 
 ### Example 2: Test Setup Pattern
+
 ```yaml
 pattern:
   suggested_id: "PAT:TEST:INTEGRATION_SETUP"
@@ -590,7 +633,7 @@ pattern:
         await db.transaction.start();
         testContext = await createTestContext();
       });
-      
+
       afterEach(async () => {
         await db.transaction.rollback();
         await testContext.cleanup();

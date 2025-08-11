@@ -5,20 +5,44 @@ import { PatternRepository } from "../../../src/storage/repository.js";
 import { PatternDiscoverer } from "../../../src/mcp/tools/discover.js";
 import type { LookupRequest } from "../../../src/mcp/tools/lookup.js";
 import type { DiscoverRequest } from "../../../src/mcp/tools/discover.js";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe("Pagination Functionality (Task OVPyryTppa-NzUXpo205T)", () => {
-  let db: Database.Database;
   let repository: PatternRepository;
   let lookupService: PatternLookupService;
   let discoverService: PatternDiscoverer;
 
-  beforeEach(() => {
-    // Create in-memory database
-    db = new Database(":memory:");
+  beforeEach(async () => {
+    // Initialize repository with in-memory database
+    repository = new PatternRepository({ dbPath: ":memory:" });
 
-    // Create schema
+    // Get the internal database
+    const db = (repository as any).db.database;
+
+    // Run ALL migrations to create required tables
+    const { MigrationRunner } = await import("../../../src/migrations/migrations/MigrationRunner.js");
+    const { MigrationLoader } = await import("../../../src/migrations/migrations/MigrationLoader.js");
+    
+    const migrationRunner = new MigrationRunner(db);
+    const loader = new MigrationLoader();
+    
+    // Load all migrations
+    const migrationsDir = path.resolve(__dirname, "../../../src/migrations/migrations");
+    const migrations = loader.loadMigrations(migrationsDir);
+    
+    // Run pending migrations
+    const status = migrationRunner.getStatus(migrations);
+    for (const migration of status.pending) {
+      migrationRunner.apply(migration);
+    }
+
+    // Create additional test schema if needed
     db.exec(`
-      CREATE TABLE patterns (
+      CREATE TABLE IF NOT EXISTS patterns (
         id                TEXT PRIMARY KEY,
         schema_version    TEXT NOT NULL DEFAULT '1.0',
         pattern_version   TEXT NOT NULL DEFAULT '1.0',
@@ -119,22 +143,13 @@ describe("Pagination Functionality (Task OVPyryTppa-NzUXpo205T)", () => {
       );
     }
 
-    // Initialize repository with in-memory database
-    repository = new PatternRepository({ dbPath: ":memory:" });
-    
-    // Replace repository's database with our test database
-    const dbField = Object.getOwnPropertyDescriptor(repository, "db");
-    if (dbField && dbField.value) {
-      dbField.value.database = db;
-    }
-
-    // Initialize services
+    // Initialize services with the repository we already created
     lookupService = new PatternLookupService(repository);
     discoverService = new PatternDiscoverer(repository);
   });
 
   afterEach(() => {
-    db.close();
+    // Repository will handle database cleanup
   });
 
   describe("PatternLookupService Pagination", () => {

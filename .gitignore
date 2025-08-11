@@ -40,3 +40,19 @@ logs/
 # Temporary files
 tmp/
 temp/
+TX*.md
+test-*.js
+*.backup
+*.bak
+tsconfig.tsbuildinfo
+
+# Database files
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+:memory:
+
+# Log files
+*.jsonl
+failures.jsonl
