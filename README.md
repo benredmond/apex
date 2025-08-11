@@ -58,12 +58,15 @@ npm install -g @benredmond/apex
 apex start
 ```
 
-### 🛠️ Manual Setup
+### 🛠️ Available Commands (MVP)
 ```bash
-# For complete control
-git clone https://github.com/benredmond/apex
-cp -r apex/templates/.apex your-project/
-cp -r apex/templates/.claude your-project/  # For Claude users
+apex start              # Quick setup (simplified from apex init)
+apex patterns list      # View available patterns
+apex patterns search    # Find patterns by text
+apex tasks list         # View tasks
+apex tasks stats        # Task metrics
+apex doctor             # System health check
+apex mcp install        # Setup MCP integration
 ```
 
 ## Your First APEX Workflow

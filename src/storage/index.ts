@@ -34,9 +34,11 @@ export async function createPatternRepository(options?: {
   patternsDir?: string;
   cacheSize?: number;
   watchDebounce?: number;
+  watch?: boolean;
 }): Promise<PatternRepositoryType> {
   const { PatternRepository } = await import("./repository.js");
   const repository = new PatternRepository(options);
-  await repository.initialize();
+  // By default, don't watch for CLI commands
+  await repository.initialize({ watch: options?.watch ?? false });
   return repository;
 }

@@ -29,7 +29,7 @@ export class PatternWatcher extends EventEmitter {
 
     this.watcher = chokidar.watch(fullPatterns, {
       ignoreInitial: false,
-      persistent: true,
+      persistent: false, // Don't keep process alive
       awaitWriteFinish: {
         stabilityThreshold: 100,
         pollInterval: 100,

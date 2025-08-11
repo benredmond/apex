@@ -54,18 +54,29 @@ export class PatternRepository {
   /**
    * Initialize repository and start watching
    */
-  public async initialize(): Promise<void> {
+  public async initialize(options: { watch?: boolean } = {}): Promise<void> {
     // Ensure patterns directory exists
     await fs.ensureDir(this.patternsDir);
 
-    // Start watching for changes
-    this.watcher.start();
-    this.isWatching = true;
+    // Only start watching if explicitly requested
+    // For CLI commands, we typically don't need watching
+    if (options.watch) {
+      // Start watching for changes
+      this.watcher.start();
+      this.isWatching = true;
 
-    // Wait for initial scan to complete
-    await new Promise((resolve) => {
-      this.watcher.once("ready", resolve);
-    });
+      // Wait for initial scan to complete with timeout
+      await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve(undefined);
+        }, 1000); // 1 second timeout
+
+        this.watcher.once("ready", () => {
+          clearTimeout(timeout);
+          resolve(undefined);
+        });
+      });
+    }
   }
 
   /**

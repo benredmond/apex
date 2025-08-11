@@ -17,13 +17,10 @@ import {
 } from "./shared/validators.js";
 import { PerformanceTimer, withProgress } from "./shared/progress.js";
 
-let repository: PatternRepository | null = null;
-
+// Create a new repository instance for each command
+// This ensures proper cleanup after command execution
 async function getRepository(): Promise<PatternRepository> {
-  if (!repository) {
-    repository = await createPatternRepository();
-  }
-  return repository;
+  return await createPatternRepository();
 }
 
 export function createPatternsCommand(): Command {
@@ -175,9 +172,7 @@ export function createPatternsCommand(): Command {
         console.error(chalk.red("Benchmark failed:"), error);
         process.exit(1);
       } finally {
-        if (repository) {
-          await repository.shutdown();
-        }
+        // Repository cleanup handled in each command
       }
     });
 
@@ -206,6 +201,9 @@ export function createPatternsCommand(): Command {
           );
           console.log();
         }
+
+        // Clean shutdown
+        await repo.shutdown();
       } catch (error) {
         console.error(chalk.red("Search failed:"), error);
         process.exit(1);
@@ -227,6 +225,9 @@ export function createPatternsCommand(): Command {
 
         console.log(chalk.bold("\nPattern Details:\n"));
         console.log(JSON.stringify(pattern, null, 2));
+
+        // Clean shutdown
+        await repo.shutdown();
       } catch (error) {
         console.error(chalk.red("Get failed:"), error);
         process.exit(1);
@@ -291,6 +292,9 @@ export function createPatternsCommand(): Command {
             ),
           );
         }
+
+        // Clean shutdown
+        await repo.shutdown();
       } catch (error) {
         console.error(
           chalk.red("Error:"),
@@ -572,9 +576,4 @@ export function createPatternsCommand(): Command {
   return patterns;
 }
 
-// Clean up on exit
-process.on("exit", async () => {
-  if (repository) {
-    await repository.shutdown();
-  }
-});
+// No cleanup needed - each command handles its own repository lifecycle

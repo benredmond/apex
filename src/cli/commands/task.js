@@ -18,8 +18,9 @@ import { PerformanceTimer } from "../../../dist/cli/commands/shared/progress.js"
 let repository = null;
 async function getRepository() {
   if (!repository) {
-    const database = new PatternDatabase();
-    repository = new TaskRepository(database.db);
+    // Use the main patterns.db file in project root
+    const database = new PatternDatabase("patterns.db");
+    repository = new TaskRepository(database.database); // Use the getter
   }
   return repository;
 }

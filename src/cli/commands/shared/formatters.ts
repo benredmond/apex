@@ -106,18 +106,16 @@ export class TableFormatter implements Formatter {
   private formatPatternTable(patterns: any[]): string {
     const table = new (Table as any)({
       head: [
-        chalk.cyan("ID"),
-        chalk.cyan("Title"),
-        chalk.cyan("Trust"),
-        chalk.cyan("Uses"),
-        chalk.cyan("Success"),
-        chalk.cyan("Type"),
+        chalk.cyan("Pattern"),
+        chalk.cyan("Trust & Usage"),
+        chalk.cyan("Description"),
+        chalk.cyan("Last Used"),
       ],
       style: {
         head: [],
         border: [],
       },
-      colWidths: [30, 40, 10, 8, 10, 15],
+      colWidths: [35, 25, 45, 20],
     });
 
     for (const pattern of patterns) {
@@ -127,20 +125,78 @@ export class TableFormatter implements Formatter {
       const success = pattern.success_rate
         ? `${Math.round(pattern.success_rate * 100)}%`
         : "-";
-      const type = pattern.type || "-";
+      const type = pattern.type || "PATTERN";
       const title = pattern.title || pattern.summary || "-";
+      const lastUsed = pattern.last_used
+        ? this.formatRelativeTime(new Date(pattern.last_used))
+        : "Never";
 
-      table.push([
-        chalk.yellow(id),
-        title.length > 37 ? title.substring(0, 37) + "..." : title,
-        trust,
-        uses.toString(),
-        success,
-        chalk.gray(type),
-      ]);
+      // Add emoji based on pattern type
+      const emoji = this.getPatternEmoji(id, type);
+
+      // Format the pattern ID with emoji
+      const formattedId = `${emoji} ${chalk.yellow(id)}`;
+
+      // Format trust and usage info
+      const trustInfo = `${trust}\n${chalk.dim(`${uses} uses, ${success} success`)}`;
+
+      // Format description with wrapping for long text
+      const description =
+        title.length > 42 ? title.substring(0, 42) + "..." : title;
+
+      table.push([formattedId, trustInfo, description, chalk.dim(lastUsed)]);
     }
 
     return table.toString();
+  }
+
+  /**
+   * Get emoji for pattern type
+   */
+  private getPatternEmoji(id: string, type: string): string {
+    // Check pattern ID prefixes first
+    if (id.startsWith("FIX:")) return "🔧";
+    if (id.startsWith("PAT:")) return "📋";
+    if (id.startsWith("ANTI:")) return "⚠️";
+    if (id.startsWith("CODE:")) return "💻";
+    if (id.startsWith("TEST:")) return "🧪";
+    if (id.startsWith("ARCH:")) return "🏗️";
+
+    // Fallback to type-based emojis
+    switch (type.toUpperCase()) {
+      case "FIX":
+        return "🔧";
+      case "PATTERN":
+        return "📋";
+      case "ANTI":
+        return "⚠️";
+      case "CODE":
+        return "💻";
+      case "TEST":
+        return "🧪";
+      case "ARCHITECTURE":
+        return "🏗️";
+      default:
+        return "📝";
+    }
+  }
+
+  /**
+   * Format relative time for display
+   */
+  private formatRelativeTime(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+    return `${Math.floor(diffDays / 30)}mo ago`;
   }
 
   /**

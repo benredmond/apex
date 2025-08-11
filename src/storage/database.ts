@@ -6,6 +6,7 @@ import fs from "fs-extra";
 import type { Pattern, Migration } from "./types.js";
 // [PAT:IMPORT:ESM] ★★★★☆ (67 uses, 89% success) - From cache
 import { DATABASE_SCHEMA_VERSION } from "../config/constants.js";
+import { ApexConfig } from "../config/apex-config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,11 +20,16 @@ export class PatternDatabase {
     return this.db;
   }
 
-  constructor(dbPath: string = ".apex/patterns.db") {
-    // Ensure directory exists
-    fs.ensureDirSync(path.dirname(dbPath));
+  constructor(dbPath: string = ApexConfig.DB_PATH) {
+    // Use centralized config for database path
+    const fullPath = path.isAbsolute(dbPath)
+      ? dbPath
+      : path.join(process.cwd(), dbPath);
 
-    this.db = new Database(dbPath);
+    // Ensure directory exists
+    fs.ensureDirSync(path.dirname(fullPath));
+
+    this.db = new Database(fullPath);
 
     // Enable WAL mode for better concurrency
     this.db.pragma("journal_mode = WAL");
