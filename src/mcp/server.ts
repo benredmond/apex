@@ -67,10 +67,27 @@ export class ApexMCPServer {
    */
   private async initializePatternSystem(): Promise<void> {
     try {
-      // Use the actual patterns database
-      const dbPath = process.env.APEX_PATTERNS_DB || "patterns.db";
-      // Silent operation for MCP protocol
-      // console.error(`[APEX MCP] Using database: ${dbPath}`);
+      // Use patterns database - prefer env var, otherwise use local .apex directory
+      let dbPath = process.env.APEX_PATTERNS_DB;
+      
+      if (!dbPath) {
+        // Default to ./.apex/patterns.db for project-specific patterns
+        const path = await import('path');
+        const apexDir = path.join(process.cwd(), '.apex');
+        dbPath = path.join(apexDir, 'patterns.db');
+        
+        // Ensure the .apex directory exists
+        const fs = await import('fs');
+        if (!fs.existsSync(apexDir)) {
+          fs.mkdirSync(apexDir, { recursive: true });
+        }
+      }
+      
+      // Log current working directory for debugging (only if debug env var is set)
+      if (process.env.APEX_DEBUG) {
+        console.error(`[APEX MCP] Current directory: ${process.cwd()}`);
+        console.error(`[APEX MCP] Using database: ${dbPath}`);
+      }
 
       // Create repository with actual database
       this.repository = new PatternRepository({ dbPath });
@@ -79,13 +96,35 @@ export class ApexMCPServer {
       await this.repository.initialize();
       // console.error(`[APEX MCP] Repository initialized`);
 
-      // Initialize tools with repository and shared database instance
+      // Get the database instance
       const sharedDb = this.repository.getDatabase();
+      
+      // Run migrations to ensure all tables exist (including tasks)
+      try {
+        const { MigrationRunner } = await import('../migrations/MigrationRunner.js');
+        const { MigrationLoader } = await import('../migrations/MigrationLoader.js');
+        
+        const runner = new MigrationRunner(sharedDb);
+        const loader = new MigrationLoader();
+        const migrations = await loader.loadMigrations();
+        
+        // Run any pending migrations
+        await runner.runMigrations(migrations);
+        if (process.env.APEX_DEBUG) {
+          console.error(`[APEX MCP] Database migrations completed`);
+        }
+      } catch (migrationError) {
+        console.error(`[APEX MCP] Warning: Failed to run migrations:`, migrationError);
+        // Continue anyway - some features may not work
+      }
+
+      // Initialize tools with repository and shared database instance
       initializeTools(this.repository, sharedDb);
       // console.error(`[APEX MCP] Tools initialized`);
     } catch (error) {
-      // Only log critical errors to stderr
-      // console.error("[APEX MCP] Failed to initialize pattern system:", error);
+      // Re-throw the error so it can be properly handled
+      // The silent failure was causing the "Task service not initialized" error
+      throw new Error(`Failed to initialize pattern system: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -190,15 +229,22 @@ export class ApexMCPServer {
    * Start the server with stdio transport
    */
   async startStdio(): Promise<void> {
-    // Initialize pattern system before starting
-    await this.initializePatternSystem();
+    try {
+      // Initialize pattern system before starting
+      await this.initializePatternSystem();
+    } catch (error) {
+      // Log error to stderr for debugging but don't crash
+      // This allows the MCP server to start even if the database has issues
+      console.error("[APEX MCP] Warning: Pattern system initialization failed:", error);
+      console.error("[APEX MCP] Some features may be unavailable");
+    }
 
     // Register tool implementations after initialization
     try {
       await registerTools(this.server);
       // console.error("[APEX MCP] Tools registered successfully");
     } catch (error) {
-      // console.error("[APEX MCP] Failed to register tools:", error);
+      console.error("[APEX MCP] Failed to register tools:", error);
       throw error;
     }
 
