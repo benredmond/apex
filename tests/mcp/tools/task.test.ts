@@ -29,49 +29,56 @@ describe("Task MCP Tools", () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "apex-task-test-"));
     db = new Database(path.join(tempDir, "test.db"));
 
-    // Run migrations to create tables
-    const migration006 = await import("../../../src/migrations/migrations/006-add-task-system-schema.js");
-    const migration007 = await import("../../../src/migrations/migrations/007-add-evidence-log-table.js");
-    const migration010 = await import("../../../src/migrations/migrations/010-add-task-tags.js");
-    
-    // Run the migrations in order
-    try {
-      migration006.migration.up(db);
-    } catch (error) {
-      // Ignore if table already exists
-    }
-    
-    try {
-      migration007.migration.up(db);
-    } catch (error) {
-      // Ignore if table already exists
-    }
-    
-    try {
-      migration010.migration.up(db);
-    } catch (error) {
-      // Ignore if column already exists
-    }
-    // Create minimal patterns table for BriefGenerator
+    // FIRST: Create base patterns table with all columns (BEFORE migrations)
     db.exec(`
       CREATE TABLE IF NOT EXISTS patterns (
         id TEXT PRIMARY KEY,
+        schema_version TEXT NOT NULL DEFAULT '1.0',
+        pattern_version TEXT NOT NULL DEFAULT '1.0',
+        type TEXT NOT NULL,
         title TEXT,
         summary TEXT,
-        category TEXT,
-        type TEXT,
         trust_score REAL DEFAULT 0.5,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        pattern_digest TEXT,
+        json_canonical TEXT,
+        alpha REAL DEFAULT 1.0,
+        beta REAL DEFAULT 1.0,
         usage_count INTEGER DEFAULT 0,
         success_count INTEGER DEFAULT 0,
         failure_count INTEGER DEFAULT 0,
-        last_used TEXT,
-        snippets TEXT,
-        search_text TEXT,
+        key_insight TEXT,
+        when_to_use TEXT,
+        common_pitfalls TEXT,
         tags TEXT,
-        relationships TEXT,
-        alias TEXT
+        search_index TEXT,
+        status TEXT DEFAULT 'active',
+        category TEXT,
+        last_used TEXT
       );
     `);
+    
+    // Run migrations using the standard pattern
+    const { MigrationRunner } = await import("../../../src/migrations/MigrationRunner.js");
+    const { MigrationLoader } = await import("../../../src/migrations/MigrationLoader.js");
+    
+    const migrationRunner = new MigrationRunner(db);
+    const loader = new MigrationLoader(path.resolve(__dirname, "../../../src/migrations"));
+    const migrations = await loader.loadMigrations();
+    
+    // Skip problematic migrations that expect existing data
+    const migrationsToRun = migrations.filter(m => 
+      !['011-migrate-pattern-tags-to-json', '012-rename-tags-csv-column', '014-populate-pattern-tags'].includes(m.id)
+    );
+    
+    try {
+      await migrationRunner.runMigrations(migrationsToRun);
+    } catch (error) {
+      console.error('Migration error:', error);
+      // Continue despite migration errors
+    }
+    // Additional tables for tests - none needed as patterns table is complete
 
     // Initialize repository and service
     repository = new TaskRepository(db);

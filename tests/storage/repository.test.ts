@@ -3,10 +3,15 @@ import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals
 import path from "path";
 import fs from "fs-extra";
 import os from "os";
+import { fileURLToPath } from "url";
 import {
   PatternRepository,
   createPatternRepository,
 } from "../../src/storage/index.js";
+
+// ES module __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe("PatternRepository", () => {
   let tempDir: string;
@@ -24,16 +29,50 @@ describe("PatternRepository", () => {
       watchDebounce: 50, // Faster for tests
     });
     
-    // Run migrations to create metadata tables - but do this BEFORE using the repo
+    // Get the internal database
     const db = (repository as any).db.database;
     
-    // Only run the metadata migrations that add tables
-    try {
-      const migration002 = await import("../../src/migrations/migrations/002-pattern-metadata-enrichment.js");
-      migration002.migration.up(db);
-    } catch (e) {
-      // Ignore if already exists
-    }
+    // FIRST: Create base patterns table (BEFORE migrations)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS patterns (
+        id                TEXT PRIMARY KEY,
+        schema_version    TEXT NOT NULL DEFAULT '1.0',
+        pattern_version   TEXT NOT NULL DEFAULT '1.0',
+        type              TEXT NOT NULL,
+        title             TEXT,
+        summary           TEXT,
+        trust_score       REAL DEFAULT 0.5,
+        created_at        TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at        TEXT DEFAULT CURRENT_TIMESTAMP,
+        pattern_digest    TEXT,
+        json_canonical    TEXT,
+        alpha             REAL DEFAULT 1.0,
+        beta              REAL DEFAULT 1.0,
+        usage_count       INTEGER DEFAULT 0,
+        success_count     INTEGER DEFAULT 0,
+        key_insight       TEXT,
+        when_to_use       TEXT,
+        common_pitfalls   TEXT,
+        tags              TEXT,
+        search_index      TEXT,
+        status            TEXT DEFAULT 'active'
+      );
+    `);
+    
+    // THEN: Run migrations (with problematic ones skipped)
+    const { MigrationRunner } = await import("../../src/migrations/MigrationRunner.js");
+    const { MigrationLoader } = await import("../../src/migrations/MigrationLoader.js");
+    
+    const migrationRunner = new MigrationRunner(db);
+    const loader = new MigrationLoader(path.resolve(__dirname, "../../src/migrations"));
+    const migrations = await loader.loadMigrations();
+    
+    // Skip problematic migrations that expect existing data
+    const migrationsToRun = migrations.filter(m => 
+      !['011-migrate-pattern-tags-to-json', '012-rename-tags-csv-column', '014-populate-pattern-tags'].includes(m.id)
+    );
+    
+    await migrationRunner.runMigrations(migrationsToRun);
   });
 
   afterEach(async () => {
