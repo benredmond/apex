@@ -6,6 +6,7 @@ import { PatternDatabase } from "./database.js";
 import { PatternCache } from "./cache.js";
 import { PatternLoader } from "./loader.js";
 import { PatternWatcher } from "./watcher.js";
+import { ApexConfig } from "../config/apex-config.js";
 import type {
   Pattern,
   LookupQuery,
@@ -27,17 +28,23 @@ export class PatternRepository {
   private watcher: PatternWatcher;
   private patternsDir: string;
   private isWatching: boolean = false;
+  private isInitialized: boolean = false;
 
   constructor(
     options: {
       dbPath?: string;
+      fallbackPath?: string;
       patternsDir?: string;
       cacheSize?: number;
       watchDebounce?: number;
+      enableFallback?: boolean;
     } = {},
   ) {
     this.patternsDir = options.patternsDir || ".apex/patterns";
-    this.db = new PatternDatabase(options.dbPath);
+    this.db = new PatternDatabase(options.dbPath, {
+      fallbackPath: options.fallbackPath,
+      enableFallback: options.enableFallback,
+    });
     this.cache = new PatternCache(options.cacheSize);
     this.loader = new PatternLoader();
     this.watcher = new PatternWatcher(this.patternsDir, options.watchDebounce);
@@ -49,6 +56,36 @@ export class PatternRepository {
     this.watcher.on("error", (error: Error) =>
       console.error("Watcher error:", error),
     );
+  }
+
+  /**
+   * Create a repository with project-specific database paths
+   */
+  static async createWithProjectPaths(
+    options: {
+      cacheSize?: number;
+      watchDebounce?: number;
+      enableFallback?: boolean;
+    } = {},
+  ): Promise<PatternRepository> {
+    // Get project-specific and global paths
+    const projectDbPath = await ApexConfig.getProjectDbPath();
+    const globalDbPath = await ApexConfig.getGlobalDbPath();
+
+    // Ensure directories exist
+    ApexConfig.ensureDbDirectory(projectDbPath);
+    if (options.enableFallback !== false) {
+      ApexConfig.ensureDbDirectory(globalDbPath);
+    }
+
+    // Create repository with project-specific configuration
+    return new PatternRepository({
+      dbPath: projectDbPath,
+      fallbackPath: options.enableFallback !== false ? globalDbPath : undefined,
+      cacheSize: options.cacheSize,
+      watchDebounce: options.watchDebounce,
+      enableFallback: options.enableFallback,
+    });
   }
 
   /**

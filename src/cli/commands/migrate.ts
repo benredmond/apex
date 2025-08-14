@@ -10,6 +10,7 @@ import {
   MigrationValidator,
 } from "../../migrations/index.js";
 import type { MigrationVersion } from "../../migrations/types.js";
+import { ApexConfig } from "../../config/apex-config.js";
 
 export function createMigrateCommand(): Command {
   const migrate = new Command("migrate").description(
@@ -23,7 +24,8 @@ export function createMigrateCommand(): Command {
       const spinner = ora("Checking migration status...").start();
 
       try {
-        const db = new Database("patterns.db");
+        const dbPath = await ApexConfig.getProjectDbPath();
+        const db = new Database(dbPath);
         const loader = new MigrationLoader();
         const runner = new MigrationRunner(db);
 
@@ -81,7 +83,8 @@ export function createMigrateCommand(): Command {
       const spinner = ora("Loading migrations...").start();
 
       try {
-        const db = new Database("patterns.db");
+        const dbPath = await ApexConfig.getProjectDbPath();
+        const db = new Database(dbPath);
         const loader = new MigrationLoader();
         const runner = new MigrationRunner(db);
 
@@ -131,7 +134,8 @@ export function createMigrateCommand(): Command {
           throw new Error("Count must be a positive number");
         }
 
-        const db = new Database("patterns.db");
+        const dbPath = await ApexConfig.getProjectDbPath();
+        const db = new Database(dbPath);
         const loader = new MigrationLoader();
         const runner = new MigrationRunner(db);
 
@@ -196,7 +200,8 @@ export function createMigrateCommand(): Command {
       const spinner = ora("Validating migrations...").start();
 
       try {
-        const db = new Database("patterns.db");
+        const dbPath = await ApexConfig.getProjectDbPath();
+        const db = new Database(dbPath);
         const loader = new MigrationLoader();
         const validator = new MigrationValidator(db);
 
