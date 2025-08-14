@@ -43,7 +43,7 @@
     "mcp:server": "node src/mcp/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^0.6.1",
+    "@modelcontextprotocol/sdk": "^1.17.3",
     "better-sqlite3": "^12.2.0",
     "chalk": "^5.3.0",
     "chokidar": "^3.6.0",
