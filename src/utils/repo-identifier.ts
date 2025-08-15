@@ -3,7 +3,7 @@
  * Generates unique, stable identifiers for projects
  */
 
-import { execSync } from "child_process";
+import { spawn } from "child_process";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
@@ -40,18 +40,38 @@ export class RepoIdentifier {
 
   /**
    * Get git remote URL if available
+   * Uses spawn for safe command execution (PAT:SECURITY:SPAWN)
    */
   private static async getGitRemoteUrl(): Promise<string | null> {
-    try {
-      const remoteUrl = execSync("git config --get remote.origin.url", {
-        encoding: "utf8",
-        stdio: ["pipe", "pipe", "ignore"],
-      }).trim();
+    return new Promise((resolve) => {
+      const git = spawn("git", ["config", "--get", "remote.origin.url"], {
+        cwd: process.cwd(),
+      });
 
-      return remoteUrl || null;
-    } catch {
-      return null;
-    }
+      let stdout = "";
+      let stderr = "";
+
+      git.stdout?.on("data", (data) => {
+        stdout += data.toString();
+      });
+
+      git.stderr?.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      git.on("close", (code) => {
+        if (code === 0 && stdout.trim()) {
+          resolve(stdout.trim());
+        } else {
+          resolve(null);
+        }
+      });
+
+      git.on("error", () => {
+        // Git not available or other spawn error
+        resolve(null);
+      });
+    });
   }
 
   /**

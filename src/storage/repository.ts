@@ -420,8 +420,10 @@ export class PatternRepository {
     let rows: any[] = [];
     try {
       // [FIX:ASYNC:SYNC] ★★★★★ - SQLite operations are synchronous
-      const stmt = this.db.prepare(sql);
-      rows = stmt.all(...params) as any[];
+      // Use fallback query if available
+      rows = this.db.hasFallback()
+        ? this.db.queryWithFallback(sql, params)
+        : (this.db.prepare(sql).all(...params) as any[]);
     } catch (error) {
       console.error("[ERROR] FTS5 search failed:", error);
       console.error("[ERROR] Query:", { task: ftsQuery, type, tags });
@@ -499,8 +501,10 @@ export class PatternRepository {
 
     // Build query
     let sql = this.buildLookupQuery(queryFacets);
-    const stmt = this.db.prepare(sql);
-    const rows = stmt.all() as any[];
+    // Use fallback query if available
+    const rows = this.db.hasFallback()
+      ? this.db.queryWithFallback(sql, [])
+      : (this.db.prepare(sql).all() as any[]);
 
     // Cache results
     const patternIds = rows.map((r) => r.id);

@@ -73,7 +73,9 @@ export class ApexMCPServer {
       // Try to migrate legacy database if needed
       const migrated = await ApexConfig.migrateLegacyDatabase();
       if (migrated && process.env.APEX_DEBUG) {
-        console.error(`[APEX MCP] Migrated legacy database to project-specific location`);
+        console.error(
+          `[APEX MCP] Migrated legacy database to project-specific location`,
+        );
       }
 
       // Log current working directory for debugging (only if debug env var is set)

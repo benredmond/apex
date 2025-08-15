@@ -1,6 +1,6 @@
 /**
  * Subagent Definitions for Non-Claude Platforms
- * 
+ *
  * These are the EXACT implementations of each subagent type,
  * to be inlined when generating prompts for non-Claude platforms.
  */
@@ -300,6 +300,6 @@ Execute documentation tasks:
    - Set appropriate priority
 
 Update TASK_LEARNINGS.md and failures.jsonl with findings.
-Create follow-up tasks as needed.`
+Create follow-up tasks as needed.`,
   };
 }

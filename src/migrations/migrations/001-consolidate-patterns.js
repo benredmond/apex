@@ -31,7 +31,7 @@ export const migration = {
         );
       }
       if (!columns.includes("status")) {
-        db.exec("ALTER TABLE patterns ADD COLUMN status TEXT DEFAULT \"active\"");
+        db.exec('ALTER TABLE patterns ADD COLUMN status TEXT DEFAULT "active"');
       }
       // 2. Get all drafts
       const drafts = db

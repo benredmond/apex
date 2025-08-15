@@ -37,20 +37,20 @@ export function createDoctorCommand() {
         let icon, color;
 
         switch (check.status) {
-        case "pass":
-          icon = "✅";
-          color = chalk.green;
-          break;
-        case "warn":
-          icon = "⚠️";
-          color = chalk.yellow;
-          hasWarnings = true;
-          break;
-        case "fail":
-          icon = "❌";
-          color = chalk.red;
-          hasFailures = true;
-          break;
+          case "pass":
+            icon = "✅";
+            color = chalk.green;
+            break;
+          case "warn":
+            icon = "⚠️";
+            color = chalk.yellow;
+            hasWarnings = true;
+            break;
+          case "fail":
+            icon = "❌";
+            color = chalk.red;
+            hasFailures = true;
+            break;
         }
 
         let output = `${icon} ${chalk.bold(check.name)}: ${color(check.message)}`;
