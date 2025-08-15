@@ -67,30 +67,29 @@ export class ApexMCPServer {
    */
   private async initializePatternSystem(): Promise<void> {
     try {
-      // Use patterns database - prefer env var, otherwise use local .apex directory
-      let dbPath = process.env.APEX_PATTERNS_DB;
+      // Import required modules
+      const { ApexConfig } = await import("../config/apex-config.js");
 
-      if (!dbPath) {
-        // Default to ./.apex/patterns.db for project-specific patterns
-        const path = await import("path");
-        const apexDir = path.join(process.cwd(), ".apex");
-        dbPath = path.join(apexDir, "patterns.db");
-
-        // Ensure the .apex directory exists
-        const fs = await import("fs");
-        if (!fs.existsSync(apexDir)) {
-          fs.mkdirSync(apexDir, { recursive: true });
-        }
+      // Try to migrate legacy database if needed
+      const migrated = await ApexConfig.migrateLegacyDatabase();
+      if (migrated && process.env.APEX_DEBUG) {
+        console.error(`[APEX MCP] Migrated legacy database to project-specific location`);
       }
 
       // Log current working directory for debugging (only if debug env var is set)
       if (process.env.APEX_DEBUG) {
+        const dbPath = await ApexConfig.getProjectDbPath();
+        const globalDbPath = await ApexConfig.getGlobalDbPath();
         console.error(`[APEX MCP] Current directory: ${process.cwd()}`);
-        console.error(`[APEX MCP] Using database: ${dbPath}`);
+        console.error(`[APEX MCP] Using project database: ${dbPath}`);
+        console.error(`[APEX MCP] Using global fallback: ${globalDbPath}`);
       }
 
-      // Create repository with actual database
-      this.repository = new PatternRepository({ dbPath });
+      // Create repository with project-specific paths
+      // This factory method handles all path resolution and fallback setup
+      this.repository = await PatternRepository.createWithProjectPaths({
+        enableFallback: true,
+      });
 
       // Initialize the repository (loads patterns)
       await this.repository.initialize();

@@ -138,14 +138,16 @@ export class PatternExplainer {
   constructor(repository: PatternRepository) {
     this.repository = repository;
 
+    // Get database instance from repository instead of creating new one
+    // This ensures we use the same project-specific database
+    this.db = repository.getDatabase();
+
     // Initialize trust model with storage adapter
-    const storageAdapter = new JSONStorageAdapter("patterns.db");
+    // The adapter will use the default metadata file location
+    const storageAdapter = new JSONStorageAdapter();
     this.trustModel = new BetaBernoulliTrustModel(storageAdapter);
 
     this.cache = new ExplanationCache();
-
-    // [FIX:SQLITE:SYNC] ★☆☆☆☆ (2 uses, 100% success) - Initialize database for metadata queries
-    this.db = new Database("patterns.db");
   }
 
   async explain(request: ExplainRequest): Promise<ExplainResponse> {

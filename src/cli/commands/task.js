@@ -18,8 +18,10 @@ import { PerformanceTimer } from "../../../dist/cli/commands/shared/progress.js"
 let repository = null;
 async function getRepository() {
   if (!repository) {
-    // Use the main patterns.db file in project root
-    const database = new PatternDatabase("patterns.db");
+    // Use centralized config for database path
+    const { ApexConfig } = await import("../../config/apex-config.js");
+    const dbPath = await ApexConfig.getProjectDbPath();
+    const database = new PatternDatabase(dbPath);
     repository = new TaskRepository(database.database); // Use the getter
   }
   return repository;

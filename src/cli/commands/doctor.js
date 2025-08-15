@@ -37,20 +37,20 @@ export function createDoctorCommand() {
         let icon, color;
 
         switch (check.status) {
-          case "pass":
-            icon = "✅";
-            color = chalk.green;
-            break;
-          case "warn":
-            icon = "⚠️";
-            color = chalk.yellow;
-            hasWarnings = true;
-            break;
-          case "fail":
-            icon = "❌";
-            color = chalk.red;
-            hasFailures = true;
-            break;
+        case "pass":
+          icon = "✅";
+          color = chalk.green;
+          break;
+        case "warn":
+          icon = "⚠️";
+          color = chalk.yellow;
+          hasWarnings = true;
+          break;
+        case "fail":
+          icon = "❌";
+          color = chalk.red;
+          hasFailures = true;
+          break;
         }
 
         let output = `${icon} ${chalk.bold(check.name)}: ${color(check.message)}`;
@@ -104,7 +104,9 @@ export function createDoctorCommand() {
  */
 async function checkDatabase() {
   try {
-    const dbPath = path.join(process.cwd(), ".apex", "patterns.db");
+    // Use centralized config for database path
+    const { ApexConfig } = await import("../../config/apex-config.js");
+    const dbPath = await ApexConfig.getProjectDbPath();
 
     if (!fs.existsSync(dbPath)) {
       return {
@@ -235,7 +237,9 @@ async function checkMcpServer() {
  */
 async function checkPatternPerformance() {
   try {
-    const dbPath = path.join(process.cwd(), ".apex", "patterns.db");
+    // Use centralized config for database path
+    const { ApexConfig } = await import("../../config/apex-config.js");
+    const dbPath = await ApexConfig.getProjectDbPath();
 
     if (!fs.existsSync(dbPath)) {
       return {
@@ -307,7 +311,9 @@ async function checkPatternPerformance() {
  */
 async function checkRepositoryHealth() {
   try {
-    const dbPath = path.join(process.cwd(), ".apex", "patterns.db");
+    // Use centralized config for database path
+    const { ApexConfig } = await import("../../config/apex-config.js");
+    const dbPath = await ApexConfig.getProjectDbPath();
 
     if (!fs.existsSync(dbPath)) {
       return {

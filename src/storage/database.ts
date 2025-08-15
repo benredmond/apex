@@ -13,14 +13,32 @@ const __dirname = path.dirname(__filename);
 
 export class PatternDatabase {
   private db: Database.Database;
+  private fallbackDb?: Database.Database;
   private statements: Map<string, Database.Statement> = new Map();
+  private fallbackStatements: Map<string, Database.Statement> = new Map();
 
   // Getter for database instance (needed for migrations)
   get database(): Database.Database {
     return this.db;
   }
 
-  constructor(dbPath: string = ApexConfig.DB_PATH) {
+  // Getter for fallback database instance
+  get fallbackDatabase(): Database.Database | undefined {
+    return this.fallbackDb;
+  }
+
+  // Check if fallback database is available
+  hasFallback(): boolean {
+    return this.fallbackDb !== undefined;
+  }
+
+  constructor(
+    dbPath: string = ApexConfig.DB_PATH,
+    options?: {
+      fallbackPath?: string;
+      enableFallback?: boolean;
+    },
+  ) {
     // Use centralized config for database path
     const fullPath = path.isAbsolute(dbPath)
       ? dbPath
@@ -30,6 +48,27 @@ export class PatternDatabase {
     fs.ensureDirSync(path.dirname(fullPath));
 
     this.db = new Database(fullPath);
+
+    // Initialize fallback database if path provided
+    if (options?.fallbackPath && options?.enableFallback !== false) {
+      try {
+        const fallbackFullPath = path.isAbsolute(options.fallbackPath)
+          ? options.fallbackPath
+          : path.join(process.cwd(), options.fallbackPath);
+
+        // Only use fallback if it exists (don't create it)
+        if (fs.existsSync(fallbackFullPath)) {
+          this.fallbackDb = new Database(fallbackFullPath, { readonly: true });
+          this.initializeFallbackDb();
+        }
+      } catch (error) {
+        // Fallback database is optional, so we can continue without it
+        console.error(
+          "Warning: Could not initialize fallback database:",
+          error,
+        );
+      }
+    }
 
     // Enable WAL mode for better concurrency
     this.db.pragma("journal_mode = WAL");
@@ -205,6 +244,19 @@ export class PatternDatabase {
     this.createIndices();
   }
 
+  private initializeFallbackDb(): void {
+    if (!this.fallbackDb) return;
+
+    // Set read-only pragmas for performance
+    this.fallbackDb.pragma("journal_mode = WAL");
+    this.fallbackDb.pragma("synchronous = NORMAL");
+    this.fallbackDb.pragma("temp_store = MEMORY");
+    this.fallbackDb.pragma("read_uncommitted = 1");
+    this.fallbackDb.pragma("busy_timeout = 5000");
+
+    // Prepare fallback statements (we'll add these as needed)
+  }
+
   private createIndices(): void {
     const indices = [
       "CREATE INDEX IF NOT EXISTS idx_patterns_type ON patterns(type)",
@@ -318,9 +370,59 @@ export class PatternDatabase {
   public exec(sql: string): void {
     this.db.exec(sql);
   }
+  
+  /**
+   * Query with fallback to global database
+   * Returns combined results from primary and fallback databases
+   * Primary results take precedence over fallback
+   */
+  public queryWithFallback(sql: string, params: any[] = []): any[] {
+    // Get results from primary database
+    const primaryStmt = this.db.prepare(sql);
+    const primaryResults = params.length > 0 ? primaryStmt.all(...params) : primaryStmt.all();
+    
+    // If no fallback database, return primary results only
+    if (!this.fallbackDb) {
+      return primaryResults;
+    }
+    
+    // Get results from fallback database
+    try {
+      const fallbackStmt = this.fallbackDb.prepare(sql);
+      const fallbackResults = params.length > 0 ? fallbackStmt.all(...params) : fallbackStmt.all();
+      
+      // Merge results - primary takes precedence
+      // Deduplicate by pattern ID if present
+      const primaryIds = new Set(
+        primaryResults.map((r: any) => r.id || r.pattern_id).filter(Boolean)
+      );
+      
+      const uniqueFallbackResults = fallbackResults.filter((fb: any) => {
+        const fbId = fb.id || fb.pattern_id;
+        return fbId ? !primaryIds.has(fbId) : true;
+      });
+      
+      return [...primaryResults, ...uniqueFallbackResults];
+    } catch (error) {
+      // If fallback query fails (e.g., schema mismatch), return primary only
+      console.error('Fallback query failed:', error);
+      return primaryResults;
+    }
+  }
+  
+  /**
+   * Get single row with fallback
+   */
+  public getWithFallback(sql: string, params: any[] = []): any | undefined {
+    const results = this.queryWithFallback(sql, params);
+    return results[0];
+  }
 
   public close(): void {
     this.db.close();
+    if (this.fallbackDb) {
+      this.fallbackDb.close();
+    }
   }
 
   // Migration support
