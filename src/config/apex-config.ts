@@ -130,27 +130,27 @@ export class ApexConfig {
    */
   static async migrateLegacyDatabase(): Promise<boolean> {
     const paths = await RepoIdentifier.getDatabasePaths();
-    
+
     // Check if migration is needed
     if (!paths.legacy || !fs.existsSync(paths.legacy)) {
       return false; // No legacy database to migrate
     }
-    
+
     if (fs.existsSync(paths.primary)) {
       return false; // Project database already exists
     }
-    
+
     try {
       // Ensure target directory exists
       ApexConfig.ensureDbDirectory(paths.primary);
-      
+
       // Copy legacy database to new location
       fs.copyFileSync(paths.legacy, paths.primary);
-      
+
       console.log(`Migrated database from ${paths.legacy} to ${paths.primary}`);
       return true;
     } catch (error) {
-      console.error('Failed to migrate legacy database:', error);
+      console.error("Failed to migrate legacy database:", error);
       // Remove partial migration if it failed
       if (fs.existsSync(paths.primary)) {
         fs.unlinkSync(paths.primary);

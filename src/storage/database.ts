@@ -350,6 +350,30 @@ export class PatternDatabase {
     );
   }
 
+  /**
+   * Execute a database operation with retry logic for SQLITE_BUSY errors
+   * [FIX:SQLITE:BUSY] - Exponential backoff for database locks
+   */
+  public async withRetry<T>(
+    fn: () => T | Promise<T>,
+    maxRetries: number = 3,
+  ): Promise<T> {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        if (error?.code === "SQLITE_BUSY" && i < maxRetries - 1) {
+          // Exponential backoff: 100ms, 200ms, 400ms
+          const delay = 100 * Math.pow(2, i);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          throw error;
+        }
+      }
+    }
+    throw new Error("Retry logic failed - should not reach here");
+  }
+
   public transaction<T>(fn: () => T): T {
     const transaction = this.db.transaction(fn);
     return transaction();
@@ -370,7 +394,7 @@ export class PatternDatabase {
   public exec(sql: string): void {
     this.db.exec(sql);
   }
-  
+
   /**
    * Query with fallback to global database
    * Returns combined results from primary and fallback databases
@@ -379,37 +403,39 @@ export class PatternDatabase {
   public queryWithFallback(sql: string, params: any[] = []): any[] {
     // Get results from primary database
     const primaryStmt = this.db.prepare(sql);
-    const primaryResults = params.length > 0 ? primaryStmt.all(...params) : primaryStmt.all();
-    
+    const primaryResults =
+      params.length > 0 ? primaryStmt.all(...params) : primaryStmt.all();
+
     // If no fallback database, return primary results only
     if (!this.fallbackDb) {
       return primaryResults;
     }
-    
+
     // Get results from fallback database
     try {
       const fallbackStmt = this.fallbackDb.prepare(sql);
-      const fallbackResults = params.length > 0 ? fallbackStmt.all(...params) : fallbackStmt.all();
-      
+      const fallbackResults =
+        params.length > 0 ? fallbackStmt.all(...params) : fallbackStmt.all();
+
       // Merge results - primary takes precedence
       // Deduplicate by pattern ID if present
       const primaryIds = new Set(
-        primaryResults.map((r: any) => r.id || r.pattern_id).filter(Boolean)
+        primaryResults.map((r: any) => r.id || r.pattern_id).filter(Boolean),
       );
-      
+
       const uniqueFallbackResults = fallbackResults.filter((fb: any) => {
         const fbId = fb.id || fb.pattern_id;
         return fbId ? !primaryIds.has(fbId) : true;
       });
-      
+
       return [...primaryResults, ...uniqueFallbackResults];
     } catch (error) {
       // If fallback query fails (e.g., schema mismatch), return primary only
-      console.error('Fallback query failed:', error);
+      console.error("Fallback query failed:", error);
       return primaryResults;
     }
   }
-  
+
   /**
    * Get single row with fallback
    */

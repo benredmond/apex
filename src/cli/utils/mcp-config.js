@@ -13,22 +13,22 @@ export function getClaudeConfigPath() {
 
   let configDir;
   switch (platform) {
-  case "darwin":
-    configDir = path.join(
-      homeDir,
-      "Library",
-      "Application Support",
-      "Claude",
-    );
-    break;
-  case "win32":
-    configDir = path.join(homeDir, "AppData", "Roaming", "Claude");
-    break;
-  case "linux":
-    configDir = path.join(homeDir, ".config", "Claude");
-    break;
-  default:
-    throw new Error(`Unsupported platform: ${platform}`);
+    case "darwin":
+      configDir = path.join(
+        homeDir,
+        "Library",
+        "Application Support",
+        "Claude",
+      );
+      break;
+    case "win32":
+      configDir = path.join(homeDir, "AppData", "Roaming", "Claude");
+      break;
+    case "linux":
+      configDir = path.join(homeDir, ".config", "Claude");
+      break;
+    default:
+      throw new Error(`Unsupported platform: ${platform}`);
   }
 
   return path.join(configDir, "claude_desktop_config.json");

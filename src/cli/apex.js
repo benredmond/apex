@@ -376,154 +376,154 @@ program
 
       try {
         switch (action) {
-        case "list": {
-          const timer = new PerformanceTimer("patterns list");
-          const patterns = await repo.list({
-            limit: parseInt(options.limit),
-          });
+          case "list": {
+            const timer = new PerformanceTimer("patterns list");
+            const patterns = await repo.list({
+              limit: parseInt(options.limit),
+            });
 
-          if (patterns.length === 0) {
-            console.log(chalk.yellow(ApexConfig.ERROR_MESSAGES.NO_PATTERNS));
-            return;
-          }
+            if (patterns.length === 0) {
+              console.log(chalk.yellow(ApexConfig.ERROR_MESSAGES.NO_PATTERNS));
+              return;
+            }
 
-          // Get total count
-          const totalPatterns = await repo.list({ limit: 1000 });
-          const showingAll = patterns.length === totalPatterns.length;
+            // Get total count
+            const totalPatterns = await repo.list({ limit: 1000 });
+            const showingAll = patterns.length === totalPatterns.length;
 
-          // Enhanced visual output with emojis
-          console.log(chalk.bold("\n📋 Pattern Library\n"));
+            // Enhanced visual output with emojis
+            console.log(chalk.bold("\n📋 Pattern Library\n"));
 
-          if (!showingAll) {
-            console.log(
-              chalk.dim(
-                `Showing ${patterns.length} of ${totalPatterns.length} patterns\n`,
-              ),
-            );
-          }
+            if (!showingAll) {
+              console.log(
+                chalk.dim(
+                  `Showing ${patterns.length} of ${totalPatterns.length} patterns\n`,
+                ),
+              );
+            }
 
-          // Enhanced pattern display with emojis and metadata
-          for (const p of patterns) {
-            const trust = "★".repeat(Math.round(p.trust_score * 5));
-            const empty = "☆".repeat(5 - Math.round(p.trust_score * 5));
+            // Enhanced pattern display with emojis and metadata
+            for (const p of patterns) {
+              const trust = "★".repeat(Math.round(p.trust_score * 5));
+              const empty = "☆".repeat(5 - Math.round(p.trust_score * 5));
 
-            // Get emoji based on pattern type
-            const emoji = p.id.startsWith("FIX:")
-              ? "🔧"
-              : p.id.startsWith("PAT:")
-                ? "📋"
-                : p.id.startsWith("ANTI:")
-                  ? "⚠️"
-                  : p.id.startsWith("CODE:")
-                    ? "💻"
-                    : p.id.startsWith("TEST:")
-                      ? "🧪"
-                      : p.id.startsWith("ARCH:")
-                        ? "🏗️"
-                        : "📝";
+              // Get emoji based on pattern type
+              const emoji = p.id.startsWith("FIX:")
+                ? "🔧"
+                : p.id.startsWith("PAT:")
+                  ? "📋"
+                  : p.id.startsWith("ANTI:")
+                    ? "⚠️"
+                    : p.id.startsWith("CODE:")
+                      ? "💻"
+                      : p.id.startsWith("TEST:")
+                        ? "🧪"
+                        : p.id.startsWith("ARCH:")
+                          ? "🏗️"
+                          : "📝";
 
-            // Format with enhanced visual hierarchy
-            const formattedId = chalk.cyan(p.id.padEnd(30));
-            const formattedTrust =
+              // Format with enhanced visual hierarchy
+              const formattedId = chalk.cyan(p.id.padEnd(30));
+              const formattedTrust =
                 p.trust_score >= 0.8
                   ? chalk.green(trust + empty)
                   : p.trust_score >= 0.4
                     ? chalk.yellow(trust + empty)
                     : chalk.red(trust + empty);
-            const usageInfo = p.usage_count
-              ? chalk.dim(` (${p.usage_count} uses)`)
-              : "";
+              const usageInfo = p.usage_count
+                ? chalk.dim(` (${p.usage_count} uses)`)
+                : "";
 
-            console.log(
-              `  ${emoji} ${formattedId} ${formattedTrust} ${p.title || p.summary}${usageInfo}`,
-            );
+              console.log(
+                `  ${emoji} ${formattedId} ${formattedTrust} ${p.title || p.summary}${usageInfo}`,
+              );
+            }
+
+            if (!showingAll) {
+              console.log(
+                chalk.dim(
+                  `\n💡 Use --limit ${totalPatterns.length} to see all patterns`,
+                ),
+              );
+            }
+
+            // Stop timer (will show warning if slow)
+            timer.stop();
+            break;
           }
 
-          if (!showingAll) {
+          case "search": {
+            const query = options.limit; // Hack: limit is actually the search query
+            if (!query || query === "20") {
+              console.log(chalk.red("Usage: apex patterns search <query>"));
+              return;
+            }
+
+            const timer = new PerformanceTimer("patterns search", 50); // 50ms target for search
+            const results = await repo.searchText(query, 20);
+
+            if (results.length === 0) {
+              console.log(
+                chalk.yellow(`\n🔍 No patterns found for "${query}"`),
+              );
+              console.log(
+                chalk.dim(
+                  "Patterns are discovered as you work with your AI assistant",
+                ),
+              );
+              return;
+            }
+
+            console.log(chalk.bold("\n🔍 Search Results\n"));
             console.log(
               chalk.dim(
-                `\n💡 Use --limit ${totalPatterns.length} to see all patterns`,
+                `Found ${results.length} patterns matching "${query}"\n`,
               ),
             );
+
+            for (const p of results) {
+              // Get emoji based on pattern type
+              const emoji = p.id.startsWith("FIX:")
+                ? "🔧"
+                : p.id.startsWith("PAT:")
+                  ? "📋"
+                  : p.id.startsWith("ANTI:")
+                    ? "⚠️"
+                    : "📝";
+
+              console.log(`  ${emoji} ${chalk.cyan(p.id)}`);
+              console.log(chalk.dim(`     ${p.title || p.summary}`));
+            }
+
+            timer.stop();
+            break;
           }
 
-          // Stop timer (will show warning if slow)
-          timer.stop();
-          break;
-        }
+          default: {
+            // Check for typo in pattern action
+            const suggestion = ErrorHandler.didYouMean(action, [
+              "list",
+              "search",
+            ]);
 
-        case "search": {
-          const query = options.limit; // Hack: limit is actually the search query
-          if (!query || query === "20") {
-            console.log(chalk.red("Usage: apex patterns search <query>"));
-            return;
+            if (suggestion) {
+              console.log(chalk.red(`\n❌ Unknown action: ${action}`));
+              console.log(chalk.yellow("\n💡 Did you mean:"));
+              console.log(chalk.cyan(`   → apex patterns ${suggestion}`));
+            } else {
+              console.log(chalk.red(`\n❌ Unknown action: ${action}`));
+              console.log(chalk.yellow("\n💡 Available actions:"));
+              console.log(
+                chalk.cyan("   → apex patterns list"),
+                "   - View all patterns",
+              );
+              console.log(
+                chalk.cyan("   → apex patterns search"),
+                " - Search patterns",
+              );
+            }
+            break;
           }
-
-          const timer = new PerformanceTimer("patterns search", 50); // 50ms target for search
-          const results = await repo.searchText(query, 20);
-
-          if (results.length === 0) {
-            console.log(
-              chalk.yellow(`\n🔍 No patterns found for "${query}"`),
-            );
-            console.log(
-              chalk.dim(
-                "Patterns are discovered as you work with your AI assistant",
-              ),
-            );
-            return;
-          }
-
-          console.log(chalk.bold("\n🔍 Search Results\n"));
-          console.log(
-            chalk.dim(
-              `Found ${results.length} patterns matching "${query}"\n`,
-            ),
-          );
-
-          for (const p of results) {
-            // Get emoji based on pattern type
-            const emoji = p.id.startsWith("FIX:")
-              ? "🔧"
-              : p.id.startsWith("PAT:")
-                ? "📋"
-                : p.id.startsWith("ANTI:")
-                  ? "⚠️"
-                  : "📝";
-
-            console.log(`  ${emoji} ${chalk.cyan(p.id)}`);
-            console.log(chalk.dim(`     ${p.title || p.summary}`));
-          }
-
-          timer.stop();
-          break;
-        }
-
-        default: {
-          // Check for typo in pattern action
-          const suggestion = ErrorHandler.didYouMean(action, [
-            "list",
-            "search",
-          ]);
-
-          if (suggestion) {
-            console.log(chalk.red(`\n❌ Unknown action: ${action}`));
-            console.log(chalk.yellow("\n💡 Did you mean:"));
-            console.log(chalk.cyan(`   → apex patterns ${suggestion}`));
-          } else {
-            console.log(chalk.red(`\n❌ Unknown action: ${action}`));
-            console.log(chalk.yellow("\n💡 Available actions:"));
-            console.log(
-              chalk.cyan("   → apex patterns list"),
-              "   - View all patterns",
-            );
-            console.log(
-              chalk.cyan("   → apex patterns search"),
-              " - Search patterns",
-            );
-          }
-          break;
-        }
         }
       } finally {
         await repo.shutdown();
@@ -553,78 +553,78 @@ program
       const repo = new TaskRepository(database.database);
 
       switch (action) {
-      case "list": {
-        const tasks = await repo.findRecent(parseInt(options.limit));
+        case "list": {
+          const tasks = await repo.findRecent(parseInt(options.limit));
 
-        if (tasks.length === 0) {
-          console.log(chalk.yellow("No tasks found"));
-          console.log(
-            chalk.dim("Tasks are created through your AI assistant"),
-          );
-          return;
-        }
+          if (tasks.length === 0) {
+            console.log(chalk.yellow("No tasks found"));
+            console.log(
+              chalk.dim("Tasks are created through your AI assistant"),
+            );
+            return;
+          }
 
-        console.log(chalk.bold("\nRecent tasks:\n"));
-        for (const t of tasks) {
-          const status =
+          console.log(chalk.bold("\nRecent tasks:\n"));
+          for (const t of tasks) {
+            const status =
               t.status === "completed"
                 ? "✅"
                 : t.status === "active"
                   ? "🔄"
                   : "❌";
-          console.log(
-            `  ${status} ${chalk.cyan(t.id.substring(0, 8))} ${t.title}`,
-          );
+            console.log(
+              `  ${status} ${chalk.cyan(t.id.substring(0, 8))} ${t.title}`,
+            );
+          }
+          break;
         }
-        break;
-      }
 
-      case "stats": {
-        const stats = await repo.getStatistics();
-        console.log(chalk.bold("\n📊 Task Analytics\n"));
+        case "stats": {
+          const stats = await repo.getStatistics();
+          console.log(chalk.bold("\n📊 Task Analytics\n"));
 
-        // Calculate trend indicator (mock for now)
-        const trend = stats.completion_rate > 0.5 ? "↑" : "↓";
-        const trendPercent = Math.round(Math.random() * 10); // Mock trend
+          // Calculate trend indicator (mock for now)
+          const trend = stats.completion_rate > 0.5 ? "↑" : "↓";
+          const trendPercent = Math.round(Math.random() * 10); // Mock trend
 
-        console.log(
-          `  ├─ Completion Rate: ${chalk.green(`${Math.round(stats.completion_rate * 100)}%`)} ${chalk.dim(`(${trend} ${trendPercent}% this week)`)}`,
-        );
-        console.log(`  ├─ Total Tasks:     ${stats.total_tasks}`);
-        console.log(`  ├─ Active:          ${stats.active_tasks}`);
-        console.log(`  ├─ Completed:       ${stats.completed_tasks}`);
-
-        // Add streak indicator (mock)
-        if (stats.active_tasks > 0) {
           console.log(
-            `  └─ 🔥 ${Math.floor(Math.random() * 5) + 1}-day streak!`,
+            `  ├─ Completion Rate: ${chalk.green(`${Math.round(stats.completion_rate * 100)}%`)} ${chalk.dim(`(${trend} ${trendPercent}% this week)`)}`,
           );
+          console.log(`  ├─ Total Tasks:     ${stats.total_tasks}`);
+          console.log(`  ├─ Active:          ${stats.active_tasks}`);
+          console.log(`  ├─ Completed:       ${stats.completed_tasks}`);
+
+          // Add streak indicator (mock)
+          if (stats.active_tasks > 0) {
+            console.log(
+              `  └─ 🔥 ${Math.floor(Math.random() * 5) + 1}-day streak!`,
+            );
+          }
+          break;
         }
-        break;
-      }
 
-      default: {
-        // Check for typo in task action
-        const suggestion = ErrorHandler.didYouMean(action, ["list", "stats"]);
+        default: {
+          // Check for typo in task action
+          const suggestion = ErrorHandler.didYouMean(action, ["list", "stats"]);
 
-        if (suggestion) {
-          console.log(chalk.red(`\n❌ Unknown action: ${action}`));
-          console.log(chalk.yellow("\n💡 Did you mean:"));
-          console.log(chalk.cyan(`   → apex tasks ${suggestion}`));
-        } else {
-          console.log(chalk.red(`\n❌ Unknown action: ${action}`));
-          console.log(chalk.yellow("\n💡 Available actions:"));
-          console.log(
-            chalk.cyan("   → apex tasks list"),
-            "  - View recent tasks",
-          );
-          console.log(
-            chalk.cyan("   → apex tasks stats"),
-            " - View task statistics",
-          );
+          if (suggestion) {
+            console.log(chalk.red(`\n❌ Unknown action: ${action}`));
+            console.log(chalk.yellow("\n💡 Did you mean:"));
+            console.log(chalk.cyan(`   → apex tasks ${suggestion}`));
+          } else {
+            console.log(chalk.red(`\n❌ Unknown action: ${action}`));
+            console.log(chalk.yellow("\n💡 Available actions:"));
+            console.log(
+              chalk.cyan("   → apex tasks list"),
+              "  - View recent tasks",
+            );
+            console.log(
+              chalk.cyan("   → apex tasks stats"),
+              " - View task statistics",
+            );
+          }
+          break;
         }
-        break;
-      }
       }
     } catch (error) {
       handleError(error, "tasks");
@@ -781,149 +781,149 @@ program
   .action(async (action) => {
     try {
       switch (action) {
-      case "info": {
-        console.log(chalk.bold("\n🔌 APEX MCP Server Configuration\n"));
+        case "info": {
+          console.log(chalk.bold("\n🔌 APEX MCP Server Configuration\n"));
 
-        const projectPath = process.cwd();
-        const apexPath = path.resolve(path.join(__dirname, "../.."));
-        const serverPath = path.join(apexPath, "dist", "mcp", "server.js");
-        const dbPath = path.join(projectPath, "patterns.db");
+          const projectPath = process.cwd();
+          const apexPath = path.resolve(path.join(__dirname, "../.."));
+          const serverPath = path.join(apexPath, "dist", "mcp", "server.js");
+          const dbPath = path.join(projectPath, "patterns.db");
 
-        console.log(
-          chalk.cyan("Add this configuration to your MCP client:\n"),
-        );
+          console.log(
+            chalk.cyan("Add this configuration to your MCP client:\n"),
+          );
 
-        // Generic configuration
-        console.log(chalk.bold("For any MCP client:"));
-        console.log(
-          chalk.dim(
-            JSON.stringify(
-              {
-                apex: {
-                  command: "node",
-                  args: ["--experimental-vm-modules", serverPath],
-                  env: {
-                    APEX_PATTERNS_DB: dbPath,
+          // Generic configuration
+          console.log(chalk.bold("For any MCP client:"));
+          console.log(
+            chalk.dim(
+              JSON.stringify(
+                {
+                  apex: {
+                    command: "node",
+                    args: ["--experimental-vm-modules", serverPath],
+                    env: {
+                      APEX_PATTERNS_DB: dbPath,
+                    },
                   },
                 },
-              },
-              null,
-              2,
+                null,
+                2,
+              ),
             ),
-          ),
-        );
+          );
 
-        console.log("\n" + chalk.bold("Client-specific locations:"));
-        console.log(
-          "• Claude Desktop: ~/Library/Application Support/Claude/claude_desktop_config.json",
-        );
-        console.log("• VS Code: .vscode/mcp.json or user settings");
-        console.log("• Cursor: .cursor/mcp.json or ~/.cursor/mcp.json");
+          console.log("\n" + chalk.bold("Client-specific locations:"));
+          console.log(
+            "• Claude Desktop: ~/Library/Application Support/Claude/claude_desktop_config.json",
+          );
+          console.log("• VS Code: .vscode/mcp.json or user settings");
+          console.log("• Cursor: .cursor/mcp.json or ~/.cursor/mcp.json");
 
-        console.log("\n" + chalk.bold("Using npx (for VS Code/Cursor):"));
-        console.log(
-          chalk.dim(
-            JSON.stringify(
-              {
-                apex: {
-                  command: "npx",
-                  args: ["@benredmond/apex", "mcp", "serve"],
-                  env: {
-                    APEX_PATTERNS_DB: "${workspaceFolder}/patterns.db",
+          console.log("\n" + chalk.bold("Using npx (for VS Code/Cursor):"));
+          console.log(
+            chalk.dim(
+              JSON.stringify(
+                {
+                  apex: {
+                    command: "npx",
+                    args: ["@benredmond/apex", "mcp", "serve"],
+                    env: {
+                      APEX_PATTERNS_DB: "${workspaceFolder}/patterns.db",
+                    },
                   },
                 },
-              },
-              null,
-              2,
+                null,
+                2,
+              ),
             ),
-          ),
-        );
+          );
 
-        console.log(
-          "\n" +
+          console.log(
+            "\n" +
               chalk.dim(
                 "After adding the configuration, restart your MCP client.",
               ),
-        );
-        break;
-      }
+          );
+          break;
+        }
 
-      case "serve": {
-        // Start the MCP server in stdio mode
-        // Don't log to stdout - it breaks MCP protocol
-        const serverPath = path.join(
-          path.resolve(path.join(__dirname, "../..")),
-          "dist",
-          "mcp",
-          "index.js",
-        );
-        const dbPath =
+        case "serve": {
+          // Start the MCP server in stdio mode
+          // Don't log to stdout - it breaks MCP protocol
+          const serverPath = path.join(
+            path.resolve(path.join(__dirname, "../..")),
+            "dist",
+            "mcp",
+            "index.js",
+          );
+          const dbPath =
             process.env.APEX_PATTERNS_DB ||
             path.join(process.cwd(), "patterns.db");
 
-        // Set environment and import the server
-        process.env.APEX_PATTERNS_DB = dbPath;
+          // Set environment and import the server
+          process.env.APEX_PATTERNS_DB = dbPath;
 
-        try {
-          const { startMCPServer } = await import(serverPath);
-          await startMCPServer();
-        } catch (error) {
-          // Log to stderr only - stdout is reserved for MCP protocol
-          console.error(
-            chalk.red("Failed to start MCP server:"),
-            error.message,
-          );
-          process.exit(1);
+          try {
+            const { startMCPServer } = await import(serverPath);
+            await startMCPServer();
+          } catch (error) {
+            // Log to stderr only - stdout is reserved for MCP protocol
+            console.error(
+              chalk.red("Failed to start MCP server:"),
+              error.message,
+            );
+            process.exit(1);
+          }
+          break;
         }
-        break;
-      }
 
-      case "test": {
-        const spinner = ora("Testing MCP server...").start();
+        case "test": {
+          const spinner = ora("Testing MCP server...").start();
 
-        const serverPath = path.join(
-          path.resolve(path.join(__dirname, "../..")),
-          "dist",
-          "mcp",
-          "server.js",
-        );
-        const dbPath = path.join(process.cwd(), "patterns.db");
+          const serverPath = path.join(
+            path.resolve(path.join(__dirname, "../..")),
+            "dist",
+            "mcp",
+            "server.js",
+          );
+          const dbPath = path.join(process.cwd(), "patterns.db");
 
-        // Check if server file exists
-        if (!(await fs.pathExists(serverPath))) {
-          spinner.fail(
-            chalk.red(
-              "MCP server not found. Please build the project first.",
+          // Check if server file exists
+          if (!(await fs.pathExists(serverPath))) {
+            spinner.fail(
+              chalk.red(
+                "MCP server not found. Please build the project first.",
+              ),
+            );
+            process.exit(1);
+          }
+
+          // Check if database exists
+          if (!(await fs.pathExists(dbPath))) {
+            spinner.warn(
+              chalk.yellow("Database not found. Run 'apex start' first."),
+            );
+            process.exit(1);
+          }
+
+          spinner.succeed(chalk.green("MCP server is ready to use"));
+          console.log(chalk.dim(`\n   Server: ${serverPath}`));
+          console.log(chalk.dim(`   Database: ${dbPath}`));
+          console.log(
+            chalk.dim(
+              "\nRun 'apex mcp info' to see configuration instructions.",
             ),
           );
-          process.exit(1);
+          break;
         }
 
-        // Check if database exists
-        if (!(await fs.pathExists(dbPath))) {
-          spinner.warn(
-            chalk.yellow("Database not found. Run 'apex start' first."),
-          );
-          process.exit(1);
-        }
-
-        spinner.succeed(chalk.green("MCP server is ready to use"));
-        console.log(chalk.dim(`\n   Server: ${serverPath}`));
-        console.log(chalk.dim(`   Database: ${dbPath}`));
-        console.log(
-          chalk.dim(
-            "\nRun 'apex mcp info' to see configuration instructions.",
-          ),
-        );
-        break;
-      }
-
-      default:
-        console.log(chalk.red(`Unknown action: ${action}`));
-        console.log(chalk.yellow("Available actions:"));
-        console.log("  info  - Show MCP configuration for your client");
-        console.log("  serve - Start MCP server (for npx usage)");
-        console.log("  test  - Test MCP server readiness");
+        default:
+          console.log(chalk.red(`Unknown action: ${action}`));
+          console.log(chalk.yellow("Available actions:"));
+          console.log("  info  - Show MCP configuration for your client");
+          console.log("  serve - Start MCP server (for npx usage)");
+          console.log("  test  - Test MCP server readiness");
       }
     } catch (error) {
       handleError(error, "mcp");
