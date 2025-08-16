@@ -3,13 +3,17 @@ import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals
 import path from "path";
 import fs from "fs-extra";
 import os from "os";
-import { RepoIdentifier } from "../../src/utils/repo-identifier.js";
 
-// Create manual mock for spawn
+// Create mock spawn function
 const mockSpawn = jest.fn();
-jest.doMock("child_process", () => ({
+
+// Use unstable_mockModule for ESM
+jest.unstable_mockModule("child_process", () => ({
   spawn: mockSpawn,
 }));
+
+// Import after mock setup
+const { RepoIdentifier } = await import("../../src/utils/repo-identifier.ts");
 
 describe("RepoIdentifier", () => {
   let tempDir: string;
@@ -262,7 +266,8 @@ describe("RepoIdentifier", () => {
       mockSpawn.mockReturnValue(mockProcess as any);
 
       const paths = await RepoIdentifier.getDatabasePaths();
-      expect(paths.legacy).toBe(legacyPath);
+      // Use fs.realpathSync to resolve symlinks for comparison on macOS
+      expect(paths.legacy).toBe(fs.realpathSync(legacyPath));
     });
   });
 
