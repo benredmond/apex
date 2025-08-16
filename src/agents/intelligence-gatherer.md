@@ -351,9 +351,9 @@ context_pack:
 
 ```python
 # First, deeply understand the task
-task_data = read_task_file()
+# Task ID and details are passed in the prompt
 task_context = mcp__apex_task_context(
-    task_id=task_data.id,
+    task_id=task_id,  # Provided in the prompt
     packs=["tasks", "patterns", "statistics"],
     max_active_tasks=50,
     max_similar_per_task=20
@@ -366,7 +366,8 @@ Execute ALL operations in a single message for true parallelism:
 
 ```markdown
 <Task subagent_type="pattern-analyst" description="Deep pattern analysis">
-**Task**: [TASK_ID] - [TASK_TITLE]
+**Task ID**: [TASK_ID provided in prompt]
+**Task Brief**: [Enhanced task intent/brief from prompt]
 **Full Context**: [Complete task description, requirements, acceptance criteria]
 
 **Required MCP Operations**:
@@ -412,7 +413,8 @@ Execute ALL operations in a single message for true parallelism:
   </Task>
 
 <Task subagent_type="context-loader" description="Comprehensive context loading">
-**Task**: [TASK_ID] - [TASK_TITLE]
+**Task ID**: [TASK_ID provided in prompt]
+**Task Brief**: [Enhanced task brief from prompt]
 **Requirements**: [Full requirements and acceptance criteria]
 
 **Context Loading Strategy**:
@@ -444,8 +446,9 @@ Execute ALL operations in a single message for true parallelism:
 </Task>
 
 <Task subagent_type="architecture-validator" description="Deep validation and archaeology">
-**Task**: [TASK_ID] - [TASK_TITLE]
-**Planned Changes**: [What will be modified]
+**Task ID**: [TASK_ID provided in prompt]
+**Task Brief**: [Enhanced task brief from prompt]
+**Planned Changes**: [What will be modified based on brief]
 
 **Validation Operations**:
 
@@ -476,8 +479,9 @@ Execute ALL operations in a single message for true parallelism:
 </Task>
 
 <Task subagent_type="failure-predictor" description="Predictive failure analysis">
-**Task**: [TASK_ID] - [TASK_TITLE]
-**Implementation Plan**: [Planned approach]
+**Task ID**: [TASK_ID provided in prompt]
+**Task Brief**: [Enhanced task brief from prompt]
+**Implementation Plan**: [Planned approach based on brief]
 
 **Failure Prediction**:
 
@@ -506,8 +510,9 @@ Execute ALL operations in a single message for true parallelism:
 </Task>
 
 <Task subagent_type="systems-researcher" description="Deep system understanding">
-**Task**: [TASK_ID] - [TASK_TITLE]
-**Focus Area**: [Component or system to research]
+**Task ID**: [TASK_ID provided in prompt]
+**Task Brief**: [Enhanced task brief from prompt]
+**Focus Area**: [Component or system to research based on brief]
 
 **Research Operations**:
 
@@ -522,7 +527,8 @@ Execute ALL operations in a single message for true parallelism:
 </Task>
 
 <Task description="Strategic planning">
-**Task**: [TASK_ID] - [TASK_TITLE]
+**Task ID**: [TASK_ID provided in prompt]
+**Task Brief**: [Enhanced task brief from prompt]
 **Intelligence Gathered**: [Summary of findings]
 
 **Strategy Development**:

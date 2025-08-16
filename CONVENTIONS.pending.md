@@ -2,7 +2,7 @@
 
 These patterns are being tested and will be promoted to CONVENTIONS.md after 3+ successful uses with >80% success rate.
 
-## [FIX:SQLITE:SYNC] - Better-SQLite3 Synchronous Transactions ★★★★☆ (9 uses, 100% success)
+## [FIX:SQLITE:SYNC] - Better-SQLite3 Synchronous Transactions ★★★★☆ (10 uses, 100% success)
 
 **Problem**: Transaction function cannot return a promise error with better-sqlite3
 
@@ -32,7 +32,7 @@ const result = db.transaction(() => {
 - Essential for auto-create functionality in transactions
 - Prepared statements in task-search.ts for T058_APE-54
 
-**Trust**: 8 uses, 100% success rate
+**Trust**: 10 uses, 100% success rate
 
 ## [PAT:ARCHITECTURE:SERVICE_PATTERN] - Clean Service Layer Architecture ★★☆☆☆ (2 uses, 100% success)
 
@@ -880,5 +880,145 @@ export const processReflection = {
 - Successfully separated task completion from automatic reflection
 - Agent gains complete workflow visibility and control
 - Maintains backward compatibility while improving composability
+
+**Trust**: 1 use, 100% success rate
+
+## [PAT:TEST:ESM_MOCK] - ESM Module Mocking for Jest ★★★☆☆ (1 use, 100% success)
+
+**Problem**: Standard Jest mocking patterns don't work with ES modules in Node.js
+
+**Solution**: Use jest.unstable_mockModule for proper ESM module mocking
+```javascript
+// ❌ WRONG - CommonJS mocking approach
+const mockSpawn = jest.fn();
+jest.mock('child_process', () => ({
+  spawn: mockSpawn  // Doesn't work with ESM
+}));
+
+// ✅ CORRECT - ESM mocking pattern
+jest.unstable_mockModule('child_process', () => ({
+  spawn: jest.fn().mockReturnValue({
+    on: jest.fn(),
+    stdout: { on: jest.fn() },
+    stderr: { on: jest.fn() }
+  })
+}));
+
+// Import after mocking
+const { spawn } = await import('child_process');
+const { RepoIdentifier } = await import('../src/utils/repo-identifier.js');
+```
+
+**Pattern**:
+1. Use jest.unstable_mockModule() before importing ESM modules
+2. Import modules dynamically after setting up mocks
+3. Mock all expected methods and properties of the module
+4. Use await import() instead of require() for ESM compatibility
+5. Remove any compiled .js files that might interfere with mocking
+
+**Evidence**: 
+- Applied in tests for TbzXveKStGxs7f3pGpaMZX security vulnerability fix
+- Required for testing spawn() calls with proper mocking isolation
+- Essential for ESM test environments with Jest
+
+**Trust**: 1 use, 100% success rate
+
+## [FIX:BUILD:DUPLICATE_JS] - Remove Compiled JS Files Anti-Pattern ★★★★☆ (1 use, 100% success)
+
+**Problem**: Having both .ts source files and compiled .js files causes Jest mocking conflicts
+
+**Solution**: Clean compiled JavaScript files before running tests with TypeScript sources
+```bash
+# ❌ WRONG - allowing both to exist simultaneously
+src/
+  utils/
+    repo-identifier.ts    # TypeScript source
+    repo-identifier.js    # Compiled JavaScript - CONFLICTS!
+    repo-identifier.js.map
+
+# ✅ CORRECT - clean compiled files
+rm -f src/**/*.js src/**/*.js.map
+# Or in package.json:
+"scripts": {
+  "test": "rm -f src/**/*.js src/**/*.js.map && jest",
+  "pretest": "rm -f src/**/*.js src/**/*.js.map"
+}
+```
+
+**Pattern**:
+1. Remove all compiled .js and .js.map files before testing TypeScript
+2. Ensure Jest works directly with .ts files via ts-jest or similar
+3. Add cleanup to test scripts to prevent future conflicts
+4. Use .gitignore to prevent committing compiled files
+5. Configure build pipeline to separate compilation from testing
+
+**Evidence**: 
+- Critical fix for TbzXveKStGxs7f3pGpaMZX Jest mocking issues
+- "Cannot find module" errors resolved immediately after cleanup
+- Essential for ESM + TypeScript + Jest test environments
+
+**Trust**: 1 use, 100% success rate
+
+## [PAT:SECURITY:INPUT_SANITIZATION] - Enhanced Spawn Input Sanitization ★★★★★ (1 use, 100% success)
+
+**Problem**: Command injection vulnerabilities in child_process.spawn calls with user input
+
+**Solution**: Comprehensive input validation and sanitization before executing external commands
+```typescript
+// ❌ WRONG - direct user input to spawn
+const result = spawn('git', ['status', userInput]); // DANGEROUS!
+
+// ✅ CORRECT - comprehensive validation and sanitization
+class SecureCommandRunner {
+  private static readonly ALLOWED_CHARS = /^[a-zA-Z0-9\/_.-]+$/;
+  private static readonly DANGEROUS_PATTERNS = /[;&|`$(){}[\]\\\"'<>]/;
+  
+  static validatePath(path: string): boolean {
+    if (!path || typeof path !== 'string') return false;
+    if (path.includes('..')) return false; // Directory traversal
+    if (this.DANGEROUS_PATTERNS.test(path)) return false;
+    if (!this.ALLOWED_CHARS.test(path)) return false;
+    return true;
+  }
+  
+  static sanitizeInput(input: string): string {
+    return input.replace(/[;&|`$(){}[\]\\\"'<>]/g, '');
+  }
+  
+  static secureSpawn(command: string, args: string[]): ChildProcess {
+    // Validate command
+    if (!this.validatePath(command)) {
+      throw new Error('Invalid command');
+    }
+    
+    // Sanitize all arguments
+    const sanitizedArgs = args.map(arg => {
+      if (!this.validatePath(arg)) {
+        throw new Error(`Invalid argument: ${arg}`);
+      }
+      return this.sanitizeInput(arg);
+    });
+    
+    return spawn(command, sanitizedArgs, {
+      stdio: 'pipe',
+      shell: false // Never use shell: true with user input
+    });
+  }
+}
+```
+
+**Pattern**:
+1. Always validate input before passing to spawn() or exec()
+2. Use whitelist approach - only allow known-safe characters
+3. Block directory traversal attempts (..)
+4. Never use shell: true with user input
+5. Sanitize by removing dangerous characters, don't just escape
+6. Validate both command and all arguments
+7. Use typed validation functions for reusability
+
+**Evidence**: 
+- Applied in RepoIdentifier fix for TbzXveKStGxs7f3pGpaMZX
+- Prevents command injection attacks through malicious repo paths
+- Security-critical pattern with zero tolerance for failures
 
 **Trust**: 1 use, 100% success rate

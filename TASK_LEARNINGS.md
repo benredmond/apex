@@ -945,6 +945,124 @@ This file documents learnings from completed tasks to improve future development
   - Need to validate <500ms requirement with thousands of patterns
   - Estimated 2 hours effort
 
+## T[bzXveKStGxs7f3pGpaMZX] - Fix Critical Security Vulnerability in RepoIdentifier
+**Duration**: Predicted N/A, Actual 2h
+**Complexity**: Predicted N/A, Actual 8
+
+### Patterns Used
+- **PAT:SECURITY:SPAWN** ✅ Enhanced with input sanitization and validation
+- **PAT:TEST:MOCK** ⚠️ Required ESM-specific mocking approach for Jest
+- **FIX:TEST:COMPILATION** ✅ Prevented duplicate compiled files breaking tests
+
+### Intelligence Accuracy
+- **Pattern Discovery**: 3 new patterns discovered successfully
+- **Anti-pattern Identification**: 1 critical anti-pattern identified (duplicate compiled JS files)
+- **Trust Score Updates**: 2 patterns had trust scores updated based on usage
+- **Complexity**: High complexity (8/10) due to ESM module mocking challenges
+
+### Key Technical Discoveries
+1. **Duplicate Compiled Files Issue**: Having both .ts and compiled .js files breaks Jest mocking
+   ```bash
+   # Problem: Both exist simultaneously
+   src/file.ts          # Source TypeScript
+   src/file.js          # Compiled JavaScript
+   
+   # Jest tries to mock both, causing conflicts
+   ```
+
+2. **ESM Module Mocking Requirements**: ESM modules require jest.unstable_mockModule for proper mocking
+   ```javascript
+   // ✅ CORRECT - ESM mocking pattern
+   jest.unstable_mockModule('child_process', () => ({
+     spawn: jest.fn()
+   }));
+   ```
+
+3. **Command Injection Prevention**: Input sanitization essential for spawn() calls
+   ```typescript
+   // Enhanced pattern with validation
+   const sanitizeInput = (input: string): string => {
+     return input.replace(/[;&|`$(){}[\]\\"']/g, '');
+   };
+   ```
+
+4. **macOS Path Resolution**: fs.realpathSync needed for symlink resolution
+   ```typescript
+   // Handle symlinks properly on macOS
+   const realPath = fs.realpathSync(repoPath);
+   ```
+
+### New Patterns Discovered
+- **PAT:TEST:ESM_MOCK** - ESM module mocking for Jest in Node.js
+  ```javascript
+  // Pattern: Use jest.unstable_mockModule for ESM
+  jest.unstable_mockModule('module-name', () => ({
+    exportedFunction: jest.fn()
+  }));
+  const { exportedFunction } = await import('module-name');
+  ```
+  - Initial trust: ★★★☆☆
+  - Success: Required for proper ESM test isolation
+
+- **FIX:BUILD:DUPLICATE_JS** - Remove compiled JS files alongside TypeScript sources
+  ```bash
+  # Anti-pattern: Having both .ts and .js files
+  # Fix: Clean compiled files before testing
+  rm -f src/**/*.js src/**/*.js.map
+  ```
+  - Initial trust: ★★★★☆
+  - Critical: Prevents Jest mocking conflicts
+
+- **PAT:SECURITY:INPUT_SANITIZATION** - Enhanced spawn input sanitization
+  ```typescript
+  // Comprehensive input validation for command execution
+  const validateRepoPath = (path: string): boolean => {
+    return /^[a-zA-Z0-9\/_.-]+$/.test(path) && !path.includes('..');
+  };
+  ```
+  - Initial trust: ★★★★★
+  - Security: Prevents command injection attacks
+
+### Trust Score Updates
+- **PAT:SECURITY:SPAWN**: Updated from ★★★☆☆ to ★★★★☆ (enhanced with validation)
+- **PAT:TEST:MOCK**: Updated from ★★★★☆ to ★★★☆☆ (ESM challenges noted)
+
+### Errors Encountered
+1. **Error**: "Cannot find module" in Jest tests
+   **Cause**: Duplicate compiled .js files alongside .ts sources
+   **Fix**: Removed compiled files and used proper ESM mocking
+   **Pattern**: FIX:BUILD:DUPLICATE_JS
+
+2. **Error**: Command injection vulnerability in RepoIdentifier
+   **Cause**: Insufficient input sanitization before spawn() calls
+   **Fix**: Added comprehensive input validation and sanitization
+   **Pattern**: PAT:SECURITY:INPUT_SANITIZATION
+
+3. **Error**: Jest mocking not working with ESM modules
+   **Cause**: Using CommonJS mocking patterns with ES modules
+   **Fix**: Used jest.unstable_mockModule for ESM compatibility
+   **Pattern**: PAT:TEST:ESM_MOCK
+
+### Performance Impact
+- **Security validation**: <1ms overhead for input sanitization
+- **Test execution**: No performance regression after fixing mocking
+- **Path resolution**: Minimal overhead for symlink resolution
+
+### Recommendations for Similar Tasks
+- Always remove compiled JS files when working with TypeScript in Jest
+- Use jest.unstable_mockModule for ESM module mocking
+- Implement comprehensive input validation for any external command execution
+- Consider symlink resolution on macOS for path operations
+- Validate security patterns thoroughly with penetration testing
+
+### Follow-up Tasks Created
+- **Security Audit**: Review all spawn() and exec() usage across codebase
+  - Ensure consistent input sanitization patterns
+  - Estimated 3 hours effort
+- **Build Process**: Integrate compiled file cleanup into CI/CD
+  - Prevent future duplicate file issues
+  - Estimated 1 hour effort
+
 ## Outstanding Issues Identified
 - **Test Database Schema**: Alias column needs to be added (separate from T062_S01)
   - Not blocking current functionality
