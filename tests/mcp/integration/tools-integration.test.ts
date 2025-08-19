@@ -40,7 +40,7 @@ describe("MCP Tools Integration", () => {
     lookupService = new PatternLookupService(repository);
     reflectionService = new ReflectionService(
       repository,
-      path.join(tempDir, "patterns.db"),
+      repository.getDatabase(),
       {
         gitRepoPath: tempDir,
       },

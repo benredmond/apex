@@ -42,7 +42,6 @@ Execute phases sequentially:
 ## 1 · Analyse scope from argument
 
 <$ARGUMENTS> ⇒ Can be:
-
 - **Text description**: "implement dark mode toggle" → Create task from description
 - **Linear/JIRA ID**: "APE-59" or "PROJ-123" → Fetch from issue tracker
 - **Markdown file path**: "T026_feature.md" or ".apex/03_ACTIVE_SPRINTS/S02/T026.md" → Read file
@@ -54,8 +53,7 @@ Execute phases sequentially:
 **Determine task source and get/create task:**
 
 ### If Linear/JIRA ID (e.g., "APE-59"):
-
-1. Use mcp**linear-server**get_issue or similar to fetch details
+1. Use mcp__linear-server__get_issue or similar to fetch details
 2. Extract title, description, type from issue
 3. Call apex_task_create with:
    - intent: Issue title + description
@@ -63,7 +61,6 @@ Execute phases sequentially:
    - identifier: The Linear/JIRA ID
 
 ### If markdown file path:
-
 1. Use Read tool to get file content
 2. Parse frontmatter and content for task details
 3. Call apex_task_create with:
@@ -72,13 +69,11 @@ Execute phases sequentially:
    - identifier: Filename without extension
 
 ### If database task ID (long alphanumeric):
-
 1. Call apex_task_find to retrieve existing task
 2. Use returned task details
 3. Skip to intelligence gathering if found
 
 ### If text description or empty:
-
 1. Call apex_task_create with:
    - intent: The text or user's request
    - type: Inferred from content
@@ -93,10 +88,9 @@ Execute phases sequentially:
 ### Prompt Enhancement Process
 
 **When to Apply Prompt Optimization:**
-
 - Always apply when task brief/intent is vague or incomplete
 - Apply when Linear/JIRA descriptions need clarification
-- Apply when markdown file content needs structuring
+- Apply when task descriptions need structuring
 - Skip only if task already has a crystal-clear, well-structured brief
 
 ### Intelligent Prompt Rewriting
@@ -106,51 +100,50 @@ Execute phases sequentially:
 ```yaml
 prompt_enhancement:
   input: "Current task brief/intent from database or creation"
-
+  
   optimization_steps:
     1. Clarify_Intent:
-      - Extract core objective
-      - Identify implicit requirements
-      - Resolve ambiguities
-
+       - Extract core objective
+       - Identify implicit requirements
+       - Resolve ambiguities
+       
     2. Add_Specificity:
-      - Define success criteria
-      - Add constraints and boundaries
-      - Specify expected outputs
-
+       - Define success criteria
+       - Add constraints and boundaries
+       - Specify expected outputs
+       
     3. Structure_Requirements:
-      - Break down complex asks into clear steps
-      - Prioritize requirements (must-have vs nice-to-have)
-      - Add technical context if missing
-
+       - Break down complex asks into clear steps
+       - Prioritize requirements (must-have vs nice-to-have)
+       - Add technical context if missing
+       
     4. Enhance_Context:
-      - Include relevant domain knowledge
-      - Add APEX-specific patterns if applicable
-      - Reference similar completed tasks
-
+       - Include relevant domain knowledge
+       - Add APEX-specific patterns if applicable
+       - Reference similar completed tasks
+       
     5. Optimize_for_Execution:
-      - Format for 5-phase workflow
-      - Add measurable acceptance criteria
-      - Include testing requirements
+       - Format for 5-phase workflow
+       - Add measurable acceptance criteria
+       - Include testing requirements
 ```
 
 ### Prompt Rewriting Examples
 
 **Example 1: Vague to Specific**
-
 ```yaml
 original: "fix the bug in authentication"
 
 improved: |
   Fix authentication bug where users cannot log in after password reset.
-
+  
   Requirements:
   - Diagnose root cause of login failure post-password-reset
   - Fix the authentication flow to handle reset tokens correctly
   - Ensure session persistence after successful reset
   - Add tests for password reset → login flow
   - Verify no regression in normal login flow
-
+  
   Success Criteria:
   - Users can log in immediately after password reset
   - All authentication tests pass
@@ -158,13 +151,12 @@ improved: |
 ```
 
 **Example 2: Feature Request Enhancement**
-
 ```yaml
 original: "add dark mode"
 
 improved: |
   Implement dark mode theme toggle for the application.
-
+  
   Technical Requirements:
   - Create theme context/provider for global theme state
   - Implement CSS variables or theme system for colors
@@ -172,7 +164,7 @@ improved: |
   - Persist theme preference in localStorage
   - Ensure all components support both themes
   - Handle system preference detection
-
+  
   Acceptance Criteria:
   - Toggle switches between light/dark themes instantly
   - Theme preference persists across sessions
@@ -182,13 +174,12 @@ improved: |
 ```
 
 **Example 3: Complex Task Structuring**
-
 ```yaml
 original: "refactor the API"
 
 improved: |
   Refactor REST API to improve performance and maintainability.
-
+  
   Scope:
   - Analyze current API performance bottlenecks
   - Implement consistent error handling patterns
@@ -196,12 +187,12 @@ improved: |
   - Standardize endpoint naming conventions
   - Optimize database queries (eliminate N+1 problems)
   - Add comprehensive API documentation
-
+  
   Constraints:
   - Maintain backward compatibility for v1 endpoints
   - Zero downtime deployment required
   - Complete within current sprint (5 days)
-
+  
   Deliverables:
   - Refactored API code with consistent patterns
   - Performance improvement metrics (target: 30% faster)
@@ -219,17 +210,17 @@ pattern_enhancement:
   - Add pattern references to improved prompt
   - Include anti-patterns to avoid
   - Reference similar successful tasks
-
+  
 example:
   original: "implement caching"
   pattern_enhanced: |
     Implement caching layer using Redis pattern.
-
+    
     Apply patterns:
     - [PAT:CACHE:REDIS] for connection management
     - [PAT:CACHE:TTL] for expiration strategies
     - [PAT:ERROR:CACHE_MISS] for fallback handling
-
+    
     Avoid anti-patterns:
     - No cache stampede issues
     - Prevent memory leaks from unbounded caches
@@ -243,7 +234,7 @@ example:
 enhanced_prompt_storage:
   # The improved prompt becomes the working brief for all subsequent steps
   working_brief: "[Enhanced version of the original task brief]"
-
+  
   # Document the enhancement for learning
   enhancement_metadata:
     original_length: X tokens
@@ -254,7 +245,6 @@ enhanced_prompt_storage:
 ```
 
 **Use the enhanced prompt/brief for:**
-
 - Intelligence gathering in step 4
 - All phase executions
 - Final reflection and learning capture
@@ -275,7 +265,6 @@ if enhancement_is_significant:
 ### Quick Enhancement Checklist
 
 ✅ **Before proceeding, ensure the enhanced brief has:**
-
 - [ ] Clear, measurable objective
 - [ ] Specific requirements and constraints
 - [ ] Success criteria defined
@@ -285,7 +274,6 @@ if enhancement_is_significant:
 - [ ] Pattern opportunities identified
 
 **If the original brief is already excellent** (rare but possible):
-
 - Note that no enhancement was needed
 - Proceed with original as working brief
 - Document why it was already optimal
@@ -293,7 +281,6 @@ if enhancement_is_significant:
 ## 4 · Execute Comprehensive Intelligence & Context Assembly
 
 Record initial checkpoint:
-
 - Call apex_task_checkpoint with:
   - id: taskId
   - message: "Starting intelligence gathering phase"
@@ -321,7 +308,6 @@ Orchestrate complete intelligence gathering and context assembly for task [TASK_
 ```
 
 **The intelligence-gatherer will:**
-
 1. Execute ALL intelligence operations in parallel using subagents
 2. Aggregate and deduplicate all results
 3. Calculate complexity score and determine Gemini needs
@@ -340,12 +326,12 @@ context_pack:
     id: "T26_S02"
     title: "Task title from file"
     type: "feature_implementation|bug_fix|test_fix|refactor|documentation"
-    complexity: 6 # 1-10 scale
+    complexity: 6  # 1-10 scale
     validation_status: "ready|blocked"
     current_phase: "ARCHITECT"
-
+    
   pattern_cache:
-    architecture:
+    architecture: 
       - id: "ARCH:API:REST"
         trust: "★★★★★"
         usage_count: 156
@@ -354,7 +340,7 @@ context_pack:
     testing: [patterns]
     fixes: [patterns]
     anti_patterns: [patterns to avoid]
-
+    
   loaded_context:
     files:
       - path: "path/to/file"
@@ -363,25 +349,25 @@ context_pack:
         purpose: "API structure reference"
     total_tokens: 24500
     token_budget: 30000
-
+    
   historical_intelligence:
     similar_tasks: [with learnings]
     system_history: [changes, migrations]
     predicted_failures: [with prevention strategies]
-
+    
   validation_results:
     requirements_complete: true
     missing_requirements: []
     ambiguities_resolved: []
     assumptions_verified: []
-
+    
   execution_strategy:
     recommended_approach: "Pattern-based implementation"
     gemini_integration:
       required: true
       phases: ["ARCHITECT", "REVIEWER"]
     parallelization_opportunities: []
-
+    
   metadata:
     intelligence_timestamp: "2024-01-15T10:30:00"
     confidence_score: 0.85
@@ -397,10 +383,10 @@ For any intelligence insights used in subsequent phases:
 display_format:
   inline_hints:
     format: "💡 Intelligence: [insight from context pack]"
-
+    
   code_comments:
     format: "// [PATTERN_ID] ★★★★☆ - From context pack"
-
+    
   warning_blocks:
     format: |
       ⚠️ INTELLIGENCE WARNING: [From context pack]
@@ -420,7 +406,6 @@ If `context_pack.validation_results.validation_status` is "blocked":
 4. STOP execution - do not proceed
 
 If validation_status is "ready":
-
 - Continue to next step (Set status to in_progress)
 - The context pack contains all validated information
 - All subsequent phases will reference this context pack
@@ -430,14 +415,12 @@ If validation_status is "ready":
 **CRITICAL**: Store the complete context pack as evidence for future reference:
 
 Call apex_task_append_evidence with:
-
 - task_id: The taskId from step 2
 - type: "decision"
 - content: "Intelligence context pack generated"
 - metadata: Include the full context_pack data
 
 This preserved context pack:
-
 - Serves as reference for all execution phases
 - Documents what patterns were available at execution time
 - Provides learning data for future similar tasks
@@ -448,12 +431,10 @@ This preserved context pack:
 - Set initial phase to ARCHITECT:
 
 Call apex_task_set_phase with:
-
 - task_id: The taskId
 - phase: "ARCHITECT"
 
 Then record the start of execution by calling apex_task_append_evidence with:
-
 - task_id: The taskId
 - type: "decision"
 - content: "Task execution started"
@@ -535,9 +516,8 @@ Review the context pack from the intelligence phase:
 ```
 
 **The context pack already contains:**
-
 - All relevant architecture patterns with trust scores
-- Implementation paths from similar tasks
+- Implementation paths from similar tasks  
 - Predicted failure points with prevention strategies
 - Recommended approach based on comprehensive analysis
 - Gemini integration requirements
@@ -557,7 +537,6 @@ Review the context pack from the intelligence phase:
 ```
 
 **The context pack already validated:**
-
 - Current state origin and change history
 - What systems were replaced and why
 - Dependencies and impact radius
@@ -625,7 +604,6 @@ historical_checks:
 4. Get user confirmation if task fundamentally conflicts with discoveries
 
 Record any critical discoveries as evidence:
-
 - Call apex_task_append_evidence with type "decision"
 - Include discovered conflicts and previous attempts in metadata
 
@@ -669,7 +647,6 @@ Record any critical discoveries as evidence:
 11. Update phase to BUILDER when complete:
 
 Call apex_task_set_phase to transition to BUILDER:
-
 - task_id: The taskId
 - phase: "BUILDER"
 - handoff: The complete ARCHITECT → BUILDER handoff text
@@ -684,7 +661,6 @@ Call apex_task_set_phase to transition to BUILDER:
 **PATTERN TRACKING**: Record patterns selected as evidence:
 
 Record selected patterns by calling apex_task_append_evidence:
-
 - task_id: The taskId
 - type: "pattern"
 - content: "Architecture patterns selected"
@@ -797,14 +773,12 @@ For complex algorithms or logic not in patterns:
 Call apex_task_get_phase to check current phase.
 
 If phase is "BUILDER":
-
 - Read the handoff from previous phase
 - Execute BUILDER phase implementation
 
 ### 🧠 Intelligence-Driven Implementation
 
 Record a checkpoint at BUILDER start:
-
 - Call apex_task_checkpoint with taskId
 - message: "Starting implementation phase"
 - confidence: 0.5
@@ -905,7 +879,6 @@ The context pack already identified high-risk patterns and their prevention stra
 6. Update phase to VALIDATOR when complete:
 
 Transition to VALIDATOR phase:
-
 - Call apex_task_set_phase with phase "VALIDATOR"
 - Include the BUILDER → VALIDATOR handoff content
 
@@ -916,7 +889,6 @@ Transition to VALIDATOR phase:
 - Complete BUILDER → VALIDATOR handoff section
 
 **PATTERN TRACKING**: Record implementation patterns as evidence:
-
 - Call apex_task_append_evidence with type "pattern"
 - Include patterns used and their effectiveness in metadata
 - Note which patterns worked, needed adjustment, or failed
@@ -1034,10 +1006,11 @@ Before completing BUILDER phase, validate all modified files:
 3. **If syntax errors found:**
    - Fix immediately before proceeding
    - Record error as evidence:
-
+   
    Record the error as evidence:
    - Call apex_task_append_evidence with type "error"
    - Include file, error description, and fix in metadata
+   
    - Consider adding to pattern cache if recurring
    - Do NOT transition to VALIDATOR with syntax errors
 
@@ -1074,7 +1047,6 @@ If phase is "VALIDATOR", proceed with validation.
 ### 🧠 Intelligence-Driven Validation
 
 Record checkpoint at VALIDATOR start:
-
 - Call apex_task_checkpoint
 - message: "Starting validation phase - running tests"
 - confidence: 0.7
@@ -1198,7 +1170,6 @@ Transition to REVIEWER phase by calling apex_task_set_phase with phase "REVIEWER
 **PATTERN TRACKING**: Record test patterns and errors as evidence:
 
 Record test patterns and errors:
-
 - Call apex_task_append_evidence for patterns used
 - If errors encountered, record them with type "error"
 - Include any fixes applied in metadata
@@ -1254,7 +1225,6 @@ If phase is "REVIEWER", proceed with code review.
 ### 🧠 Intelligence Effectiveness Review
 
 Record checkpoint:
-
 - Call apex_task_checkpoint
 - message: "Starting review phase"
 - confidence: 0.85
@@ -1306,7 +1276,6 @@ Evaluate how well the context pack performed:
 6. Update phase to DOCUMENTER when approved:
 
 Transition to DOCUMENTER phase:
-
 - Call apex_task_set_phase with:
   - task_id: The taskId
   - phase: "DOCUMENTER"
@@ -1323,7 +1292,6 @@ Transition to DOCUMENTER phase:
 **PATTERN TRACKING**: Finalize pattern effectiveness as evidence:
 
 Record final pattern effectiveness:
-
 - Call apex_task_append_evidence with:
   - task_id: The taskId
   - type: "pattern"
@@ -1332,7 +1300,7 @@ Record final pattern effectiveness:
 
 ## 10 · Execute DOCUMENTER phase and finalize
 
-**PHASE PROMPT**: "You are in DOCUMENTER phase. Update project documentation based on what was learned. Do not modify code. THIS IS THE ONLY PHASE where you should create or update .md files for documentation. CRITICAL: You MUST call apex.reflect at the end."
+**PHASE PROMPT**: "You are in DOCUMENTER phase. Capture learnings and reflect on task execution. Do not modify code. DO NOT create any .md files - all documentation is stored in the database via MCP tools. CRITICAL: You MUST call apex_reflect at the end."
 
 **INTELLIGENCE INJECTION**: Document context pack effectiveness:
 
@@ -1352,49 +1320,46 @@ Record final pattern effectiveness:
 1. Read all handoffs to understand full implementation
 
 Final checkpoint and evidence retrieval:
-
 - Call apex_task_checkpoint with confidence 0.95
 - Call apex_task_get_evidence to retrieve all collected evidence for summary
 
 2. **COMPLETE TASK AND REFLECT - TWO SEPARATE STEPS:**
-
+   
    **STEP 1 - Complete the task (returns reflection draft):**
-
+   
    Call apex_task_complete with:
    - id: The taskId
    - outcome: "success", "partial", or "failure"
    - key_learning: Key insight from the implementation
    - patterns_used: List of pattern IDs used
-
+   
    This returns a ReflectionDraft that you can review and modify.
-
+   
    **STEP 2 - Deep Pattern Extraction & Reflection (THINK DEEPLY):**
-
+   
    ### 🧠 ULTRA-DEEP PATTERN REFLECTION PROCESS
-
+   
    **⏸️ PAUSE HERE: Take 30-60 seconds to deeply analyze the implementation.**
-
+   
    **Reflection Mindset:**
    - Imagine you'll encounter this exact problem 10 more times
    - What knowledge would save you 2+ hours next time?
    - What subtle insight took you longest to discover?
    - What would you tell yourself at the start if you could?
    - What pattern emerges that isn't immediately obvious?
-
+   
    **Look for patterns at multiple levels:**
-
+   
    #### A. Patterns USED from Cache
-
    For each cached pattern applied, analyze:
    - **Effectiveness Score**: ✓ Perfect / ⚠ Adapted / ✗ Failed
    - **Adaptations Required**: What had to change? Why?
    - **Context Sensitivity**: Did it work because of specific conditions?
    - **Improvement Ideas**: How could the pattern be enhanced?
-
+   
    #### B. NEW Patterns DISCOVERED (Be Creative!)
-
    Look beyond the obvious - find the subtle, reusable gems:
-
+   
    **Code Patterns:**
    - Elegant solutions to tricky problems
    - Creative uses of language features
@@ -1402,56 +1367,52 @@ Final checkpoint and evidence retrieval:
    - Clean abstractions or interfaces created
    - Smart error handling approaches
    - Clever test strategies that caught bugs
-
+   
    **Architecture Patterns:**
    - Module organization that improved clarity
    - Dependency injection techniques
    - State management approaches
    - API design patterns that emerged
    - Service layer abstractions
-
+   
    **Process Patterns:**
    - Debugging techniques that worked
    - Testing strategies that revealed issues
    - Refactoring sequences that were effective
    - Migration patterns for schema changes
-
+   
    **Integration Patterns:**
    - Tool combinations that worked well
    - Library usage patterns
    - Configuration patterns
    - Build/deploy optimizations
-
+   
    #### C. ANTI-PATTERNS Discovered
-
    Document what DIDN'T work (equally valuable!):
    - Approaches that seemed good but failed
    - Performance bottlenecks discovered
    - Testing strategies that missed bugs
    - Architectural decisions that caused issues
    - Tool limitations encountered
-
+   
    #### D. LEARNINGS & INSIGHTS
-
    Meta-patterns and wisdom:
    - "When X condition exists, always check for Y"
    - "Pattern A works better than Pattern B when..."
    - "This type of bug often hides in..."
    - "The root cause was actually..."
-
+   
    #### E. Pattern Quality Checklist
-
    Before documenting a pattern, verify:
    - [ ] Is it genuinely reusable in other contexts?
    - [ ] Can you describe it in a single sentence?
    - [ ] Would it save time if encountered again?
    - [ ] Is it non-obvious enough to be valuable?
    - [ ] Does it have clear triggers/conditions for use?
-
+   
    ### 📝 Pattern Documentation Template
-
+   
    For each significant pattern discovered:
-
    ```yaml
    pattern:
      title: "Descriptive Name"
@@ -1463,141 +1424,132 @@ Final checkpoint and evidence retrieval:
      trade_offs: "Pros/cons"
      related: "Similar or complementary patterns"
    ```
-
+   
    ## 🔴 STEP 2.5 - MANDATORY GIT COMMIT (DO NOT SKIP!)
-
+   
    **⚠️ CRITICAL: You MUST commit changes before apex_reflect or it will fail!**
-
+   
    ```bash
    # Check what files were modified
    git status --short
-
+   
    # Stage all changes
    git add -A
-
+   
    # Create a meaningful commit message
    git commit -m "Task [TASK_ID]: [Brief description of what was done]
-
+   
    - [Key change 1]
    - [Key change 2]
    - [Key fixes or improvements]
    - Patterns: [List any patterns applied/discovered]
-
+   
    Co-authored-by: Claude <noreply@anthropic.com>"
-
+   
    # Verify commit succeeded
    git log -1 --oneline
    ```
-
+   
    **✅ Commit Checklist:**
    - [ ] All modified files are staged (`git add -A`)
    - [ ] Commit message describes what was done
    - [ ] Commit includes pattern information
    - [ ] Commit succeeded (check with `git log -1`)
-
+   
    **If commit fails:** Fix any issues before proceeding to apex_reflect!
-
+   
    **STEP 3 - Call apex_reflect with comprehensive pattern data:**
 
    ## 🚨 CRITICAL apex_reflect Documentation
 
    ### ⚠️ IMPORTANT: Pass Parameters as Objects, NOT Strings!
-
+   
    **The most common error is passing `claims` or `batch_patterns` as JSON strings instead of actual objects/arrays.**
 
    ### 🔴 CRITICAL: Common apex_reflect Mistakes to Avoid
 
    #### 1. **Anti-patterns Structure**
-
    Anti-patterns require `title` and `reason` fields, NOT `pattern_id`:
-
+   
    ❌ **WRONG**:
-
    ```javascript
-   anti_patterns: [
-     {
-       pattern_id: "ASYNC_IN_SQLITE", // ❌ Wrong field name
-       reason: "Causes failure",
-     },
-   ];
+   anti_patterns: [{
+     pattern_id: "ASYNC_IN_SQLITE",  // ❌ Wrong field name
+     reason: "Causes failure"
+   }]
    ```
-
+   
    ✅ **CORRECT**:
-
    ```javascript
-   anti_patterns: [
-     {
-       title: "Async in SQLite Transaction", // ✅ Required field
-       reason: "Using async/await inside db.transaction() fails", // ✅ Required field
-       evidence: [], // Optional but recommended empty if no specific evidence
-     },
-   ];
+   anti_patterns: [{
+     title: "Async in SQLite Transaction",  // ✅ Required field
+     reason: "Using async/await inside db.transaction() fails",  // ✅ Required field
+     evidence: []  // Optional but recommended empty if no specific evidence
+   }]
    ```
 
    #### 2. **Evidence Validation Issues**
-
+   
    **IMPORTANT**: Even with committed files, evidence validation can fail. The safest approach is to minimize evidence usage:
-
+   
    ✅ **RECOMMENDED - Minimal Evidence Pattern**:
-
    ```javascript
    apex_reflect({
      task: { id: "TASK_ID", title: "Task Title" },
      outcome: "success",
      claims: {
-       patterns_used: [], // Keep empty to avoid evidence validation issues
-       trust_updates: [{ pattern_id: "PAT:ID", outcome: "worked-perfectly" }],
+       patterns_used: [],  // Keep empty to avoid evidence validation issues
+       trust_updates: [
+         { pattern_id: "PAT:ID", outcome: "worked-perfectly" }
+       ],
        new_patterns: [
          {
            title: "Pattern Name",
            summary: "Description",
-           snippets: [], // Can include code snippets
-           evidence: [], // Keep empty to avoid validation
-         },
+           snippets: [],  // Can include code snippets
+           evidence: []   // Keep empty to avoid validation
+         }
        ],
        anti_patterns: [
          {
-           title: "Anti-pattern Name", // NOT pattern_id!
+           title: "Anti-pattern Name",  // NOT pattern_id!
            reason: "Why this is bad",
-           evidence: [],
-         },
+           evidence: []
+         }
        ],
        learnings: [
-         {
-           assertion: "What you learned",
-           evidence: [], // Keep empty
-         },
-       ],
-     },
-   });
+         { 
+           assertion: "What you learned", 
+           evidence: []  // Keep empty
+         }
+       ]
+     }
+   })
    ```
-
+   
    #### 3. **When You MUST Use Evidence**
-
+   
    If evidence is required, use string evidence which auto-converts safely:
-
    ```javascript
    batch_patterns: [
      {
        pattern: "PAT:TEST",
        outcome: "worked-perfectly",
-       evidence: "Simple string description", // Safer than git_lines objects
-     },
-   ];
+       evidence: "Simple string description"  // Safer than git_lines objects
+     }
+   ]
    ```
-
+   
    ❌ **WRONG** - This will fail with "Expected object, received string":
-
    ```javascript
    // DON'T DO THIS - passing claims as a string
-   claims: '{"patterns_used": [], "trust_updates": []}';
-
-   // DON'T DO THIS - passing batch_patterns as a string
-   batch_patterns: '[{"pattern": "PAT:TEST", "outcome": "worked-perfectly"}]';
+   claims: '{"patterns_used": [], "trust_updates": []}'
+   
+   // DON'T DO THIS - passing batch_patterns as a string  
+   batch_patterns: '[{"pattern": "PAT:TEST", "outcome": "worked-perfectly"}]'
    ```
-
+   
    ✅ **CORRECT** - Pass as actual JavaScript objects/arrays:
-
    ```javascript
    // DO THIS - claims as an object
    claims: {
@@ -1607,7 +1559,7 @@ Final checkpoint and evidence retrieval:
      anti_patterns: [],
      learnings: []
    }
-
+   
    // DO THIS - batch_patterns as an array
    batch_patterns: [
      {
@@ -1621,9 +1573,7 @@ Final checkpoint and evidence retrieval:
    ### Two Accepted Formats
 
    #### Format 1: Traditional Claims (Full Control)
-
    When calling apex_reflect, use this structure with `claims` as an OBJECT:
-
    ```javascript
    apex_reflect({
      task: { id: "T28_S02", title: "Implement feature X" },
@@ -1640,29 +1590,25 @@ Final checkpoint and evidence retrieval:
    ```
 
    #### Format 2: Batch Patterns (Simplified)
-
    When calling apex_reflect, use this structure with `batch_patterns` as an ARRAY:
-
    ```javascript
    apex_reflect({
      task: { id: "T28_S02", title: "Implement feature X" },
      outcome: "success",
-     batch_patterns: [
-       // ← ARRAY, not a string!
+     batch_patterns: [  // ← ARRAY, not a string!
        {
          pattern: "PAT:API:ERROR_HANDLING",
-         outcome: "worked-perfectly", // See outcome values below
-         evidence: "Applied in api.ts:45-78", // String or array
-         notes: "Worked without modification",
-       },
-     ],
-   });
+         outcome: "worked-perfectly",  // See outcome values below
+         evidence: "Applied in api.ts:45-78",  // String or array
+         notes: "Worked without modification"
+       }
+     ]
+   })
    ```
 
    ### 📌 Evidence Format Rules
 
    #### ✅ CORRECT Evidence Objects
-
    ```json
    // Git lines evidence (MOST COMMON)
    {
@@ -1695,7 +1641,6 @@ Final checkpoint and evidence retrieval:
    ```
 
    #### ✅ String Evidence (Auto-converted)
-
    ```json
    // These strings are auto-converted to proper evidence:
    "evidence": "Applied in auth.ts:45-78"
@@ -1714,346 +1659,284 @@ Final checkpoint and evidence retrieval:
    ### ✅ Complete Working Examples
 
    #### Example 1: Simple Batch Format (RECOMMENDED)
-
    When calling apex_reflect, remember to pass `batch_patterns` as an ARRAY, not a string:
-
    ```javascript
    apex_reflect({
      task: { id: "T123_S02", title: "Fix authentication bug" },
      outcome: "success",
-     batch_patterns: [
-       // ← This is an ARRAY, not a JSON string!
+     batch_patterns: [  // ← This is an ARRAY, not a JSON string!
        {
          pattern: "FIX:AUTH:SESSION",
          outcome: "worked-perfectly",
-         evidence: "Fixed session handling in auth.ts:234-256",
+         evidence: "Fixed session handling in auth.ts:234-256"
        },
        {
          pattern: "PAT:ERROR:BOUNDARY",
          outcome: "worked-with-tweaks",
-         evidence: [
-           {
-             kind: "git_lines",
-             file: "src/components/Login.tsx",
-             sha: "HEAD",
-             start: 45,
-             end: 67,
-           },
-         ],
-         notes: "Had to adapt for React 18",
-       },
-     ],
-   });
+         evidence: [{
+           kind: "git_lines",
+           file: "src/components/Login.tsx",
+           sha: "HEAD",
+           start: 45,
+           end: 67
+         }],
+         notes: "Had to adapt for React 18"
+       }
+     ]
+   })
    ```
 
    #### Example 2: Full Claims with New Pattern
-
    When calling apex_reflect, remember to pass `claims` as an OBJECT, not a string:
-
    ```javascript
    apex_reflect({
      task: { id: "T124_S02", title: "Add caching layer" },
      outcome: "success",
-     claims: {
-       // ← This is an OBJECT, not a JSON string!
-       patterns_used: [
-         {
-           pattern_id: "PAT:CACHE:REDIS",
-           evidence: [
-             {
-               kind: "git_lines",
-               file: "src/cache/redis.ts",
-               sha: "HEAD",
-               start: 50,
-               end: 100,
-             },
-           ],
-           notes: "Redis pattern worked perfectly",
-         },
-       ],
-       trust_updates: [
-         {
-           pattern_id: "PAT:CACHE:REDIS",
-           outcome: "worked-perfectly",
-         },
-       ],
-       new_patterns: [
-         {
-           title: "Redis Connection Pooling",
-           summary: "Efficient connection management",
-           snippets: [
-             {
-               snippet_id: "redis-pool-v1",
-               source_ref: {
-                 kind: "git_lines",
-                 file: "src/cache/pool.ts",
-                 sha: "HEAD",
-                 start: 1,
-                 end: 45,
-               },
-               language: "typescript",
-               code: "export class RedisPool {\n  // implementation\n}",
-             },
-           ],
-           evidence: [
-             {
-               kind: "git_lines",
-               file: "src/cache/pool.ts",
-               sha: "HEAD",
-               start: 1,
-               end: 45,
-             },
-           ],
-         },
-       ],
-     },
-   });
+     claims: {  // ← This is an OBJECT, not a JSON string!
+       patterns_used: [{
+         pattern_id: "PAT:CACHE:REDIS",
+         evidence: [{
+           kind: "git_lines",
+           file: "src/cache/redis.ts",
+           sha: "HEAD",
+           start: 50,
+           end: 100
+         }],
+         notes: "Redis pattern worked perfectly"
+       }],
+       trust_updates: [{
+         pattern_id: "PAT:CACHE:REDIS",
+         outcome: "worked-perfectly"
+       }],
+       new_patterns: [{
+         title: "Redis Connection Pooling",
+         summary: "Efficient connection management",
+         snippets: [{
+           snippet_id: "redis-pool-v1",
+           source_ref: {
+             kind: "git_lines",
+             file: "src/cache/pool.ts",
+             sha: "HEAD",
+             start: 1,
+             end: 45
+           },
+           language: "typescript",
+           code: "export class RedisPool {\n  // implementation\n}"
+         }],
+         evidence: [{
+           kind: "git_lines",
+           file: "src/cache/pool.ts",
+           sha: "HEAD",
+           start: 1,
+           end: 45
+         }]
+       }]
+     }
+   })
    ```
-
+   
    #### Example 3: THOUGHTFUL Pattern Discovery (Deep Reflection)
-
    ```javascript
    apex_reflect({
      task: { id: "T061", title: "Fix test failures" },
      outcome: "success",
-     claims: {
-       // ← OBJECT, not a string!
-       patterns_used: [], // No patterns from cache were used
+     claims: {  // ← OBJECT, not a string!
+       patterns_used: [],  // No patterns from cache were used
        trust_updates: [],
        new_patterns: [
          {
            title: "Test Isolation with Skip Flags",
-           summary:
-             "Add skip flags to prevent background operations during testing",
-           snippets: [
-             {
-               snippet_id: "test-isolation-v1",
-               source_ref: {
-                 kind: "git_lines",
-                 file: "src/service.ts",
-                 sha: "HEAD",
-                 start: 101,
-                 end: 103,
-               },
-               language: "typescript",
-               code: "if (!options.skipPrecompute) {\n  this.precomputeActiveTasks();\n}",
-             },
-           ],
-           evidence: [
-             {
+           summary: "Add skip flags to prevent background operations during testing",
+           snippets: [{
+             snippet_id: "test-isolation-v1",
+             source_ref: {
                kind: "git_lines",
-               file: "tests/service.test.ts",
+               file: "src/service.ts",
                sha: "HEAD",
-               start: 77,
-               end: 78,
+               start: 101,
+               end: 103
              },
-           ],
+             language: "typescript",
+             code: "if (!options.skipPrecompute) {\n  this.precomputeActiveTasks();\n}"
+           }],
+           evidence: [{
+             kind: "git_lines",
+             file: "tests/service.test.ts",
+             sha: "HEAD",
+             start: 77,
+             end: 78
+           }]
          },
          {
            title: "Async Test Cleanup Pattern",
-           summary:
-             "Ensure database connections are properly closed in afterEach hooks to prevent test pollution",
-           snippets: [
-             {
-               snippet_id: "async-cleanup-v1",
-               source_ref: {
-                 kind: "git_lines",
-                 file: "tests/setup.ts",
-                 sha: "HEAD",
-                 start: 45,
-                 end: 52,
-               },
-               language: "typescript",
-               code: "afterEach(async () => {\n  await db.close();\n  await cache.flush();\n  jest.clearAllMocks();\n});",
-             },
-           ],
-           evidence: [
-             {
+           summary: "Ensure database connections are properly closed in afterEach hooks to prevent test pollution",
+           snippets: [{
+             snippet_id: "async-cleanup-v1",
+             source_ref: {
                kind: "git_lines",
                file: "tests/setup.ts",
                sha: "HEAD",
                start: 45,
-               end: 52,
+               end: 52
              },
-           ],
+             language: "typescript",
+             code: "afterEach(async () => {\n  await db.close();\n  await cache.flush();\n  jest.clearAllMocks();\n});"
+           }],
+           evidence: [{
+             kind: "git_lines",
+             file: "tests/setup.ts",
+             sha: "HEAD",
+             start: 45,
+             end: 52
+           }]
          },
          {
            title: "Mock Validation Pattern",
-           summary:
-             "Validate mock implementations match interface contracts using TypeScript strict checks",
-           snippets: [
-             {
-               snippet_id: "mock-validation-v1",
-               source_ref: {
-                 kind: "git_lines",
-                 file: "tests/mocks/service.mock.ts",
-                 sha: "HEAD",
-                 start: 12,
-                 end: 18,
-               },
-               language: "typescript",
-               code: "// Ensures mock matches interface at compile time\nconst mockService: IService = {\n  method: jest.fn().mockImplementation(async (x) => {\n    // Implementation that matches interface signature\n    return { success: true, data: x };\n  })\n} satisfies IService;",
-             },
-           ],
-           evidence: [
-             {
+           summary: "Validate mock implementations match interface contracts using TypeScript strict checks",
+           snippets: [{
+             snippet_id: "mock-validation-v1",
+             source_ref: {
                kind: "git_lines",
                file: "tests/mocks/service.mock.ts",
                sha: "HEAD",
                start: 12,
-               end: 18,
+               end: 18
              },
-           ],
-         },
+             language: "typescript",
+             code: "// Ensures mock matches interface at compile time\nconst mockService: IService = {\n  method: jest.fn().mockImplementation(async (x) => {\n    // Implementation that matches interface signature\n    return { success: true, data: x };\n  })\n} satisfies IService;"
+           }],
+           evidence: [{
+             kind: "git_lines",
+             file: "tests/mocks/service.mock.ts",
+             sha: "HEAD",
+             start: 12,
+             end: 18
+           }]
+         }
        ],
        anti_patterns: [
          {
            title: "Hardcoded Status Values in SQL",
-           reason:
-             "Using string literals for status values without constants leads to interface mismatches",
-           evidence: [
-             {
-               kind: "git_lines",
-               file: "src/service.ts",
-               sha: "HEAD",
-               start: 116,
-               end: 116,
-             },
-           ],
+           reason: "Using string literals for status values without constants leads to interface mismatches",
+           evidence: [{
+             kind: "git_lines",
+             file: "src/service.ts",
+             sha: "HEAD",
+             start: 116,
+             end: 116
+           }]
          },
          {
            title: "Global Test State Mutation",
-           reason:
-             "Modifying global state in tests causes flaky failures when tests run in parallel",
-           evidence: [
-             {
-               kind: "git_lines",
-               file: "tests/old-test.ts",
-               sha: "HEAD",
-               start: 23,
-               end: 25,
-             },
-           ],
-         },
+           reason: "Modifying global state in tests causes flaky failures when tests run in parallel",
+           evidence: [{
+             kind: "git_lines",
+             file: "tests/old-test.ts",
+             sha: "HEAD",
+             start: 23,
+             end: 25
+           }]
+         }
        ],
        learnings: [
          {
-           assertion:
-             "Test failures often cascade from improper async cleanup in previous tests",
-           evidence: [
-             {
-               kind: "git_lines",
-               file: "tests/debug.log",
-               sha: "HEAD",
-               start: 1,
-               end: 5,
-             },
-           ],
+           assertion: "Test failures often cascade from improper async cleanup in previous tests",
+           evidence: [{
+             kind: "git_lines",
+             file: "tests/debug.log",
+             sha: "HEAD",
+             start: 1,
+             end: 5
+           }]
          },
          {
-           assertion:
-             "Background processes must be explicitly disabled in test environments",
-           evidence: [
-             {
-               kind: "git_lines",
-               file: "src/config/test.config.ts",
-               sha: "HEAD",
-               start: 8,
-               end: 12,
-             },
-           ],
+           assertion: "Background processes must be explicitly disabled in test environments",
+           evidence: [{
+             kind: "git_lines",
+             file: "src/config/test.config.ts",
+             sha: "HEAD",
+             start: 8,
+             end: 12
+           }]
          },
          {
-           assertion:
-             "TypeScript 'satisfies' operator prevents mock drift from interfaces",
-           evidence: [
-             {
-               kind: "git_lines",
-               file: "tests/mocks/README.md",
-               sha: "HEAD",
-               start: 15,
-               end: 20,
-             },
-           ],
-         },
-       ],
-     },
-   });
+           assertion: "TypeScript 'satisfies' operator prevents mock drift from interfaces",
+           evidence: [{
+             kind: "git_lines",
+             file: "tests/mocks/README.md",
+             sha: "HEAD",
+             start: 15,
+             end: 20
+           }]
+         }
+       ]
+     }
+   })
    ```
 
    #### Example 4: Documenting Anti-Patterns
-
    ```javascript
    apex_reflect({
      task: { id: "T125_S02", title: "Performance optimization" },
      outcome: "partial",
-     claims: {
-       // ← OBJECT, not a string!
+     claims: {  // ← OBJECT, not a string!
        patterns_used: [],
        trust_updates: [],
-       anti_patterns: [
-         {
-           title: "Synchronous Database Calls in Loop",
-           reason: "Causes N+1 query problem, degrades performance",
-           evidence: [
-             {
-               kind: "git_lines",
-               file: "src/services/user.ts",
-               sha: "HEAD",
-               start: 234,
-               end: 245,
-             },
-           ],
-         },
-       ],
-       learnings: [
-         {
-           assertion: "Always use batch queries for related data",
-           evidence: [
-             {
-               kind: "git_lines",
-               file: "src/services/user.ts",
-               sha: "HEAD",
-               start: 250,
-               end: 260,
-             },
-           ],
-         },
-       ],
-     },
-   });
+       anti_patterns: [{
+         title: "Synchronous Database Calls in Loop",
+         reason: "Causes N+1 query problem, degrades performance",
+         evidence: [{
+           kind: "git_lines",
+           file: "src/services/user.ts",
+           sha: "HEAD",
+           start: 234,
+           end: 245
+         }]
+       }],
+       learnings: [{
+         assertion: "Always use batch queries for related data",
+         evidence: [{
+           kind: "git_lines",
+           file: "src/services/user.ts",
+           sha: "HEAD",
+           start: 250,
+           end: 260
+         }]
+       }]
+     }
+   })
    ```
 
    ### ❌ Common Mistakes & Auto-Fixes
 
    The apex_reflect tool automatically fixes these common AI mistakes:
 
-   | Mistake                      | Auto-Fix Applied                  |
-   | ---------------------------- | --------------------------------- |
-   | `"kind": "code_lines"`       | → `"kind": "git_lines"`           |
-   | Missing `sha` field          | → Adds `"sha": "HEAD"`            |
-   | Evidence as string in arrays | → Converts to evidence object     |
-   | Single-word pattern IDs      | → Adds `:DEFAULT:DEFAULT:DEFAULT` |
+   | Mistake | Auto-Fix Applied |
+   |---------|------------------|
+   | `"kind": "code_lines"` | → `"kind": "git_lines"` |
+   | Missing `sha` field | → Adds `"sha": "HEAD"` |
+   | Evidence as string in arrays | → Converts to evidence object |
+   | Single-word pattern IDs | → Adds `:DEFAULT:DEFAULT:DEFAULT` |
 
    #### ❌ WRONG Examples (But Auto-Fixed!)
-
    ```json
    // These are WRONG but will be auto-corrected:
-
+   
    // Wrong: code_lines → Fixed to git_lines
    { "kind": "code_lines", "file": "test.ts", "start": 1, "end": 10 }
-
+   
    // Wrong: Missing SHA → Fixed by adding "HEAD"
    { "kind": "git_lines", "file": "test.ts", "start": 1, "end": 10 }
-
+   
    // Wrong: String evidence → Converted to object
    "evidence": ["This pattern worked well"]
-
+   
    // Wrong: Single-part pattern → Fixed to 4 parts
    "pattern_id": "JWT"  // Becomes: "JWT:DEFAULT:DEFAULT:DEFAULT"
    ```
 
    ### 🔍 Validation Rules
+
    1. **Pattern IDs**: Must have 2+ parts (e.g., `PAT:AUTH` or `PAT:AUTH:JWT`)
    2. **SHA Format**: 7-40 hex chars, "HEAD", or branch/tag names
    3. **Line Numbers**: Must be positive integers, start ≤ end
@@ -2061,6 +1944,7 @@ Final checkpoint and evidence retrieval:
    5. **Duplicate Patterns**: Last occurrence wins in batch mode
 
    ### 💡 Best Practices
+
    1. **Use Batch Format** for simple reflections - it's cleaner
    2. **Always include evidence** - even a simple string description
    3. **Be specific with outcomes** - helps train the system
@@ -2084,71 +1968,56 @@ Final checkpoint and evidence retrieval:
    - Refactoring patterns that maintain compatibility
 
    ### 🚀 Minimal Working Example
-
    ```javascript
    apex_reflect({
      task: { id: "T99", title: "Quick fix" },
      outcome: "success",
-     batch_patterns: [
-       {
-         // ← ARRAY, not a string!
-         pattern: "FIX:BUG:NULL_CHECK",
-         outcome: "worked-perfectly",
-         evidence: "Added null check in utils.ts:45",
-       },
-     ],
-   });
+     batch_patterns: [{  // ← ARRAY, not a string!
+       pattern: "FIX:BUG:NULL_CHECK",
+       outcome: "worked-perfectly",
+       evidence: "Added null check in utils.ts:45"
+     }]
+   })
    ```
 
    ### 🔧 Working Example for Uncommitted Files
-
    ```javascript
    // WORKAROUND for uncommitted files: Use trust_updates WITHOUT patterns_used
    apex_reflect({
      task: { id: "T100", title: "Feature with uncommitted files" },
      outcome: "success",
      claims: {
-       patterns_used: [], // Leave empty to avoid evidence validation
-       trust_updates: [
-         {
-           pattern_id: "PAT:API:ERROR_HANDLING",
-           outcome: "worked-perfectly", // Still updates trust scores!
-         },
-       ],
-       new_patterns: [], // Skip new patterns if uncommitted
-       learnings: [], // Skip learnings if they reference uncommitted files
-     },
-   });
-
+       patterns_used: [],  // Leave empty to avoid evidence validation
+       trust_updates: [{
+         pattern_id: "PAT:API:ERROR_HANDLING",
+         outcome: "worked-perfectly"  // Still updates trust scores!
+       }],
+       new_patterns: [],  // Skip new patterns if uncommitted
+       learnings: []  // Skip learnings if they reference uncommitted files
+     }
+   })
+   
    // Alternative: Commit files first, then use full reflection
    // git add . && git commit -m "Work in progress"
    // Then use normal apex_reflect with full evidence
    ```
 
-3. **COMPLETE LEARNING DOCUMENTATION:**
-   Use the learning-documenter subagent for comprehensive capture:
+3. **CAPTURE LEARNING INSIGHTS:**
+   
+   After apex_reflect completes, the system automatically:
+   - Updates pattern trust scores in the database
+   - Records new patterns discovered
+   - Tracks anti-patterns to avoid
+   - Stores learnings for future reference
+   
+   All learning data is now captured through apex_reflect - no separate documentation files needed.
 
-   ```markdown
-   <Task subagent_type="learning-documenter" description="Capture task learnings">
-   Document learnings for task [TASK_ID]:
-   - Update TASK_LEARNINGS.md
-   - Add failures to failures.jsonl
-   - Document pattern effectiveness from apex.reflect results
-   - Create follow-up tasks for outstanding issues
-   </Task>
-   ```
-
-   **Learning-documenter subagent will:**
-   - Process reflection results from apex.reflect
-   - Document pattern effectiveness (parallel writes)
-   - Update all learning files concurrently:
-     - TASK_LEARNINGS.md
-     - failures.jsonl
-     - Pattern documentation
-   - Create follow-up tasks as needed
-   - **THIS IS THE ONLY SUBAGENT** that should create/update .md files
-
-   **PARALLELISM**: Updates multiple documentation files simultaneously
+   **The apex_reflect tool automatically:**
+   - Processes pattern usage and effectiveness
+   - Updates trust scores based on outcomes
+   - Stores new patterns in the database
+   - Records anti-patterns and learnings
+   - All data is persisted in the APEX database, not files
 
 ### 🧠 Intelligence System Feedback
 
@@ -2190,42 +2059,7 @@ intelligence_feedback:
 }
 ```
 
-5. **Update 09_LEARNING/TASK_LEARNINGS.md:**
-
-   ```markdown
-   ## T[ID] - [Task Title]
-
-   DURATION: Predicted Xh, Actual Yh
-   COMPLEXITY: Predicted X, Actual Y
-
-   ### Patterns Used
-
-   - [PAT:ID] ✅/⚠️ Notes on effectiveness
-   - Cache hit rate: X%
-
-   ### New Discoveries
-
-   - [Description of new pattern or insight]
-
-   ### Errors Encountered
-
-   - [Error] → [Fix applied]
-
-   ### Recommendations for Similar Tasks
-
-   - [Key learnings for future]
-   ```
-
-6. **Update 09_LEARNING/failures.jsonl:**
-
-   ```json
-   For each error in errors_encountered:
-   {"id": "F[next]", "task": "T[ID]", "error": "[error]",
-    "cause": "[cause]", "fix": "[fix]", "pattern": "[PAT:ID]",
-    "frequency": 1, "last_seen": "[date]", "contexts": ["tags"]}
-   ```
-
-7. **Create Follow-up Task for Outstanding Issues:**
+5. **Create Follow-up Task for Outstanding Issues:**
    Review all phase handoffs and notes for:
    - Outstanding issues that were not resolved
    - Architectural deficits identified
@@ -2233,7 +2067,7 @@ intelligence_feedback:
    - Any other work items noted for future action
 
    If such items exist, create a **new task** with clear reference to original task:
-
+   
    Call apex_task_create with:
    - intent: "Follow-up: [description of outstanding issues from original task]"
    - type: Appropriate type (refactor, bug, feature, etc.)

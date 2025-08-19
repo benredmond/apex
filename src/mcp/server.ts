@@ -243,13 +243,16 @@ export class ApexMCPServer {
       // Initialize pattern system before starting
       await this.initializePatternSystem();
     } catch (error) {
-      // Log error to stderr for debugging but don't crash
-      // This allows the MCP server to start even if the database has issues
+      // Log error to stderr for debugging
       console.error(
-        "[APEX MCP] Warning: Pattern system initialization failed:",
+        "[APEX MCP] CRITICAL: Pattern system initialization failed:",
         error,
       );
-      console.error("[APEX MCP] Some features may be unavailable");
+      console.error("[APEX MCP] Stack trace:", (error as Error).stack);
+      
+      // Exit the process immediately to prevent zombie servers
+      console.error("[APEX MCP] Exiting due to initialization failure");
+      process.exit(1);
     }
 
     // Register tool implementations after initialization

@@ -74,7 +74,7 @@ describe("ReflectionService Integration Tests", () => {
 
     // Create repository and service with real implementations
     repository = new PatternRepository({ dbPath });
-    service = new ReflectionService(repository, dbPath);
+    service = new ReflectionService(repository, db.database);
   });
 
   afterEach(() => {

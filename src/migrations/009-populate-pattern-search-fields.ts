@@ -121,7 +121,12 @@ const migration: Migration = {
           AND json_canonical IS NOT NULL
       `,
         )
-        .get() as { count: number };
+        .get() as { count: number } | undefined;
+
+      if (!needsUpdate || needsUpdate.count === undefined) {
+        console.log(`[Migration 009] No patterns table or no patterns found`);
+        return;
+      }
 
       console.log(
         `[Migration 009] Found ${needsUpdate.count} patterns needing search field population`,

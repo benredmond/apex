@@ -349,7 +349,7 @@ export class ReflectionService {
 
   constructor(
     repository: PatternRepository,
-    dbPath: string,
+    db: Database.Database,
     config?: {
       allowedRepoUrls?: string[];
       gitRepoPath?: string;
@@ -358,10 +358,8 @@ export class ReflectionService {
   ) {
     this.repository = repository;
 
-    // [PAT:ARCHITECTURE:DATABASE_CONNECTION_SHARING] ★★★☆☆ (1 use, 100% success) - Create single DB connection
-    this.db = new Database(dbPath);
-    this.db.pragma("journal_mode = WAL");
-    this.db.pragma("foreign_keys = ON");
+    // [FIX:DATABASE:SHARED_INSTANCE] ★★★★★ - Use injected database instance
+    this.db = db;
 
     // [PAT:ARCHITECTURE:DATABASE_CONNECTION_SHARING] ★★★☆☆ (1 use, 100% success) - Inject shared DB into services
     this.patternInserter = new PatternInserter(this.db);

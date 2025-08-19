@@ -42,7 +42,7 @@ export function initializeTools(
   // Get shared database instance - either provided or extract from repository
   const db = sharedDb || repo.getDatabase();
 
-  reflectionService = new ReflectionService(repo, "patterns.db", {
+  reflectionService = new ReflectionService(repo, db, {
     gitRepoPath: process.cwd(),
     enableMining: true,
   });

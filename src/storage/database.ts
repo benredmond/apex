@@ -47,6 +47,7 @@ export class PatternDatabase {
     // Ensure directory exists
     fs.ensureDirSync(path.dirname(fullPath));
 
+    // Open database - SQLite handles locking internally with busy_timeout
     this.db = new Database(fullPath);
 
     // Initialize fallback database if path provided
@@ -75,9 +76,11 @@ export class PatternDatabase {
     this.db.pragma("synchronous = NORMAL");
     this.db.pragma("temp_store = MEMORY");
 
-    // Optimize for concurrent reads
+    // Optimize for concurrent reads and multiple processes
     this.db.pragma("read_uncommitted = 1");
-    this.db.pragma("busy_timeout = 5000");
+    this.db.pragma("busy_timeout = 30000"); // Increase to 30 seconds for heavy concurrent access
+    this.db.pragma("wal_autocheckpoint = 1000"); // Auto-checkpoint every 1000 pages
+    this.db.pragma("wal_checkpoint(TRUNCATE)"); // Clean up WAL file on startup
 
     // Increase cache size for better performance with large codebases
     const cacheSize = process.env.APEX_DB_CACHE_SIZE
@@ -252,7 +255,7 @@ export class PatternDatabase {
     this.fallbackDb.pragma("synchronous = NORMAL");
     this.fallbackDb.pragma("temp_store = MEMORY");
     this.fallbackDb.pragma("read_uncommitted = 1");
-    this.fallbackDb.pragma("busy_timeout = 5000");
+    this.fallbackDb.pragma("busy_timeout = 30000"); // Match main DB timeout
 
     // Prepare fallback statements (we'll add these as needed)
   }
