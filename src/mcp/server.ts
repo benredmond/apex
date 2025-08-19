@@ -249,7 +249,7 @@ export class ApexMCPServer {
         error,
       );
       console.error("[APEX MCP] Stack trace:", (error as Error).stack);
-      
+
       // Exit the process immediately to prevent zombie servers
       console.error("[APEX MCP] Exiting due to initialization failure");
       process.exit(1);
