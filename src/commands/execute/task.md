@@ -1549,6 +1549,7 @@ Final checkpoint and evidence retrieval:
        trust_updates: [{ pattern_id: "PAT:ID", outcome: "worked-perfectly" }],
        new_patterns: [
          {
+           pattern_id: "PAT:API:ERROR_HANDLING", // Optional custom pattern ID
            title: "Pattern Name",
            summary: "Description",
            snippets: [], // Can include code snippets
@@ -1557,8 +1558,9 @@ Final checkpoint and evidence retrieval:
        ],
        anti_patterns: [
          {
-           title: "Anti-pattern Name", // NOT pattern_id!
-           reason: "Why this is bad",
+           pattern_id: "ANTI:DATABASE:N_PLUS_ONE", // Optional custom pattern ID
+           title: "Anti-pattern Name", // Required field
+           reason: "Why this is bad", // Required field
            evidence: [],
          },
        ],
@@ -1779,6 +1781,7 @@ Final checkpoint and evidence retrieval:
        ],
        new_patterns: [
          {
+           pattern_id: "PAT:CACHE:CONNECTION_POOL", // Optional custom pattern ID
            title: "Redis Connection Pooling",
            summary: "Efficient connection management",
            snippets: [
@@ -1822,6 +1825,7 @@ Final checkpoint and evidence retrieval:
        trust_updates: [],
        new_patterns: [
          {
+           pattern_id: "PAT:TEST:ISOLATION_FLAGS", // Optional custom pattern ID
            title: "Test Isolation with Skip Flags",
            summary:
              "Add skip flags to prevent background operations during testing",
@@ -1850,6 +1854,7 @@ Final checkpoint and evidence retrieval:
            ],
          },
          {
+           pattern_id: "PAT:TEST:ASYNC_CLEANUP", // Optional custom pattern ID
            title: "Async Test Cleanup Pattern",
            summary:
              "Ensure database connections are properly closed in afterEach hooks to prevent test pollution",
@@ -1878,6 +1883,7 @@ Final checkpoint and evidence retrieval:
            ],
          },
          {
+           pattern_id: "PAT:TEST:MOCK_VALIDATION", // Optional custom pattern ID
            title: "Mock Validation Pattern",
            summary:
              "Validate mock implementations match interface contracts using TypeScript strict checks",
@@ -1908,6 +1914,7 @@ Final checkpoint and evidence retrieval:
        ],
        anti_patterns: [
          {
+           pattern_id: "ANTI:SQL:HARDCODED_STATUS", // Optional custom pattern ID
            title: "Hardcoded Status Values in SQL",
            reason:
              "Using string literals for status values without constants leads to interface mismatches",
@@ -1922,6 +1929,7 @@ Final checkpoint and evidence retrieval:
            ],
          },
          {
+           pattern_id: "ANTI:TEST:GLOBAL_STATE", // Optional custom pattern ID
            title: "Global Test State Mutation",
            reason:
              "Modifying global state in tests causes flaky failures when tests run in parallel",
@@ -1993,6 +2001,7 @@ Final checkpoint and evidence retrieval:
        trust_updates: [],
        anti_patterns: [
          {
+           pattern_id: "ANTI:DATABASE:N_PLUS_ONE", // Optional custom pattern ID
            title: "Synchronous Database Calls in Loop",
            reason: "Causes N+1 query problem, degrades performance",
            evidence: [
