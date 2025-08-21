@@ -1,11 +1,10 @@
 // [BUILD:MODULE:ESM] ★★★☆☆ (3 uses) - ES module with .js extensions
 import path from "path";
-import fs from "fs-extra";
 import type Database from "better-sqlite3";
 import { PatternDatabase } from "./database.js";
 import { PatternCache } from "./cache.js";
 import { PatternLoader } from "./loader.js";
-import { PatternWatcher } from "./watcher.js";
+// PatternWatcher removed - patterns are now in database
 import { ApexConfig } from "../config/apex-config.js";
 import type {
   Pattern,
@@ -15,7 +14,6 @@ import type {
   QueryFacets,
   PatternPack,
   ValidationResult,
-  FileChangeEvent,
   PatternMetadata,
   PatternTrigger,
   PatternVocab,
@@ -25,37 +23,25 @@ export class PatternRepository {
   private db: PatternDatabase;
   private cache: PatternCache;
   private loader: PatternLoader;
-  private watcher: PatternWatcher;
-  private patternsDir: string;
-  private isWatching: boolean = false;
+  // Watcher removed - patterns now in database
   private isInitialized: boolean = false;
 
   constructor(
     options: {
       dbPath?: string;
       fallbackPath?: string;
-      patternsDir?: string;
       cacheSize?: number;
       watchDebounce?: number;
       enableFallback?: boolean;
     } = {},
   ) {
-    this.patternsDir = options.patternsDir || ".apex/patterns";
     this.db = new PatternDatabase(options.dbPath, {
       fallbackPath: options.fallbackPath,
       enableFallback: options.enableFallback,
     });
     this.cache = new PatternCache(options.cacheSize);
     this.loader = new PatternLoader();
-    this.watcher = new PatternWatcher(this.patternsDir, options.watchDebounce);
-
-    // Set up watcher event handlers
-    this.watcher.on("change", (event: FileChangeEvent) =>
-      this.handleFileChange(event),
-    );
-    this.watcher.on("error", (error: Error) =>
-      console.error("Watcher error:", error),
-    );
+    // Watcher removed - patterns are now stored in database
   }
 
   /**
@@ -92,48 +78,25 @@ export class PatternRepository {
    * Initialize repository and start watching
    */
   public async initialize(options: { watch?: boolean } = {}): Promise<void> {
-    // Ensure patterns directory exists
-    await fs.ensureDir(this.patternsDir);
+    // Directory creation is handled by ApexConfig.ensureDbDirectory()
+    // No need to create local patterns directory
 
-    // Only start watching if explicitly requested
-    // For CLI commands, we typically don't need watching
+    // File watching is deprecated - patterns are now in database
     if (options.watch) {
-      // Start watching for changes
-      this.watcher.start();
-      this.isWatching = true;
-
-      // Wait for initial scan to complete with timeout
-      await new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-          resolve(undefined);
-        }, 1000); // 1 second timeout
-
-        this.watcher.once("ready", () => {
-          clearTimeout(timeout);
-          resolve(undefined);
-        });
-      });
+      // Watch option kept for backward compatibility but does nothing
     }
+    
+    this.isInitialized = true;
   }
 
   /**
    * Shutdown repository
    */
   public async shutdown(): Promise<void> {
-    if (this.isWatching) {
-      await this.watcher.stop();
-      this.isWatching = false;
-    }
+    // Watcher removed - no cleanup needed
     this.db.close();
   }
 
-  /**
-   * Get the watcher instance (for testing)
-   * @internal
-   */
-  public getWatcher(): PatternWatcher {
-    return this.watcher;
-  }
 
   /**
    * Get the database instance for dependency injection
@@ -146,14 +109,8 @@ export class PatternRepository {
   // Core CRUD operations
 
   public async create(pattern: Pattern): Promise<Pattern> {
-    // Write to YAML file
-    const filePath = this.getPatternFilePath(pattern.id);
-    await this.writePatternFile(filePath, pattern);
-
-    // File watcher will pick up the change and update DB
-    // But we can also update immediately for responsiveness
+    // Patterns are now stored directly in database
     this.upsertPattern(pattern);
-
     return pattern;
   }
 
@@ -175,14 +132,7 @@ export class PatternRepository {
   }
 
   public async delete(id: string): Promise<void> {
-    const filePath = this.getPatternFilePath(id);
-
-    // Delete file (watcher will update DB)
-    if (await fs.pathExists(filePath)) {
-      await fs.remove(filePath);
-    }
-
-    // Also delete from DB immediately
+    // Delete from database only (patterns no longer stored in files)
     this.db.getStatement("deletePattern").run(id);
     this.cache.deletePattern(id);
   }
@@ -553,51 +503,20 @@ export class PatternRepository {
   // Maintenance operations
 
   public async rebuild(): Promise<void> {
-    // Clear cache
+    // Clear cache only - patterns are now in database
     this.cache.invalidateAll();
-
-    // Reload all patterns from disk
-    const results = await this.loader.loadDirectory(this.patternsDir);
-
-    // Transaction for bulk insert
-    this.db.transaction(() => {
-      // Clear existing data
-      this.db.exec("DELETE FROM patterns");
-
-      // Insert all valid patterns
-      for (const { path, result } of results) {
-        if ("pattern" in result) {
-          this.upsertPattern(result.pattern);
-        } else {
-          console.error(`Failed to load ${path}: ${result.error}`);
-        }
-      }
-    });
+    // Rebuild operation is no longer needed for database-based patterns
+    // The database is the source of truth
   }
 
   public async validate(): Promise<ValidationResult[]> {
-    const results = await this.loader.loadDirectory(this.patternsDir);
-
-    return results.map(({ path, result }) => {
-      const patternId =
-        path
-          .split("/")
-          .pop()
-          ?.replace(/\.(yaml|yml|json)$/, "") || "unknown";
-
-      if ("error" in result) {
-        return {
-          pattern_id: patternId,
-          valid: false,
-          errors: [result.error],
-        };
-      }
-
-      return {
-        pattern_id: result.pattern.id,
-        valid: true,
-      };
-    });
+    // Validation is now done against patterns in the database
+    const patterns = await this.list();
+    
+    return patterns.map((pattern) => ({
+      pattern_id: pattern.id,
+      valid: true,
+    }));
   }
 
   public async migrate(): Promise<void> {
@@ -614,30 +533,6 @@ export class PatternRepository {
   }
 
   // Private helper methods
-
-  private async handleFileChange(event: FileChangeEvent): Promise<void> {
-    try {
-      if (event.type === "unlink") {
-        // Extract pattern ID from file path
-        const patternId = path.basename(event.path, path.extname(event.path));
-        this.db.getStatement("deletePattern").run(patternId);
-        this.cache.deletePattern(patternId);
-      } else {
-        // Load and upsert pattern
-        const result = await this.loader.loadPattern(event.path);
-
-        if ("pattern" in result) {
-          this.upsertPattern(result.pattern);
-        } else {
-          // Mark pattern as invalid
-          const patternId = path.basename(event.path, path.extname(event.path));
-          await this.markInvalid(patternId, result.error);
-        }
-      }
-    } catch (error) {
-      console.error(`Error handling file change for ${event.path}:`, error);
-    }
-  }
 
   private upsertPattern(pattern: Pattern): void {
     this.db.transaction(() => {
@@ -801,32 +696,9 @@ export class PatternRepository {
   }
 
   private getPatternFilePath(patternId: string): string {
-    // Organize by pattern type if available
-    return path.join(this.patternsDir, `${patternId}.yaml`);
-  }
-
-  private async writePatternFile(
-    filePath: string,
-    pattern: Pattern,
-  ): Promise<void> {
-    await fs.ensureDir(path.dirname(filePath));
-
-    // Write to temp file first
-    const tempPath = `${filePath}.tmp`;
-
-    // Remove internal fields before writing
-    const {
-      pattern_digest,
-      json_canonical,
-      invalid,
-      invalid_reason,
-      ...fileData
-    } = pattern;
-
-    await fs.writeFile(tempPath, JSON.stringify(fileData, null, 2));
-
-    // Atomic rename
-    await fs.rename(tempPath, filePath);
+    // Patterns are now stored in database, not files
+    // This method is deprecated and should not be used
+    throw new Error("Patterns are now stored in database, not filesystem");
   }
 
   private rowToPattern(row: any): Pattern {

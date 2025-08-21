@@ -10,7 +10,7 @@ import * as path from "path";
 import { getSharedMCPClient } from "./shared/mcp-client.js";
 import { FormatterFactory } from "./shared/formatters.js";
 import { withProgress, ProgressTracker } from "./shared/progress.js";
-import { createPatternRepository } from "../../storage/index.js";
+import { PatternRepository } from "../../storage/repository.js";
 
 /**
  * Create the pack command for managing pattern packs
@@ -32,9 +32,13 @@ export function createPackCommand(): Command {
         const spinner = ora("Fetching packs...").start();
 
         // Get packs from repository or registry
-        const repository = await createPatternRepository();
+        const repository = await PatternRepository.createWithProjectPaths({
+          enableFallback: true,
+        });
+        await repository.initialize();
 
-        // For now, list local packs from .apex/patterns directory
+        // TODO: Migrate pack storage to database instead of filesystem
+        // For now, packs functionality is deprecated
         const packsDir = path.join(process.cwd(), ".apex", "patterns", "packs");
         let packs: any[] = [];
 
@@ -190,7 +194,10 @@ export function createPackCommand(): Command {
         // Step 4: Update index
         progress.updateText("Updating pattern index...");
 
-        const repository = await createPatternRepository();
+        const repository = await PatternRepository.createWithProjectPaths({
+          enableFallback: true,
+        });
+        await repository.initialize();
         await repository.rebuild();
 
         progress.succeed(
@@ -348,7 +355,10 @@ Generated on ${new Date().toISOString()}
         }
 
         // Rebuild index
-        const repository = await createPatternRepository();
+        const repository = await PatternRepository.createWithProjectPaths({
+          enableFallback: true,
+        });
+        await repository.initialize();
         await repository.rebuild();
 
         spinner.succeed(chalk.green(`✓ Pack ${packName} removed`));

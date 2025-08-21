@@ -31,7 +31,6 @@ import type { PatternRepository as PatternRepositoryType } from "./repository.js
 
 export async function createPatternRepository(options?: {
   dbPath?: string;
-  patternsDir?: string;
   cacheSize?: number;
   watchDebounce?: number;
   watch?: boolean;

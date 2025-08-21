@@ -4,10 +4,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import {
-  createPatternRepository,
-  PatternRepository,
-} from "../../storage/index.js";
+import { PatternRepository } from "../../storage/repository.js";
 import { FormatterFactory } from "./shared/formatters.js";
 import { getSharedMCPClient } from "./shared/mcp-client.js";
 import {
@@ -20,7 +17,12 @@ import { PerformanceTimer, withProgress } from "./shared/progress.js";
 // Create a new repository instance for each command
 // This ensures proper cleanup after command execution
 async function getRepository(): Promise<PatternRepository> {
-  return await createPatternRepository();
+  // Use centralized pattern storage
+  const repository = await PatternRepository.createWithProjectPaths({
+    enableFallback: true,
+  });
+  await repository.initialize();
+  return repository;
 }
 
 export function createPatternsCommand(): Command {
