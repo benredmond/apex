@@ -2,9 +2,10 @@
 
 import { BookExtractor } from "../src/extractors/book-extractor";
 import path from "path";
+import { ApexConfig } from "../src/config/apex-config";
 
 async function extractCleanCodePatterns() {
-  const dbPath = path.join(process.cwd(), ".apex", "patterns.db");
+  const dbPath = await ApexConfig.getProjectDbPath();
   const bookPath = "/Users/ben/Downloads/Clean Code ( PDFDrive.com ).pdf";
   
   console.log("=".repeat(80));

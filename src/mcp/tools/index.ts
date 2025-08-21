@@ -42,7 +42,11 @@ export async function initializeTools(
   // Get shared database instance - either provided or extract from repository
   const db = sharedDb || repo.getDatabase();
 
-  reflectionService = new ReflectionService(repo, "patterns.db", {
+  // Get the database path from environment or use the resolved project path
+  // The APEX_PATTERNS_DB env var is set by MCP config with the correct path
+  const dbPath = process.env.APEX_PATTERNS_DB || (await import("../../config/apex-config.js").then(m => m.ApexConfig.getProjectDbPath()));
+  
+  reflectionService = new ReflectionService(repo, dbPath, {
     gitRepoPath: process.cwd(),
     enableMining: true,
   });

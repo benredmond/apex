@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "path";
 import os from "os";
 import chalk from "chalk";
+import { ApexConfig } from "../../config/apex-config.js";
 
 /**
  * Get the platform-specific Claude configuration directory
@@ -40,7 +41,7 @@ export function getClaudeConfigPath() {
  * @param {object} options - Configuration options
  * @returns {Promise<string>} The configuration file path
  */
-export async function configureMCPForProject(spinner, options = {}) {
+export async function configureMCPForProject(spinner) {
   try {
     // Get platform-specific config path
     const configPath = getClaudeConfigPath();
@@ -97,23 +98,24 @@ export async function configureMCPForProject(spinner, options = {}) {
       );
     }
 
-    // Get current project path
-    const projectPath = process.cwd();
-
-    // Validate project has .apex directory
-    const apexDir = path.join(projectPath, ".apex");
-    if (!(await fs.pathExists(apexDir))) {
+    // Validate project has .apex directory or project-specific database
+    const isInitialized = await ApexConfig.isInitialized();
+    if (!isInitialized) {
       throw new Error(
         "APEX not initialized in current directory. Run 'apex init' first.",
       );
     }
+
+    // Get the project-specific database path using centralized configuration
+    // This will return ~/.apex/<repo-id>/patterns.db for the current project
+    const dbPath = await ApexConfig.getProjectDbPath();
 
     // Configure the MCP server
     config.mcpServers["apex-mcp"] = {
       command: "node",
       args: ["--experimental-vm-modules", serverPath],
       env: {
-        APEX_PATTERNS_DB: path.join(projectPath, ".apex", "patterns.db"),
+        APEX_PATTERNS_DB: dbPath,
       },
     };
 

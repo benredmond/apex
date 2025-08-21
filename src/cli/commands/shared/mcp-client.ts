@@ -66,7 +66,8 @@ export class MCPClient {
         stdio: ["pipe", "pipe", "pipe"],
         env: {
           ...process.env,
-          APEX_PATTERNS_DB: process.env.APEX_PATTERNS_DB || "patterns.db",
+          // Let the MCP server resolve the path using ApexConfig
+          // Don't set a default here - the server will handle it
         },
       });
 
