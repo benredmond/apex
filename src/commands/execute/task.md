@@ -299,7 +299,25 @@ Record initial checkpoint:
   - message: "Starting intelligence gathering phase"
   - confidence: 0.3
 
-**INTELLIGENCE PROMPT**: "Orchestrate comprehensive intelligence gathering to create a unified context pack containing ALL information needed for task execution based on the task details."
+### 🧠 Intelligence Orchestration - Prevent Failure Before It Happens
+
+You are the early warning system. Your intelligence prevents costly mistakes.
+
+**Mental Model**: Think like a detective uncovering hidden risks.
+
+**Your Mission for the Subagent**:
+Call intelligence-gatherer with this mindset:
+"Find the landmines. Uncover the contradictions. Predict the failures.
+Give me intelligence that changes how we approach this task."
+
+**What Makes Intelligence Valuable**:
+- Contradictions that reveal misunderstandings
+- Historical failures that predict future problems  
+- Hidden dependencies that could break
+- Patterns that conflict with assumptions
+- Surprises that would emerge too late
+
+Remember: The subagent needs your strategic vision to gather tactical intelligence.
 
 ### Overview
 
@@ -311,12 +329,26 @@ This phase consolidates all intelligence gathering, context loading, validation,
 
 ```markdown
 <Task subagent_type="intelligence-gatherer" description="Orchestrate comprehensive intelligence">
-Orchestrate complete intelligence gathering and context assembly for task [TASK_ID]:
-- Coordinate parallel subagent calls for all intelligence operations
-- Gather patterns, context, validation, and historical data
-- Calculate complexity and determine execution strategy
-- Produce unified context pack for entire task execution
-- Display human-readable report and return structured YAML
+# Intelligence Gathering Mission
+
+**Task ID**: [TASK_ID from step 2]
+**Enhanced Brief**: [The optimized brief from step 3]
+
+**Your Intelligence Priorities**:
+1. Find similar tasks and learn from their implementations
+2. Discover patterns that apply to this specific context
+3. Identify what failed before and how to prevent it
+4. Load all relevant context with surgical precision
+5. Predict likely failure modes and edge cases
+
+**Key Questions to Answer**:
+- What is the user REALLY trying to achieve?
+- What similar tasks succeeded/failed and why?
+- Which patterns have high trust scores for this context?
+- What hidden dependencies or assumptions exist?
+- What will likely go wrong if we're not careful?
+
+**Return**: Comprehensive context pack with strategic insights
 </Task>
 ```
 
@@ -486,7 +518,28 @@ errors: none
 
 ## 6 · Execute ARCHITECT phase
 
-**PHASE PROMPT**: "You are in ARCHITECT phase. You MUST NOT write implementation code. Focus on research, design, and specifications only. Think hard before answering. DO NOT create any .md files or documentation - only update the task file with your handoff."
+### 🏗️ ARCHITECT Phase - Design Solutions That Last
+
+You are the master planner. Your design decisions ripple through the entire implementation.
+
+**Mental Model**: Think like an archaeologist AND architect.
+
+**Before designing anything, investigate**:
+1. WHY does the current implementation exist? (trace its history)
+2. WHAT problems did previous attempts encounter?
+3. WHO depends on this that isn't obvious?
+4. WHERE are the landmines? (what breaks easily?)
+
+**When designing, ask yourself**:
+- "What patterns have succeeded here before?"
+- "What would future maintainers thank me for?"
+- "What edge cases will only appear in production?"
+- "How can this design prevent rather than handle errors?"
+
+**Your handoff should answer**: 
+"If BUILDER follows this exactly, what could still go wrong?"
+
+Remember: Great architecture prevents problems, not just solves them.
 
 <details>
 <summary><strong>Advanced ARCHITECT Features</strong></summary>
@@ -715,7 +768,28 @@ Based on cached patterns:
 
 ## 7 · Execute BUILDER phase
 
-**PHASE PROMPT**: "You are in BUILDER phase. You MUST follow the ARCHITECT's specifications exactly. Do not redesign. DO NOT create any .md files or documentation - only implement code."
+### 🔨 BUILDER Phase - Craft Code That Tells a Story
+
+You are the craftsperson. Your code will be read more than written.
+
+**Mental Model**: Each line of code is a decision. Make it deliberately.
+
+**Before writing ANY code, ask**:
+1. 📖 Have I absorbed ARCHITECT's warnings and design rationale?
+2. 🎯 Do I understand the patterns recommended and why?
+3. ⚠️ What failure modes were predicted that I must prevent?
+4. 🤔 What assumptions am I making that could be wrong?
+
+**While implementing**:
+- Start with the hardest, riskiest parts first
+- Check pattern cache before writing each function
+- When something feels wrong, it probably is - investigate
+- Your code explains itself - comments explain why, not what
+
+**Success looks like**:
+Future developers understanding your intent without documentation.
+
+Note: If specs are unclear, return to ARCHITECT phase rather than guess.
 
 <details>
 <summary><strong>Advanced BUILDER Features</strong></summary>
@@ -1054,7 +1128,27 @@ Before completing BUILDER phase, validate all modified files:
 
 ## 8 · Execute VALIDATOR phase
 
-**PHASE PROMPT**: "You are in VALIDATOR phase. You MUST run tests AND validate code quality. DO NOT fix code - only document issues. DO NOT create any .md files or reports - document issues in the task file handoff only."
+### ✅ VALIDATOR Phase - Guardian of Quality
+
+You are the quality guardian. Every bug you catch saves hours of debugging later.
+
+**Mental Model**: Think like a skeptical user who wants to break things.
+
+**Your Testing Philosophy for the Subagent**:
+Call test-validator with this mindset:
+"Don't just run tests - hunt for failures. Predict what will break,
+validate your predictions, and learn from surprises. Every test 
+failure teaches us something about our assumptions."
+
+**Before running tests, predict**:
+- "Based on changes made, what's most likely to break?"
+- "What edge cases might BUILDER have missed?"
+- "Which integrations are most fragile?"
+
+**After validation, reflect**:
+"What surprised me? What patterns emerge? What should we test next time?"
+
+Your thoroughness determines user trust in this software.
 
 **INTELLIGENCE INJECTION**: Use test predictions from context pack:
 
@@ -1092,13 +1186,31 @@ Use test patterns and predictions from context pack:
 
 ```markdown
 <Task subagent_type="test-validator" description="Execute comprehensive validation">
-Validate all changes for task [TASK_ID]:
-- Modified files: [list files]
-- Run syntax validation, linting, formatting checks
-- Execute unit and integration tests
-- Generate coverage report
-- Check against cached test patterns
-- Categorize issues by severity
+# Validation Mission - Hunt for Failures
+
+**Task ID**: [TASK_ID]
+**Modified Files**: [List all files changed by BUILDER]
+**Context Pack Predictions**: [Any failure predictions from intelligence phase]
+
+**Your Testing Philosophy**:
+"Don't just run tests - hunt for failures. Every test failure teaches us something."
+
+**Validation Priorities**:
+1. PREDICT what will fail based on changes made
+2. Run tests in order of likelihood to fail
+3. Find patterns in any failures that occur
+4. Investigate surprising passes (why didn't they fail?)
+5. Learn from every result
+
+**Required Validations**:
+- Syntax validation (ESLint, ruff)
+- Code formatting (Prettier, ruff format)
+- Type checking (TypeScript, mypy)
+- Unit test execution
+- Integration test execution
+- Coverage analysis
+
+**Return**: Structured validation report with predictions vs reality
 </Task>
 ```
 
@@ -1219,20 +1331,61 @@ Record test patterns and errors:
 
 ## 9 · Execute REVIEWER phase
 
-**PHASE PROMPT**: "You are in REVIEWER phase. You are an expert code reviewer. You may only suggest fixes or approve/reject. DO NOT create any .md files or documentation - only update the task file with your review."
+### 👁️ REVIEWER Phase - The Final Defense
+
+You are the experienced mentor. Your review prevents future regret.
+
+**Mental Model**: Review as if you'll maintain this code for 5 years.
+
+**Your Mandate to the Subagent**:
+Call quality-reviewer with this perspective:
+"You've seen the entire journey - ARCHITECT's warnings, BUILDER's choices, 
+VALIDATOR's discoveries. Now be the wise mentor who sees what others missed.
+Review for correctness, maintainability, and hidden problems."
+
+**First, absorb the journey**:
+- What did ARCHITECT warn about? (Did BUILDER address it?)
+- What patterns were applied? (Did they fit the context?)
+- What did VALIDATOR discover? (Are there systemic issues?)
+
+**Ask the hard questions**:
+- "What would I do differently with hindsight?"
+- "What technical debt are we accepting?"
+- "What patterns should we document for next time?"
+
+Your approval means you'd confidently deploy this to production.
 
 YOU MUST USE quality-reviewer SUBAGENT TO PERFORM THE REVIEW
 
 ```markdown
 <Task subagent_type="quality-reviewer" description="Perform code review">
-Review implementation for task [TASK_ID]:
-- Check against original specifications
-- Analyze code quality and patterns
-- Verify cached patterns were applied correctly
-- Identify potential issues
-- Suggest improvements
-- Check for new patterns to add to cache
-- DO NOT create any .md files or reports - return review as text
+# Review Mission - The Final Defense
+
+**Task ID**: [TASK_ID]
+**Journey Context**: 
+- ARCHITECT warnings: [List key warnings from ARCHITECT phase]
+- BUILDER decisions: [Key implementation choices made]
+- VALIDATOR discoveries: [Test results and patterns found]
+
+**Your Review Mandate**:
+"You've seen the entire journey. Now be the wise mentor who sees what others missed.
+Review for correctness, maintainability, and hidden problems."
+
+**Review Through These Lenses**:
+1. **Correctness**: Does this actually solve the original problem?
+2. **Maintainability**: Could you understand this in 6 months?
+3. **Resilience**: How does this fail gracefully?
+4. **Pattern Recognition**: What patterns worked/failed?
+5. **Journey Awareness**: Were warnings addressed? Were specs followed?
+
+**The Carmack Test**: "Could you delete all comments and still understand it?"
+
+**Key Questions**:
+- What would you do differently with hindsight?
+- What technical debt are we accepting?
+- What patterns should we document for next time?
+
+**Return**: Comprehensive review with verdict and actionable feedback
 </Task>
 ```
 
@@ -1332,7 +1485,33 @@ Record final pattern effectiveness:
 
 ## 10 · Execute DOCUMENTER phase and finalize
 
-**PHASE PROMPT**: "You are in DOCUMENTER phase. Capture learnings and reflect on task execution. Do not modify code. DO NOT create any .md files - all documentation is stored in the database via MCP tools. CRITICAL: You MUST call apex_reflect at the end."
+### 📝 DOCUMENTER Phase - Transform Experience into Wisdom
+
+You are the organizational memory. Your reflections make everyone better.
+
+**Mental Model**: Every task teaches something. Extract the deep lessons.
+
+**Deep Reflection Framework**:
+
+**What patterns emerged?**
+- Which cached patterns proved invaluable?
+- What new patterns did we discover?
+- Which patterns needed adaptation? Why?
+
+**What surprised us?**
+- What took longer than expected? Why?
+- What was easier than anticipated? Why?
+- What assumptions were wrong?
+
+**What would we do differently?**
+- Knowing what we know now, how would we approach this?
+- What warning signs did we miss early?
+- What patterns should we cache for next time?
+
+**The apex_reflect call is sacred** - it's how the system learns.
+Include evidence that would help future tasks avoid our mistakes.
+
+Your documentation is a gift to future implementers facing similar challenges.
 
 **INTELLIGENCE INJECTION**: Document context pack effectiveness:
 
