@@ -4,16 +4,13 @@
  */
 
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import type Database from 'better-sqlite3';
 import { ContextPackService } from '../../src/intelligence/context-pack-service.js';
 import { TaskRepository } from '../../src/storage/repositories/task-repository.js';
 import { PatternRepository } from '../../src/storage/repository.js';
-import { TaskSearchEngine } from '../../src/intelligence/task-search.js';
 
 // Mock dependencies
 jest.mock('../../src/storage/repositories/task-repository.js');
 jest.mock('../../src/storage/repository.js');
-jest.mock('../../src/intelligence/task-search.js');
 
 describe('ContextPackService', () => {
   let service: ContextPackService;

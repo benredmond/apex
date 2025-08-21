@@ -9,7 +9,6 @@
 import type Database from "better-sqlite3";
 import { LRUCache } from "lru-cache";
 import { TaskRepository } from "../storage/repositories/task-repository.js";
-import { TaskSearchEngine } from "./task-search.js";
 import { PatternRepository } from "../storage/repository.js";
 import type { Task, SimilarTask } from "../schemas/task/types.js";
 
@@ -68,7 +67,6 @@ export interface ContextPack {
 
 export class ContextPackService {
   private contextCache: LRUCache<string, ContextPack>;
-  private taskSearch: TaskSearchEngine;
   private statements: {
     getTaskStats: Database.Statement;
     getActiveTaskCount: Database.Statement;
@@ -93,8 +91,6 @@ export class ContextPackService {
       ttl: options.cacheTtlMs || 5 * 60 * 1000, // 5 minutes default
       sizeCalculation: (value) => JSON.stringify(value).length,
     });
-
-    this.taskSearch = new TaskSearchEngine(db);
 
     // [FIX:SQLITE:SYNC] ★★★★★ - Prepare statements synchronously
     this.statements = this.prepareStatements();
@@ -217,9 +213,10 @@ export class ContextPackService {
         break;
       }
 
-      const similar = await this.taskSearch.findSimilar(
-        { id: task.id, title: task.title } as Task,
-        { limit: maxSimilarPerTask },
+      // [PAT:INDIRECTION:REPOSITORY] - Use repository layer for enhanced search
+      const similar = await this.taskRepo.findSimilar(
+        task.id,
+        maxSimilarPerTask,
       );
 
       const truncatedSimilar = similar.map((s) => ({
