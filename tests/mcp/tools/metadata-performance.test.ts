@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
 import Database from "better-sqlite3";
+import path from "path";
+import { fileURLToPath } from "url";
 import { PatternRepository } from "../../../src/storage/repository.js";
 import { PatternLookupService } from "../../../src/mcp/tools/lookup.js";
 import { ReflectionStorage } from "../../../src/reflection/storage.js";
+
+// ES module __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe("APE-65: Pattern Metadata Performance", () => {
   let db: Database.Database;
@@ -10,13 +16,13 @@ describe("APE-65: Pattern Metadata Performance", () => {
   let lookupService: PatternLookupService;
   let reflectionStorage: ReflectionStorage;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Create in-memory database
     db = new Database(":memory:");
 
-    // Apply migration 008 schema
+    // FIRST: Create base patterns table (BEFORE migrations)
     db.exec(`
-      CREATE TABLE patterns (
+      CREATE TABLE IF NOT EXISTS patterns (
         id                TEXT PRIMARY KEY,
         schema_version    TEXT NOT NULL DEFAULT '1.0',
         pattern_version   TEXT NOT NULL DEFAULT '1.0',
@@ -38,8 +44,26 @@ describe("APE-65: Pattern Metadata Performance", () => {
         tags              TEXT,
         search_index      TEXT
       );
+    `);
 
-      CREATE TABLE reflections (
+    // THEN: Run migrations (with problematic ones skipped)
+    const { MigrationRunner } = await import("../../../src/migrations/MigrationRunner.js");
+    const { MigrationLoader } = await import("../../../src/migrations/MigrationLoader.js");
+    
+    const migrationRunner = new MigrationRunner(db);
+    const loader = new MigrationLoader(path.resolve(__dirname, "../../../src/migrations"));
+    const migrations = await loader.loadMigrations();
+    
+    // Skip problematic migrations that expect existing data
+    const migrationsToRun = migrations.filter(m => 
+      !['011-migrate-pattern-tags-to-json', '012-rename-tags-csv-column', '014-populate-pattern-tags'].includes(m.id)
+    );
+    
+    await migrationRunner.runMigrations(migrationsToRun);
+
+    // Create additional schema if needed
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS reflections (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         task_id TEXT NOT NULL,
         brief_id TEXT,

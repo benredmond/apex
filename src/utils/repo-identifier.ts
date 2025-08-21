@@ -94,13 +94,16 @@ export class RepoIdentifier {
    *   git@gitlab.com:user/project.git → gitlab-user-project
    */
   private static sanitizeGitUrl(url: string): string {
-    // Remove .git extension
+    // First, sanitize dangerous characters to prevent injection
+    url = url.replace(/[;&`$|<>(){}[\]\\]/g, "");
+
+    // Remove .git extension (now safer after sanitization)
     url = url.replace(/\.git$/, "");
 
     // Handle SSH URLs (git@host:user/repo)
     if (url.startsWith("git@")) {
       url = url.replace(/^git@/, "");
-      url = url.replace(":", "-");
+      url = url.replace(":", "/");
     }
 
     // Handle HTTPS URLs (https://host/user/repo)
@@ -111,8 +114,10 @@ export class RepoIdentifier {
     // Extract domain and path
     const parts = url.split("/");
     if (parts.length >= 2) {
-      // Get domain (e.g., github.com → github)
-      const domain = parts[0].replace(/\.(com|org|net|io)$/, "");
+      // Get domain (e.g., github.com → github, custom.host.com → custom-host)
+      const domain = parts[0]
+        .replace(/\.(com|org|net|io)$/, "") // Remove TLD
+        .replace(/\./g, "-"); // Replace remaining dots with dashes
       // Join remaining parts with dash
       const projectPath = parts.slice(1).join("-");
       return `${domain}-${projectPath}`;

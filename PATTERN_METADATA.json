@@ -1,26 +1,26 @@
 {
   "metadata": {
-    "last_updated": "2025-08-06",
-    "total_patterns": 26,
-    "patterns_in_pending": 26,
+    "last_updated": "2025-08-16",
+    "total_patterns": 29,
+    "patterns_in_pending": 29,
     "patterns_promoted": 0,
-    "average_trust_score": 3.96
+    "average_trust_score": 3.97
   },
   "statistics": {
-    "total_patterns": 28,
+    "total_patterns": 31,
     "patterns_promoted_this_month": 0,
-    "average_trust_score": 3.95,
-    "total_usage_count": 385,
+    "average_trust_score": 3.96,
+    "total_usage_count": 388,
     "patterns_by_category": {
-      "FIX": 5,
-      "PAT": 23
+      "FIX": 7,
+      "PAT": 24
     }
   },
   "recent_activity": {
-    "patterns_used_today": 6,
-    "last_task_completed": "APE-65",
-    "new_patterns_discovered": 5,
-    "last_pattern_added": "PAT:SCORING:WILSON_CONFIDENCE"
+    "patterns_used_today": 9,
+    "last_task_completed": "TbzXveKStGxs7f3pGpaMZX",
+    "new_patterns_discovered": 8,
+    "last_pattern_added": "PAT:SECURITY:INPUT_SANITIZATION"
   },
   "pattern_effectiveness": {
     "PAT:VALIDATION:SCHEMA": {
@@ -57,9 +57,9 @@
       "performance_notes": "Exceeded requirements by 100x (0.01ms vs 10ms target)"
     },
     "FIX:SQLITE:SYNC": {
-      "uses": 12,
+      "uses": 13,
       "success_rate": 100,
-      "last_used": "APE-65",
+      "last_used": "TbzXveKStGxs7f3pGpaMZX",
       "effectiveness": "excellent",
       "notes": "Essential for auto-create functionality and metadata queries. Prepared statements provide <50ms performance. Synchronous operations essential for task queries and enhanced metadata lookups. Pre-loaded data before reflection to ensure synchronous database operations."
     },
@@ -283,6 +283,30 @@
       "effectiveness": "excellent",
       "notes": "Wilson confidence interval for reliable pattern trust calculation. More nuanced than simple averages, accounts for sample size uncertainty.",
       "performance_notes": "<1ms computation time, provides statistically sound trust scores"
+    },
+    "PAT:TEST:ESM_MOCK": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "TbzXveKStGxs7f3pGpaMZX",
+      "effectiveness": "excellent",
+      "notes": "ESM module mocking using jest.unstable_mockModule for proper test isolation. Required for testing spawn() calls with ESM modules.",
+      "performance_notes": "Essential for ESM test environments with Jest"
+    },
+    "FIX:BUILD:DUPLICATE_JS": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "TbzXveKStGxs7f3pGpaMZX",
+      "effectiveness": "excellent",
+      "notes": "Remove compiled JavaScript files before testing TypeScript to prevent Jest mocking conflicts. Critical anti-pattern prevention.",
+      "performance_notes": "Immediate resolution of Cannot find module errors"
+    },
+    "PAT:SECURITY:INPUT_SANITIZATION": {
+      "uses": 1,
+      "success_rate": 100,
+      "last_used": "TbzXveKStGxs7f3pGpaMZX",
+      "effectiveness": "excellent",
+      "notes": "Comprehensive input validation and sanitization for command execution to prevent injection attacks. Security-critical pattern.",
+      "performance_notes": "<1ms validation overhead, prevents command injection vulnerabilities"
     }
   }
 }

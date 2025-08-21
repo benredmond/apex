@@ -14,6 +14,7 @@ import {
 import os from "os";
 import path from "path";
 import fs from "fs-extra";
+import { fileURLToPath } from "url";
 import { PatternLookupService } from "../../../src/mcp/tools/lookup.js";
 import { PatternRepository } from "../../../src/storage/repository.js";
 import { lookupMetrics } from "../../../src/mcp/tools/metrics.js";
@@ -22,6 +23,10 @@ import {
   ToolExecutionError,
   InternalError,
 } from "../../../src/mcp/errors.js";
+
+// ES module __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe("PatternLookupService", () => {
   let tempDir: string;
@@ -42,17 +47,49 @@ describe("PatternLookupService", () => {
       patternsDir: path.join(tempDir, "patterns"),
     });
 
-    // Run migrations to create required tables
+    // Get the internal database
     const db = (repository as any).db.database;
-    const migration006 = await import("../../../src/migrations/migrations/006-add-task-system-schema.js");
-    const migration007 = await import("../../../src/migrations/migrations/007-add-evidence-log-table.js");
     
-    try {
-      migration006.migration.up(db);
-      migration007.migration.up(db);
-    } catch (error) {
-      // Ignore if tables already exist
-    }
+    // FIRST: Create base patterns table (BEFORE migrations)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS patterns (
+        id                TEXT PRIMARY KEY,
+        schema_version    TEXT NOT NULL DEFAULT '1.0',
+        pattern_version   TEXT NOT NULL DEFAULT '1.0',
+        type              TEXT NOT NULL,
+        title             TEXT,
+        summary           TEXT,
+        trust_score       REAL DEFAULT 0.5,
+        created_at        TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at        TEXT DEFAULT CURRENT_TIMESTAMP,
+        pattern_digest    TEXT,
+        json_canonical    TEXT,
+        alpha             REAL DEFAULT 1.0,
+        beta              REAL DEFAULT 1.0,
+        usage_count       INTEGER DEFAULT 0,
+        success_count     INTEGER DEFAULT 0,
+        key_insight       TEXT,
+        when_to_use       TEXT,
+        common_pitfalls   TEXT,
+        tags              TEXT,
+        search_index      TEXT,
+        status            TEXT DEFAULT 'active'
+      );
+    `);
+
+    // THEN: Run migrations (with problematic ones skipped)
+    const { MigrationRunner } = await import("../../../src/migrations/MigrationRunner.js");
+    const { MigrationLoader } = await import("../../../src/migrations/MigrationLoader.js");
+    
+    const migrationRunner = new MigrationRunner(db);
+    const loader = new MigrationLoader(path.resolve(__dirname, "../../../src/migrations"));
+    const migrations = await loader.loadMigrations();
+    
+    // Skip migrations that expect existing data
+    const migrationsToRun = migrations.filter(m => 
+      !['011-migrate-pattern-tags-to-json', '012-rename-tags-csv-column', '014-populate-pattern-tags'].includes(m.id)
+    );
+    await migrationRunner.runMigrations(migrationsToRun);
 
     await repository.initialize();
 

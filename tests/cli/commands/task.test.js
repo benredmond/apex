@@ -4,41 +4,108 @@
  */
 
 import { jest } from "@jest/globals";
-import { createTaskCommand } from "../../../src/cli/commands/task.js";
+import chalk from "chalk";
+
+// [FIX:NODE:ESMODULE_IMPORTS] ★★★★☆ - Mock ES modules BEFORE imports
+// Mock dependencies before imports
+
+// Create single instances to be reused
+let mockDatabase;
+let repo;
+
+jest.unstable_mockModule("../../../dist/storage/database.js", () => ({
+  PatternDatabase: jest.fn().mockImplementation(() => {
+    if (!mockDatabase) {
+      mockDatabase = {
+        database: {
+          pragma: jest.fn(),
+          exec: jest.fn(),
+          prepare: jest.fn().mockReturnValue({
+            run: jest.fn(),
+            get: jest.fn(),
+            all: jest.fn().mockReturnValue([]),
+          }),
+        },
+        close: jest.fn(),
+      };
+    }
+    return mockDatabase;
+  }),
+}));
+
+jest.unstable_mockModule("../../../dist/storage/repositories/task-repository.js", () => ({
+  TaskRepository: jest.fn().mockImplementation(() => {
+    if (!repo) {
+      repo = {
+        findActive: jest.fn().mockReturnValue([]),
+        findByStatus: jest.fn().mockReturnValue([]),
+        findRecent: jest.fn().mockReturnValue([]),
+        findById: jest.fn(),
+        getStatistics: jest.fn().mockReturnValue({
+          total: 0,
+          byPhase: {},
+          byStatus: {},
+          successRate: 0,
+        }),
+      };
+    }
+    return repo;
+  }),
+}));
+
+jest.unstable_mockModule("../../../dist/cli/commands/shared/progress.js", () => ({
+  PerformanceTimer: jest.fn().mockImplementation(() => ({
+    elapsed: jest.fn().mockReturnValue(50),
+    meetsRequirement: jest.fn().mockReturnValue(true),
+  })),
+}));
+
+jest.unstable_mockModule("../../../dist/cli/commands/shared/formatters.js", () => ({
+  FormatterFactory: {
+    create: jest.fn().mockReturnValue({
+      format: jest.fn().mockReturnValue("formatted output"),
+    }),
+  },
+}));
+
+jest.unstable_mockModule("../../../dist/cli/commands/shared/validators.js", () => ({
+  validateOptions: jest.fn().mockImplementation((options) => ({ 
+    valid: true,
+    validated: options,
+    errors: []
+  })),
+  displayValidationErrors: jest.fn(),
+  validateTaskId: jest.fn().mockImplementation((id) => {
+    // Return true for valid IDs, false for invalid ones
+    return !id.includes("@");
+  }),
+}));
+
+// Now import after mocks are set up
+const { createTaskCommand } = await import("../../../src/cli/commands/task.js");
+const { PatternDatabase } = await import("../../../dist/storage/database.js");
+const { TaskRepository } = await import("../../../dist/storage/repositories/task-repository.js");
+const { PerformanceTimer } = await import("../../../dist/cli/commands/shared/progress.js");
 
 describe("Task Command", () => {
-  let mockRepository;
-  let mockDatabase;
   let consoleLogSpy;
   let consoleErrorSpy;
   let consoleWarnSpy;
   let processExitSpy;
+  
+  // Initialize singletons once for the test suite
+  let db;
+  let repo;
+
+  beforeAll(() => {
+    // Create singletons once
+    db = new PatternDatabase();
+    repo = new TaskRepository(db.database);
+  });
 
   beforeEach(() => {
     // Reset mocks
     jest.clearAllMocks();
-
-    // Mock database
-    mockDatabase = {
-      db: {},
-    };
-    PatternDatabase.mockImplementation(() => mockDatabase);
-
-    // Mock repository
-    mockRepository = {
-      findActive: jest.fn(),
-      findByStatus: jest.fn(),
-      findRecent: jest.fn(),
-      findById: jest.fn(),
-      getStatistics: jest.fn(),
-    };
-    TaskRepository.mockImplementation(() => mockRepository);
-
-    // Mock performance timer
-    PerformanceTimer.mockImplementation(() => ({
-      elapsed: jest.fn().mockReturnValue(50),
-      meetsRequirement: jest.fn().mockReturnValue(true),
-    }));
 
     // Spy on console methods
     consoleLogSpy = jest.spyOn(console, "log").mockImplementation();
@@ -59,6 +126,7 @@ describe("Task Command", () => {
 
   describe("list command", () => {
     test("should list active tasks with correct formatting", async () => {
+      
       const mockTasks = [
         {
           id: "task-1",
@@ -78,14 +146,14 @@ describe("Task Command", () => {
         },
       ];
 
-      mockRepository.findActive.mockResolvedValue(mockTasks);
+      repo.findActive.mockResolvedValue(mockTasks);
 
       const command = createTaskCommand();
       const listCmd = command.commands.find((cmd) => cmd.name() === "list");
 
       await listCmd.parseAsync(["node", "test", "--status", "active"]);
 
-      expect(mockRepository.findActive).toHaveBeenCalled();
+      expect(repo.findActive).toHaveBeenCalled();
       expect(consoleLogSpy).toHaveBeenCalled();
       expect(processExitSpy).not.toHaveBeenCalled();
     });
@@ -106,14 +174,14 @@ describe("Task Command", () => {
         },
       ];
 
-      mockRepository.findRecent.mockResolvedValue(mockTasks);
+      repo.findRecent.mockResolvedValue(mockTasks);
 
       const command = createTaskCommand();
       const listCmd = command.commands.find((cmd) => cmd.name() === "list");
 
       await listCmd.parseAsync(["node", "test", "--phase", "BUILDER"]);
 
-      expect(mockRepository.findRecent).toHaveBeenCalledWith(20);
+      expect(repo.findRecent).toHaveBeenCalledWith(20);
       expect(consoleLogSpy).toHaveBeenCalled();
     });
 
@@ -124,7 +192,7 @@ describe("Task Command", () => {
       };
       PerformanceTimer.mockImplementation(() => mockTimer);
 
-      mockRepository.findRecent.mockResolvedValue([]);
+      repo.findRecent.mockResolvedValue([]);
 
       const command = createTaskCommand();
       const listCmd = command.commands.find((cmd) => cmd.name() === "list");
@@ -137,7 +205,7 @@ describe("Task Command", () => {
     });
 
     test("should handle errors gracefully", async () => {
-      mockRepository.findRecent.mockRejectedValue(
+      repo.findRecent.mockRejectedValue(
         new Error("Database error"),
       );
 
@@ -168,14 +236,14 @@ describe("Task Command", () => {
         updated_at: new Date().toISOString(),
       };
 
-      mockRepository.findById.mockResolvedValue(mockTask);
+      repo.findById.mockResolvedValue(mockTask);
 
       const command = createTaskCommand();
       const showCmd = command.commands.find((cmd) => cmd.name() === "show");
 
       await showCmd.parseAsync(["node", "test", "task-1"]);
 
-      expect(mockRepository.findById).toHaveBeenCalledWith("task-1");
+      expect(repo.findById).toHaveBeenCalledWith("task-1");
       expect(consoleLogSpy).toHaveBeenCalled();
     });
 
@@ -186,18 +254,19 @@ describe("Task Command", () => {
         evidence: ["evidence-1", "evidence-2"],
       };
 
-      mockRepository.findById.mockResolvedValue(mockTask);
+      repo.findById.mockResolvedValue(mockTask);
 
       const command = createTaskCommand();
       const showCmd = command.commands.find((cmd) => cmd.name() === "show");
 
       await showCmd.parseAsync(["node", "test", "task-1", "--evidence"]);
 
-      expect(mockRepository.findById).toHaveBeenCalledWith("task-1");
+      expect(repo.findById).toHaveBeenCalledWith("task-1");
       expect(consoleLogSpy).toHaveBeenCalled();
     });
 
     test("should error on invalid task ID", async () => {
+      // The mock already returns false for IDs containing "@"
       const command = createTaskCommand();
       const showCmd = command.commands.find((cmd) => cmd.name() === "show");
 
@@ -212,7 +281,7 @@ describe("Task Command", () => {
     });
 
     test("should error when task not found", async () => {
-      mockRepository.findById.mockResolvedValue(null);
+      repo.findById.mockResolvedValue(null);
 
       const command = createTaskCommand();
       const showCmd = command.commands.find((cmd) => cmd.name() === "show");
@@ -234,7 +303,7 @@ describe("Task Command", () => {
       };
       PerformanceTimer.mockImplementation(() => mockTimer);
 
-      mockRepository.findById.mockResolvedValue({ id: "task-1" });
+      repo.findById.mockResolvedValue({ id: "task-1" });
 
       const command = createTaskCommand();
       const showCmd = command.commands.find((cmd) => cmd.name() === "show");
@@ -259,26 +328,26 @@ describe("Task Command", () => {
         last_updated: new Date().toISOString(),
       };
 
-      mockRepository.getStatistics.mockResolvedValue(mockStats);
+      repo.getStatistics.mockResolvedValue(mockStats);
 
       const command = createTaskCommand();
       const statsCmd = command.commands.find((cmd) => cmd.name() === "stats");
 
       await statsCmd.parseAsync(["node", "test"]);
 
-      expect(mockRepository.getStatistics).toHaveBeenCalledWith("week");
+      expect(repo.getStatistics).toHaveBeenCalledWith("week");
       expect(consoleLogSpy).toHaveBeenCalled();
     });
 
     test("should accept different time periods", async () => {
-      mockRepository.getStatistics.mockResolvedValue({});
+      repo.getStatistics.mockResolvedValue({});
 
       const command = createTaskCommand();
       const statsCmd = command.commands.find((cmd) => cmd.name() === "stats");
 
       await statsCmd.parseAsync(["node", "test", "--period", "month"]);
 
-      expect(mockRepository.getStatistics).toHaveBeenCalledWith("month");
+      expect(repo.getStatistics).toHaveBeenCalledWith("month");
     });
 
     test("should meet performance target < 200ms", async () => {
@@ -288,7 +357,7 @@ describe("Task Command", () => {
       };
       PerformanceTimer.mockImplementation(() => mockTimer);
 
-      mockRepository.getStatistics.mockResolvedValue({});
+      repo.getStatistics.mockResolvedValue({});
 
       const command = createTaskCommand();
       const statsCmd = command.commands.find((cmd) => cmd.name() === "stats");
@@ -317,7 +386,7 @@ describe("Task Command", () => {
         },
       ];
 
-      mockRepository.findByStatus.mockResolvedValue(mockTasks);
+      repo.findByStatus.mockResolvedValue(mockTasks);
 
       const command = createTaskCommand();
       const recentCmd = command.commands.find(
@@ -326,12 +395,12 @@ describe("Task Command", () => {
 
       await recentCmd.parseAsync(["node", "test"]);
 
-      expect(mockRepository.findByStatus).toHaveBeenCalledWith("completed", 10);
+      expect(repo.findByStatus).toHaveBeenCalledWith("completed", 10);
       expect(consoleLogSpy).toHaveBeenCalled();
     });
 
     test("should respect limit option", async () => {
-      mockRepository.findByStatus.mockResolvedValue([]);
+      repo.findByStatus.mockResolvedValue([]);
 
       const command = createTaskCommand();
       const recentCmd = command.commands.find(
@@ -340,11 +409,11 @@ describe("Task Command", () => {
 
       await recentCmd.parseAsync(["node", "test", "--limit", "5"]);
 
-      expect(mockRepository.findByStatus).toHaveBeenCalledWith("completed", 5);
+      expect(repo.findByStatus).toHaveBeenCalledWith("completed", 5);
     });
 
     test("should support different output formats", async () => {
-      mockRepository.findByStatus.mockResolvedValue([
+      repo.findByStatus.mockResolvedValue([
         { id: "task-1", status: "completed" },
       ]);
 
@@ -363,7 +432,7 @@ describe("Task Command", () => {
   describe("performance requirements", () => {
     test("list operation should complete within 100ms", async () => {
       const startTime = Date.now();
-      mockRepository.findRecent.mockResolvedValue([]);
+      repo.findRecent.mockResolvedValue([]);
 
       const command = createTaskCommand();
       const listCmd = command.commands.find((cmd) => cmd.name() === "list");
@@ -376,7 +445,7 @@ describe("Task Command", () => {
 
     test("show operation should complete within 50ms", async () => {
       const startTime = Date.now();
-      mockRepository.findById.mockResolvedValue({ id: "task-1" });
+      repo.findById.mockResolvedValue({ id: "task-1" });
 
       const command = createTaskCommand();
       const showCmd = command.commands.find((cmd) => cmd.name() === "show");
@@ -389,7 +458,7 @@ describe("Task Command", () => {
 
     test("stats operation should complete within 200ms", async () => {
       const startTime = Date.now();
-      mockRepository.getStatistics.mockResolvedValue({});
+      repo.getStatistics.mockResolvedValue({});
 
       const command = createTaskCommand();
       const statsCmd = command.commands.find((cmd) => cmd.name() === "stats");

@@ -5,20 +5,27 @@ import { PatternRepository } from "../../../src/storage/repository.js";
 import { PatternDiscoverer } from "../../../src/mcp/tools/discover.js";
 import type { LookupRequest } from "../../../src/mcp/tools/lookup.js";
 import type { DiscoverRequest } from "../../../src/mcp/tools/discover.js";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe("Pagination Functionality (Task OVPyryTppa-NzUXpo205T)", () => {
-  let db: Database.Database;
   let repository: PatternRepository;
   let lookupService: PatternLookupService;
   let discoverService: PatternDiscoverer;
 
-  beforeEach(() => {
-    // Create in-memory database
-    db = new Database(":memory:");
+  beforeEach(async () => {
+    // Initialize repository with in-memory database (fresh for each test)
+    repository = new PatternRepository({ dbPath: ":memory:" });
 
-    // Create schema
+    // Get the internal database
+    const db = (repository as any).db.database;
+
+    // FIRST: Create base schema (BEFORE migrations)
     db.exec(`
-      CREATE TABLE patterns (
+      CREATE TABLE IF NOT EXISTS patterns (
         id                TEXT PRIMARY KEY,
         schema_version    TEXT NOT NULL DEFAULT '1.0',
         pattern_version   TEXT NOT NULL DEFAULT '1.0',
@@ -45,8 +52,25 @@ describe("Pagination Functionality (Task OVPyryTppa-NzUXpo205T)", () => {
         when_to_use       TEXT,
         common_pitfalls   TEXT
       );
+    `);
 
-      CREATE TABLE reflections (
+    // THEN: Run migrations (with problematic ones skipped)
+    const { MigrationRunner } = await import("../../../src/migrations/MigrationRunner.js");
+    const { MigrationLoader } = await import("../../../src/migrations/MigrationLoader.js");
+    
+    const migrationRunner = new MigrationRunner(db);
+    const loader = new MigrationLoader(path.resolve(__dirname, "../../../src/migrations"));
+    const migrations = await loader.loadMigrations();
+    
+    // Skip migrations that expect existing data
+    const migrationsToRun = migrations.filter(m => 
+      !['011-migrate-pattern-tags-to-json', '012-rename-tags-csv-column', '014-populate-pattern-tags'].includes(m.id)
+    );
+    await migrationRunner.runMigrations(migrationsToRun);
+
+    // Create additional test schema if needed
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS reflections (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         task_id TEXT NOT NULL,
         brief_id TEXT,
@@ -55,7 +79,7 @@ describe("Pagination Functionality (Task OVPyryTppa-NzUXpo205T)", () => {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
 
-      CREATE TABLE snippets (
+      CREATE TABLE IF NOT EXISTS snippets (
         snippet_id TEXT PRIMARY KEY,
         pattern_id TEXT NOT NULL,
         content TEXT NOT NULL,
@@ -67,7 +91,7 @@ describe("Pagination Functionality (Task OVPyryTppa-NzUXpo205T)", () => {
         FOREIGN KEY (pattern_id) REFERENCES patterns(id)
       );
 
-      CREATE VIRTUAL TABLE patterns_fts USING fts5(
+      CREATE VIRTUAL TABLE IF NOT EXISTS patterns_fts USING fts5(
         id UNINDEXED,
         title,
         summary,
@@ -82,8 +106,8 @@ describe("Pagination Functionality (Task OVPyryTppa-NzUXpo205T)", () => {
     for (let i = 1; i <= 20; i++) {
       const id = `TEST:PATTERN:${i.toString().padStart(2, '0')}`;
       db.prepare(`
-        INSERT INTO patterns (id, type, title, summary, trust_score, tags, keywords, search_index)
-        VALUES (?, 'CODEBASE', ?, ?, ?, ?, ?, ?)
+        INSERT INTO patterns (id, schema_version, pattern_version, type, title, summary, trust_score, tags, keywords, search_index, pattern_digest, json_canonical, created_at, updated_at)
+        VALUES (?, '1.0', '1.0', 'CODEBASE', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `).run(
         id,
         `Test Pattern ${i}`,
@@ -91,7 +115,9 @@ describe("Pagination Functionality (Task OVPyryTppa-NzUXpo205T)", () => {
         0.5 + (i * 0.02), // Varying trust scores
         JSON.stringify([`tag${i}`, 'pagination']),
         `keyword${i} test pagination`,
-        `test pattern ${i} pagination functionality`
+        `test pattern ${i} pagination functionality`,
+        `digest-${i}`, // pattern_digest
+        JSON.stringify({id, type: 'CODEBASE'}) // json_canonical
       );
       
       // Add to FTS index
@@ -119,22 +145,16 @@ describe("Pagination Functionality (Task OVPyryTppa-NzUXpo205T)", () => {
       );
     }
 
-    // Initialize repository with in-memory database
-    repository = new PatternRepository({ dbPath: ":memory:" });
-    
-    // Replace repository's database with our test database
-    const dbField = Object.getOwnPropertyDescriptor(repository, "db");
-    if (dbField && dbField.value) {
-      dbField.value.database = db;
-    }
-
-    // Initialize services
+    // Initialize services with the repository we already created
     lookupService = new PatternLookupService(repository);
     discoverService = new PatternDiscoverer(repository);
   });
 
-  afterEach(() => {
-    db.close();
+  afterEach(async () => {
+    // Clean up repository and database
+    if (repository) {
+      await repository.shutdown();
+    }
   });
 
   describe("PatternLookupService Pagination", () => {

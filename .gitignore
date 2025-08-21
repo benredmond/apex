@@ -33,6 +33,15 @@ Thumbs.db
 .apex/
 .claude/
 
+# Compiled JS files (when TS source exists)
+# These patterns prevent accidental commit of TypeScript compilation artifacts
+src/**/*.js
+!src/cli/**/*.js  # CLI entry points are intentional JavaScript
+!src/migrations/migrations/**/*.js  # Legacy migration files are intentional
+!src/index.js  # Main entry point
+!src/intelligence/*.js  # Legacy intelligence modules
+!src/prompts/*.js  # Prompt templates
+
 # Logs
 logs/
 *.log
@@ -40,3 +49,19 @@ logs/
 # Temporary files
 tmp/
 temp/
+TX*.md
+test-*.js
+*.backup
+*.bak
+tsconfig.tsbuildinfo
+
+# Database files
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+:memory:
+
+# Log files
+*.jsonl
+failures.jsonl

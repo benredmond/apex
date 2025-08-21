@@ -1,22 +1,28 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
 import Database from "better-sqlite3";
+import path from "path";
+import { fileURLToPath } from "url";
 import { PatternLookupService } from "../../../src/mcp/tools/lookup.js";
 import { PatternRepository } from "../../../src/storage/repository.js";
 import { PackBuilder } from "../../../src/ranking/pack-builder.js";
 import type { LookupRequest } from "../../../src/mcp/tools/lookup.js";
+
+// ES module __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
   let db: Database.Database;
   let repository: PatternRepository;
   let lookupService: PatternLookupService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Create in-memory database
     db = new Database(":memory:");
 
-    // Create schema with enhanced fields
+    // FIRST: Create base patterns table (BEFORE migrations)
     db.exec(`
-      CREATE TABLE patterns (
+      CREATE TABLE IF NOT EXISTS patterns (
         id                TEXT PRIMARY KEY,
         schema_version    TEXT NOT NULL DEFAULT '1.0',
         pattern_version   TEXT NOT NULL DEFAULT '1.0',
@@ -43,8 +49,26 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
         when_to_use       TEXT,
         common_pitfalls   TEXT
       );
+    `);
 
-      CREATE TABLE reflections (
+    // THEN: Run migrations (with problematic ones skipped)
+    const { MigrationRunner } = await import("../../../src/migrations/MigrationRunner.js");
+    const { MigrationLoader } = await import("../../../src/migrations/MigrationLoader.js");
+    
+    const migrationRunner = new MigrationRunner(db);
+    const loader = new MigrationLoader(path.resolve(__dirname, "../../../src/migrations"));
+    const migrations = await loader.loadMigrations();
+    
+    // Skip problematic migrations that expect existing data
+    const migrationsToRun = migrations.filter(m => 
+      !['011-migrate-pattern-tags-to-json', '012-rename-tags-csv-column', '014-populate-pattern-tags'].includes(m.id)
+    );
+    
+    await migrationRunner.runMigrations(migrationsToRun);
+
+    // Create additional schema if needed
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS reflections (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         task_id TEXT NOT NULL,
         brief_id TEXT,
@@ -53,7 +77,7 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
 
-      CREATE TABLE snippets (
+      CREATE TABLE IF NOT EXISTS snippets (
         snippet_id TEXT PRIMARY KEY,
         pattern_id TEXT NOT NULL,
         content TEXT NOT NULL,

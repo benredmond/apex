@@ -62,6 +62,7 @@ export type PatternUsage = z.infer<typeof PatternUsageSchema>;
 export const NewPatternSchema = z.object({
   title: z.string().min(1).max(200),
   summary: z.string().min(1).max(1000),
+  pattern_id: z.string().optional(), // Optional custom pattern ID
   scope: z
     .object({
       languages: z.array(z.string()).optional(),
@@ -86,6 +87,7 @@ export type NewPattern = z.infer<typeof NewPatternSchema>;
 export const AntiPatternSchema = z.object({
   title: z.string().min(1).max(200),
   reason: z.string().min(1).max(1000),
+  pattern_id: z.string().optional(), // Optional custom pattern ID
   evidence: z.array(EvidenceRefSchema),
 });
 

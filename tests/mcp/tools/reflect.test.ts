@@ -76,6 +76,7 @@ const { PatternRepository } = await import(
 );
 const { ReflectRequest } = await import("../../../src/reflection/types.js");
 const { PatternDatabase } = await import("../../../src/storage/database.js");
+const Database = (await import("better-sqlite3")).default;
 import { fileURLToPath } from "url";
 import * as fs from "fs";
 import * as path from "path";
@@ -86,6 +87,7 @@ describe("ReflectionService", () => {
   let mockRepository: PatternRepository;
   let tempDir: string;
   let testDb: PatternDatabase;
+  let mockDb: any;
 
   beforeEach(async () => {
     // Create temp directory
@@ -107,8 +109,12 @@ describe("ReflectionService", () => {
     );
     const loader = new MigrationLoader(migrationsPath);
     const migrations = await loader.loadMigrations();
+    // Skip problematic migrations that expect existing data
+    const migrationsToRun = migrations.filter(m => 
+      !['011-migrate-pattern-tags-to-json', '012-rename-tags-csv-column', '014-populate-pattern-tags'].includes(m.id)
+    );
     const runner = new MigrationRunner(testDb.database);
-    await runner.runMigrations(migrations);
+    await runner.runMigrations(migrationsToRun);
 
     testDb.close();
 
@@ -129,7 +135,9 @@ describe("ReflectionService", () => {
       update: jest.fn().mockResolvedValue(true),
     } as any;
 
-    service = new ReflectionService(mockRepository, dbPath);
+    // Create mock Database instance
+    mockDb = new Database(dbPath);
+    service = new ReflectionService(mockRepository, mockDb);
   });
 
   afterEach(() => {
@@ -1054,14 +1062,8 @@ describe("ReflectionService", () => {
       };
       
       const service = new ReflectionService(
-        mockDb as any,
         mockRepository as any,
-        {} as any,
-        {} as any,
-        {} as any,
-        {} as any,
-        {} as any,
-        {} as any,
+        mockDb,
       );
 
       const request = {

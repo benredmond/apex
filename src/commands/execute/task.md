@@ -96,7 +96,7 @@ Execute phases sequentially:
 
 - Always apply when task brief/intent is vague or incomplete
 - Apply when Linear/JIRA descriptions need clarification
-- Apply when markdown file content needs structuring
+- Apply when task descriptions need structuring
 - Skip only if task already has a crystal-clear, well-structured brief
 
 ### Intelligent Prompt Rewriting
@@ -1332,7 +1332,7 @@ Record final pattern effectiveness:
 
 ## 10 · Execute DOCUMENTER phase and finalize
 
-**PHASE PROMPT**: "You are in DOCUMENTER phase. Update project documentation based on what was learned. Do not modify code. THIS IS THE ONLY PHASE where you should create or update .md files for documentation. CRITICAL: You MUST call apex.reflect at the end."
+**PHASE PROMPT**: "You are in DOCUMENTER phase. Capture learnings and reflect on task execution. Do not modify code. DO NOT create any .md files - all documentation is stored in the database via MCP tools. CRITICAL: You MUST call apex_reflect at the end."
 
 **INTELLIGENCE INJECTION**: Document context pack effectiveness:
 
@@ -1549,6 +1549,7 @@ Final checkpoint and evidence retrieval:
        trust_updates: [{ pattern_id: "PAT:ID", outcome: "worked-perfectly" }],
        new_patterns: [
          {
+           pattern_id: "PAT:API:ERROR_HANDLING", // Optional custom pattern ID
            title: "Pattern Name",
            summary: "Description",
            snippets: [], // Can include code snippets
@@ -1557,8 +1558,9 @@ Final checkpoint and evidence retrieval:
        ],
        anti_patterns: [
          {
-           title: "Anti-pattern Name", // NOT pattern_id!
-           reason: "Why this is bad",
+           pattern_id: "ANTI:DATABASE:N_PLUS_ONE", // Optional custom pattern ID
+           title: "Anti-pattern Name", // Required field
+           reason: "Why this is bad", // Required field
            evidence: [],
          },
        ],
@@ -1779,6 +1781,7 @@ Final checkpoint and evidence retrieval:
        ],
        new_patterns: [
          {
+           pattern_id: "PAT:CACHE:CONNECTION_POOL", // Optional custom pattern ID
            title: "Redis Connection Pooling",
            summary: "Efficient connection management",
            snippets: [
@@ -1822,6 +1825,7 @@ Final checkpoint and evidence retrieval:
        trust_updates: [],
        new_patterns: [
          {
+           pattern_id: "PAT:TEST:ISOLATION_FLAGS", // Optional custom pattern ID
            title: "Test Isolation with Skip Flags",
            summary:
              "Add skip flags to prevent background operations during testing",
@@ -1850,6 +1854,7 @@ Final checkpoint and evidence retrieval:
            ],
          },
          {
+           pattern_id: "PAT:TEST:ASYNC_CLEANUP", // Optional custom pattern ID
            title: "Async Test Cleanup Pattern",
            summary:
              "Ensure database connections are properly closed in afterEach hooks to prevent test pollution",
@@ -1878,6 +1883,7 @@ Final checkpoint and evidence retrieval:
            ],
          },
          {
+           pattern_id: "PAT:TEST:MOCK_VALIDATION", // Optional custom pattern ID
            title: "Mock Validation Pattern",
            summary:
              "Validate mock implementations match interface contracts using TypeScript strict checks",
@@ -1908,6 +1914,7 @@ Final checkpoint and evidence retrieval:
        ],
        anti_patterns: [
          {
+           pattern_id: "ANTI:SQL:HARDCODED_STATUS", // Optional custom pattern ID
            title: "Hardcoded Status Values in SQL",
            reason:
              "Using string literals for status values without constants leads to interface mismatches",
@@ -1922,6 +1929,7 @@ Final checkpoint and evidence retrieval:
            ],
          },
          {
+           pattern_id: "ANTI:TEST:GLOBAL_STATE", // Optional custom pattern ID
            title: "Global Test State Mutation",
            reason:
              "Modifying global state in tests causes flaky failures when tests run in parallel",
@@ -1993,6 +2001,7 @@ Final checkpoint and evidence retrieval:
        trust_updates: [],
        anti_patterns: [
          {
+           pattern_id: "ANTI:DATABASE:N_PLUS_ONE", // Optional custom pattern ID
            title: "Synchronous Database Calls in Loop",
            reason: "Causes N+1 query problem, degrades performance",
            evidence: [
@@ -2125,30 +2134,22 @@ Final checkpoint and evidence retrieval:
    // Then use normal apex_reflect with full evidence
    ```
 
-3. **COMPLETE LEARNING DOCUMENTATION:**
-   Use the learning-documenter subagent for comprehensive capture:
+3. **CAPTURE LEARNING INSIGHTS:**
 
-   ```markdown
-   <Task subagent_type="learning-documenter" description="Capture task learnings">
-   Document learnings for task [TASK_ID]:
-   - Update TASK_LEARNINGS.md
-   - Add failures to failures.jsonl
-   - Document pattern effectiveness from apex.reflect results
-   - Create follow-up tasks for outstanding issues
-   </Task>
-   ```
+   After apex_reflect completes, the system automatically:
+   - Updates pattern trust scores in the database
+   - Records new patterns discovered
+   - Tracks anti-patterns to avoid
+   - Stores learnings for future reference
 
-   **Learning-documenter subagent will:**
-   - Process reflection results from apex.reflect
-   - Document pattern effectiveness (parallel writes)
-   - Update all learning files concurrently:
-     - TASK_LEARNINGS.md
-     - failures.jsonl
-     - Pattern documentation
-   - Create follow-up tasks as needed
-   - **THIS IS THE ONLY SUBAGENT** that should create/update .md files
+   All learning data is now captured through apex_reflect - no separate documentation files needed.
 
-   **PARALLELISM**: Updates multiple documentation files simultaneously
+   **The apex_reflect tool automatically:**
+   - Processes pattern usage and effectiveness
+   - Updates trust scores based on outcomes
+   - Stores new patterns in the database
+   - Records anti-patterns and learnings
+   - All data is persisted in the APEX database, not files
 
 ### 🧠 Intelligence System Feedback
 
@@ -2190,42 +2191,7 @@ intelligence_feedback:
 }
 ```
 
-5. **Update 09_LEARNING/TASK_LEARNINGS.md:**
-
-   ```markdown
-   ## T[ID] - [Task Title]
-
-   DURATION: Predicted Xh, Actual Yh
-   COMPLEXITY: Predicted X, Actual Y
-
-   ### Patterns Used
-
-   - [PAT:ID] ✅/⚠️ Notes on effectiveness
-   - Cache hit rate: X%
-
-   ### New Discoveries
-
-   - [Description of new pattern or insight]
-
-   ### Errors Encountered
-
-   - [Error] → [Fix applied]
-
-   ### Recommendations for Similar Tasks
-
-   - [Key learnings for future]
-   ```
-
-6. **Update 09_LEARNING/failures.jsonl:**
-
-   ```json
-   For each error in errors_encountered:
-   {"id": "F[next]", "task": "T[ID]", "error": "[error]",
-    "cause": "[cause]", "fix": "[fix]", "pattern": "[PAT:ID]",
-    "frequency": 1, "last_seen": "[date]", "contexts": ["tags"]}
-   ```
-
-7. **Create Follow-up Task for Outstanding Issues:**
+5. **Create Follow-up Task for Outstanding Issues:**
    Review all phase handoffs and notes for:
    - Outstanding issues that were not resolved
    - Architectural deficits identified
