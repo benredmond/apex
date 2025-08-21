@@ -124,7 +124,7 @@ async function setupClaudeCodeIntegration() {
         type: "confirm",
         name: "confirmUser",
         message: chalk.yellow(
-          `⚠️  Only ~/.claude exists. Installing there may overwrite existing commands. Continue?`,
+          "⚠️  Only ~/.claude exists. Installing there may overwrite existing commands. Continue?",
         ),
         default: false,
       },
@@ -173,7 +173,7 @@ async function setupClaudeCodeIntegration() {
             {
               type: "confirm",
               name: "overwrite",
-              message: `execute_task.md already exists and differs. Overwrite?`,
+              message: "execute_task.md already exists and differs. Overwrite?",
               default: false,
             },
           ]);

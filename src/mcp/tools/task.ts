@@ -194,7 +194,7 @@ export class TaskService {
         taskId = activeTasks[0].id;
       }
 
-      return this.repository.findSimilar(taskId, 5);
+      return await this.repository.findSimilar(taskId, 5);
     } catch (error) {
       throw new ToolExecutionError(
         "findSimilar",

@@ -127,7 +127,7 @@ export class ApexMCPServer {
       }
 
       // Initialize tools with repository and shared database instance
-      initializeTools(this.repository, sharedDb);
+      await initializeTools(this.repository, sharedDb);
       // console.error(`[APEX MCP] Tools initialized`);
     } catch (error) {
       // Re-throw the error so it can be properly handled

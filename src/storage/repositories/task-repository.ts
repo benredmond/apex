@@ -17,9 +17,11 @@ import type {
 } from "../../schemas/task/types.js";
 import type { TaskBrief as NewTaskBrief } from "../../schemas/task/brief-types.js";
 import { newToOldTaskBrief } from "../../schemas/task/brief-adapter.js";
+import type { TaskSearchEngine } from "../../intelligence/task-search.js";
 
 export class TaskRepository {
   private db: Database.Database;
+  private searchEngine?: TaskSearchEngine;
   private statements: {
     create: Database.Statement;
     findById: Database.Statement;
@@ -32,10 +34,19 @@ export class TaskRepository {
     complete: Database.Statement;
   };
 
-  constructor(db: Database.Database) {
+  constructor(db: Database.Database, searchEngine?: TaskSearchEngine) {
     this.db = db;
+    this.searchEngine = searchEngine;
     // [FIX:SQLITE:SYNC] ★★★★★ - Prepare statements synchronously for performance
     this.statements = this.prepareStatements();
+  }
+
+  /**
+   * Set the search engine for similarity computation
+   * [PAT:LIFECYCLE:EVENT_HOOKS] - Enables automatic similarity triggers
+   */
+  setSearchEngine(searchEngine: TaskSearchEngine): void {
+    this.searchEngine = searchEngine;
   }
 
   private prepareStatements() {
@@ -155,6 +166,14 @@ export class TaskRepository {
     // [FIX:SQLITE:SYNC] ★★★★★ - Synchronous insert
     this.statements.create.run(newTask);
 
+    // [PAT:LIFECYCLE:EVENT_HOOKS] - Compute similarities for new task (async, non-blocking)
+    if (this.searchEngine) {
+      // Fire and forget - don't await to avoid blocking task creation
+      this.searchEngine.computeSimilarities(id).catch((error) => {
+        console.error(`Failed to compute similarities for new task ${id}:`, error);
+      });
+    }
+
     // Fetch the created task to return full object
     return this.findById(id)!;
   }
@@ -257,9 +276,19 @@ export class TaskRepository {
    * NOTE: This method maintains backward compatibility while internally
    * using the enhanced TaskSearchEngine for better similarity matching
    */
-  findSimilar(taskId: string, limit: number = 5): SimilarTask[] {
-    // For enhanced similarity search, use TaskSearchEngine
-    // This maintains the simple interface while providing better results
+  async findSimilar(taskId: string, limit: number = 5): Promise<SimilarTask[]> {
+    // [PAT:LIFECYCLE:EVENT_HOOKS] - Use TaskSearchEngine if available for better results
+    if (this.searchEngine) {
+      const task = this.findById(taskId);
+      if (!task) return [];
+      
+      try {
+        return await this.searchEngine.findSimilar(task, { limit, useCache: true });
+      } catch (error) {
+        console.error(`TaskSearchEngine failed, falling back to basic similarity:`, error);
+        // Fall through to basic implementation
+      }
+    }
 
     // First check cache using existing statement for backward compatibility
     const cached = this.statements.findSimilar.all(
@@ -360,6 +389,14 @@ export class TaskRepository {
     const sql = `UPDATE tasks SET ${updateFields.join(", ")} WHERE id = @id`;
     const stmt = this.db.prepare(sql);
     stmt.run(params);
+
+    // [PAT:LIFECYCLE:EVENT_HOOKS] - Recompute similarities after task update (async, non-blocking)
+    if (this.searchEngine) {
+      // Fire and forget - don't await to avoid blocking task update
+      this.searchEngine.computeSimilarities(id).catch((error) => {
+        console.error(`Failed to recompute similarities for updated task ${id}:`, error);
+      });
+    }
   }
 
   /**
@@ -388,6 +425,15 @@ export class TaskRepository {
       reflection_id: reflectionId || null,
       duration_ms: duration,
     });
+
+    // [PAT:LIFECYCLE:EVENT_HOOKS] - Clear similarities on task completion
+    if (this.searchEngine) {
+      try {
+        this.searchEngine.clearCacheForTask(id);
+      } catch (error) {
+        console.error(`Failed to clear similarity cache for completed task ${id}:`, error);
+      }
+    }
   }
 
   /**

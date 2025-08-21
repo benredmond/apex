@@ -32,10 +32,10 @@ let contextTool: ContextTool | null = null;
 /**
  * Initialize tool dependencies with shared database instance
  */
-export function initializeTools(
+export async function initializeTools(
   repo: PatternRepository,
   sharedDb?: Database.Database,
-): void {
+): Promise<void> {
   repository = repo;
   lookupService = new PatternLookupService(repo);
 
@@ -51,6 +51,30 @@ export function initializeTools(
 
   // Initialize task service with shared database instance
   const taskRepository = new TaskRepository(db);
+  
+  // [PAT:LIFECYCLE:EVENT_HOOKS] - Create TaskSearchEngine and wire to repository
+  const { TaskSearchEngine } = await import("../../intelligence/task-search.js");
+  const taskSearchEngine = new TaskSearchEngine(db);
+  taskRepository.setSearchEngine(taskSearchEngine);
+  
+  // [PAT:MIGRATION:BACKFILL] - Backfill similarities for existing tasks on first run
+  // Check if task_similarity table is empty
+  try {
+    const count = db.prepare("SELECT COUNT(*) as count FROM task_similarity").get() as { count: number };
+    if (count.count === 0) {
+      const taskCount = db.prepare("SELECT COUNT(*) as count FROM tasks WHERE status = 'active'").get() as { count: number };
+      if (taskCount.count > 0) {
+        console.error(`[APEX MCP] Backfilling similarities for ${taskCount.count} active tasks...`);
+        await taskSearchEngine.backfillSimilarities();
+      }
+    }
+  } catch (error) {
+    // Table might not exist yet, that's ok
+    if (process.env.APEX_DEBUG) {
+      console.error(`[APEX MCP] Skipping similarity backfill:`, error);
+    }
+  }
+  
   taskService = new TaskService(taskRepository, db);
   // Inject reflection service into task service for integration
   (taskService as any).reflectionService = reflectionService;

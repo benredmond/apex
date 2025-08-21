@@ -382,6 +382,26 @@ export class TaskSearchEngine {
   }
 
   /**
+   * Compute similarities for a single task
+   * [PAT:LIFECYCLE:EVENT_HOOKS] - Called after task create/update
+   */
+  async computeSimilarities(taskId: string): Promise<void> {
+    try {
+      const task = this.repo.findById(taskId);
+      if (!task) return;
+
+      // Clear existing cache for this task
+      this.clearCacheForTask(taskId);
+
+      // Compute similarities with all active tasks
+      await this.findSimilar(task, { useCache: false, limit: 10 });
+    } catch (error) {
+      // Don't fail task operations due to similarity computation
+      console.error(`Failed to compute similarities for task ${taskId}:`, error);
+    }
+  }
+
+  /**
    * Pre-compute similarities for active tasks (batch processing)
    */
   async precomputeSimilarities(): Promise<void> {
@@ -396,6 +416,28 @@ export class TaskSearchEngine {
         // Calculate similarities but don't await
         this.findSimilar(task, { useCache: false });
       }
+    }
+  }
+
+  /**
+   * Backfill similarities for all existing tasks
+   * [PAT:MIGRATION:BACKFILL] - One-time computation for existing data
+   */
+  async backfillSimilarities(): Promise<number> {
+    try {
+      const allTasks = this.repo.findByStatus("active", 100);
+      let computed = 0;
+
+      for (const task of allTasks) {
+        await this.computeSimilarities(task.id);
+        computed++;
+      }
+
+      console.log(`Backfilled similarities for ${computed} tasks`);
+      return computed;
+    } catch (error) {
+      console.error("Failed to backfill similarities:", error);
+      return 0;
     }
   }
 

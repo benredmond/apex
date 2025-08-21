@@ -41,7 +41,7 @@ export async function generateComposedPrompts() {
     const outputPath = path.join(outputDir, "execute-task.md");
     await fs.writeFile(outputPath, composedContent);
 
-    console.log(chalk.green(`  ✓ Generated: execute-task.md`));
+    console.log(chalk.green("  ✓ Generated: execute-task.md"));
   }
 
   // Add other commands as they become available
