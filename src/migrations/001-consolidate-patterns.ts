@@ -18,29 +18,44 @@ export const migration: Migration = {
   up: (db: Database.Database) => {
     // [PAT:dA0w9N1I9-4m] ★★★☆☆ - Synchronous transaction
     db.transaction(() => {
-      // 1. Add columns to patterns table if they don't exist
-      const columns = (db.pragma("table_info(patterns)") as any[]).map(
-        (col: any) => col.name,
-      );
+      // 1. Check if patterns table exists before trying to add columns
+      const patternsTableExists = db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='patterns'",
+        )
+        .all() as any[];
 
-      if (!columns.includes("alpha")) {
-        db.exec("ALTER TABLE patterns ADD COLUMN alpha REAL DEFAULT 1.0");
-      }
-      if (!columns.includes("beta")) {
-        db.exec("ALTER TABLE patterns ADD COLUMN beta REAL DEFAULT 1.0");
-      }
-      if (!columns.includes("usage_count")) {
-        db.exec(
-          "ALTER TABLE patterns ADD COLUMN usage_count INTEGER DEFAULT 0",
+      if (patternsTableExists.length > 0) {
+        // Add columns to patterns table if they don't exist
+        const columns = (db.pragma("table_info(patterns)") as any[]).map(
+          (col: any) => col.name,
         );
-      }
-      if (!columns.includes("success_count")) {
-        db.exec(
-          "ALTER TABLE patterns ADD COLUMN success_count INTEGER DEFAULT 0",
+
+        if (!columns.includes("alpha")) {
+          db.exec("ALTER TABLE patterns ADD COLUMN alpha REAL DEFAULT 1.0");
+        }
+        if (!columns.includes("beta")) {
+          db.exec("ALTER TABLE patterns ADD COLUMN beta REAL DEFAULT 1.0");
+        }
+        if (!columns.includes("usage_count")) {
+          db.exec(
+            "ALTER TABLE patterns ADD COLUMN usage_count INTEGER DEFAULT 0",
+          );
+        }
+        if (!columns.includes("success_count")) {
+          db.exec(
+            "ALTER TABLE patterns ADD COLUMN success_count INTEGER DEFAULT 0",
+          );
+        }
+        if (!columns.includes("status")) {
+          db.exec(
+            'ALTER TABLE patterns ADD COLUMN status TEXT DEFAULT "active"',
+          );
+        }
+      } else {
+        console.log(
+          "patterns table doesn't exist yet, skipping column additions",
         );
-      }
-      if (!columns.includes("status")) {
-        db.exec('ALTER TABLE patterns ADD COLUMN status TEXT DEFAULT "active"');
       }
 
       // 2. Check if pattern_drafts table exists
@@ -66,68 +81,70 @@ export const migration: Migration = {
 
       console.log(`Found ${drafts.length} drafts to migrate`);
 
-      // 3. Insert drafts into patterns table
-      const insertStmt = db.prepare(`
-        INSERT OR IGNORE INTO patterns (
-          id, schema_version, pattern_version, type, title, summary,
-          trust_score, created_at, updated_at, pattern_digest, json_canonical,
-          alpha, beta, usage_count, success_count, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
+      // 3. Insert drafts into patterns table (only if patterns table exists)
+      if (patternsTableExists.length > 0 && drafts.length > 0) {
+        const insertStmt = db.prepare(`
+          INSERT OR IGNORE INTO patterns (
+            id, schema_version, pattern_version, type, title, summary,
+            trust_score, created_at, updated_at, pattern_digest, json_canonical,
+            alpha, beta, usage_count, success_count, status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
 
-      for (const draft of drafts) {
-        try {
-          const patternData = JSON.parse(draft.json);
+        for (const draft of drafts) {
+          try {
+            const patternData = JSON.parse(draft.json);
 
-          // Generate pattern ID from draft ID or create new one
-          const patternId =
-            patternData.id || draft.draft_id.replace("draft:", "");
+            // Generate pattern ID from draft ID or create new one
+            const patternId =
+              patternData.id || draft.draft_id.replace("draft:", "");
 
-          // Determine pattern type
-          const type = draft.kind === "ANTI_PATTERN" ? "ANTI" : "CODEBASE";
+            // Determine pattern type
+            const type = draft.kind === "ANTI_PATTERN" ? "ANTI" : "CODEBASE";
 
-          // Initial trust score for new patterns (Beta(1,1) = 0.5)
-          const initialTrustScore = 0.5;
+            // Initial trust score for new patterns (Beta(1,1) = 0.5)
+            const initialTrustScore = 0.5;
 
-          // Create canonical JSON
-          const canonicalData = {
-            id: patternId,
-            type,
-            title: patternData.title,
-            summary: patternData.summary,
-            snippets: patternData.snippets || [],
-            evidence: patternData.evidence || [],
-          };
-          const jsonCanonical = JSON.stringify(canonicalData, null, 2);
+            // Create canonical JSON
+            const canonicalData = {
+              id: patternId,
+              type,
+              title: patternData.title,
+              summary: patternData.summary,
+              snippets: patternData.snippets || [],
+              evidence: patternData.evidence || [],
+            };
+            const jsonCanonical = JSON.stringify(canonicalData, null, 2);
 
-          // Create digest
-          const digest = crypto
-            .createHash("sha256")
-            .update(jsonCanonical)
-            .digest("hex");
+            // Create digest
+            const digest = crypto
+              .createHash("sha256")
+              .update(jsonCanonical)
+              .digest("hex");
 
-          insertStmt.run(
-            patternId,
-            PATTERN_SCHEMA_VERSION, // schema version from config
-            "1.0.0", // pattern version (individual pattern version, not schema)
-            type,
-            patternData.title,
-            patternData.summary,
-            initialTrustScore,
-            draft.created_at,
-            draft.created_at,
-            digest,
-            jsonCanonical,
-            1.0, // alpha (Beta distribution)
-            1.0, // beta (Beta distribution)
-            0, // usage_count
-            0, // success_count
-            "draft", // status - mark as draft initially
-          );
+            insertStmt.run(
+              patternId,
+              PATTERN_SCHEMA_VERSION, // schema version from config
+              "1.0.0", // pattern version (individual pattern version, not schema)
+              type,
+              patternData.title,
+              patternData.summary,
+              initialTrustScore,
+              draft.created_at,
+              draft.created_at,
+              digest,
+              jsonCanonical,
+              1.0, // alpha (Beta distribution)
+              1.0, // beta (Beta distribution)
+              0, // usage_count
+              0, // success_count
+              "draft", // status - mark as draft initially
+            );
 
-          console.log(`Migrated pattern: ${patternId}`);
-        } catch (error) {
-          console.error(`Failed to migrate draft ${draft.draft_id}:`, error);
+            console.log(`Migrated pattern: ${patternId}`);
+          } catch (error) {
+            console.error(`Failed to migrate draft ${draft.draft_id}:`, error);
+          }
         }
       }
 

@@ -245,10 +245,10 @@ describe("RepoIdentifier", () => {
       
       expect(paths.primary).toMatch(/\.apex\/github-test-project\/patterns\.db$/);
       expect(paths.fallback).toMatch(/\.apex\/global\/patterns\.db$/);
-      expect(paths.legacy).toBeUndefined(); // No legacy in temp dir
+      // Legacy paths are no longer returned
     });
 
-    it("should detect legacy database locations", async () => {
+    it("should no longer detect legacy database locations", async () => {
       // Create a legacy database file
       const legacyPath = path.join(tempDir, ".apex", "patterns.db");
       await fs.ensureDir(path.join(tempDir, ".apex"));
@@ -266,8 +266,11 @@ describe("RepoIdentifier", () => {
       mockSpawn.mockReturnValue(mockProcess as any);
 
       const paths = await RepoIdentifier.getDatabasePaths();
-      // Use fs.realpathSync to resolve symlinks for comparison on macOS
-      expect(paths.legacy).toBe(fs.realpathSync(legacyPath));
+      // Legacy paths are no longer returned
+      expect(paths.legacy).toBeUndefined();
+      // Should only have primary and fallback
+      expect(paths.primary).toBeDefined();
+      expect(paths.fallback).toBeDefined();
     });
   });
 

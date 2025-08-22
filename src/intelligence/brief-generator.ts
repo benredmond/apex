@@ -49,9 +49,7 @@ export class BriefGenerator {
     // Pattern repository should be provided by caller
     // If not provided, we'll create one but it may not use the right path
     // TODO: Refactor to require pattern repository in constructor
-    this.patternRepo =
-      options?.patternRepo ||
-      new PatternRepository();
+    this.patternRepo = options?.patternRepo || new PatternRepository();
     this.failureCorpus = new FailureCorpus();
 
     // [PAT:CACHE:LRU] ★★★★☆ - LRU cache with 1000 entries, 5-minute TTL

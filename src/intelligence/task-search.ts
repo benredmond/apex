@@ -397,7 +397,10 @@ export class TaskSearchEngine {
       await this.findSimilar(task, { useCache: false, limit: 10 });
     } catch (error) {
       // Don't fail task operations due to similarity computation
-      console.error(`Failed to compute similarities for task ${taskId}:`, error);
+      console.error(
+        `Failed to compute similarities for task ${taskId}:`,
+        error,
+      );
     }
   }
 

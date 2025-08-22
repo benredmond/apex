@@ -311,8 +311,9 @@ Call intelligence-gatherer with this mindset:
 Give me intelligence that changes how we approach this task."
 
 **What Makes Intelligence Valuable**:
+
 - Contradictions that reveal misunderstandings
-- Historical failures that predict future problems  
+- Historical failures that predict future problems
 - Hidden dependencies that could break
 - Patterns that conflict with assumptions
 - Surprises that would emerge too late
@@ -335,6 +336,7 @@ This phase consolidates all intelligence gathering, context loading, validation,
 **Enhanced Brief**: [The optimized brief from step 3]
 
 **Your Intelligence Priorities**:
+
 1. Find similar tasks and learn from their implementations
 2. Discover patterns that apply to this specific context
 3. Identify what failed before and how to prevent it
@@ -342,6 +344,7 @@ This phase consolidates all intelligence gathering, context loading, validation,
 5. Predict likely failure modes and edge cases
 
 **Key Questions to Answer**:
+
 - What is the user REALLY trying to achieve?
 - What similar tasks succeeded/failed and why?
 - Which patterns have high trust scores for this context?
@@ -525,18 +528,20 @@ You are the master planner. Your design decisions ripple through the entire impl
 **Mental Model**: Think like an archaeologist AND architect.
 
 **Before designing anything, investigate**:
+
 1. WHY does the current implementation exist? (trace its history)
 2. WHAT problems did previous attempts encounter?
 3. WHO depends on this that isn't obvious?
 4. WHERE are the landmines? (what breaks easily?)
 
 **When designing, ask yourself**:
+
 - "What patterns have succeeded here before?"
 - "What would future maintainers thank me for?"
 - "What edge cases will only appear in production?"
 - "How can this design prevent rather than handle errors?"
 
-**Your handoff should answer**: 
+**Your handoff should answer**:
 "If BUILDER follows this exactly, what could still go wrong?"
 
 Remember: Great architecture prevents problems, not just solves them.
@@ -775,12 +780,14 @@ You are the craftsperson. Your code will be read more than written.
 **Mental Model**: Each line of code is a decision. Make it deliberately.
 
 **Before writing ANY code, ask**:
+
 1. 📖 Have I absorbed ARCHITECT's warnings and design rationale?
 2. 🎯 Do I understand the patterns recommended and why?
 3. ⚠️ What failure modes were predicted that I must prevent?
 4. 🤔 What assumptions am I making that could be wrong?
 
 **While implementing**:
+
 - Start with the hardest, riskiest parts first
 - Check pattern cache before writing each function
 - When something feels wrong, it probably is - investigate
@@ -1137,10 +1144,11 @@ You are the quality guardian. Every bug you catch saves hours of debugging later
 **Your Testing Philosophy for the Subagent**:
 Call test-validator with this mindset:
 "Don't just run tests - hunt for failures. Predict what will break,
-validate your predictions, and learn from surprises. Every test 
+validate your predictions, and learn from surprises. Every test
 failure teaches us something about our assumptions."
 
 **Before running tests, predict**:
+
 - "Based on changes made, what's most likely to break?"
 - "What edge cases might BUILDER have missed?"
 - "Which integrations are most fragile?"
@@ -1196,6 +1204,7 @@ Use test patterns and predictions from context pack:
 "Don't just run tests - hunt for failures. Every test failure teaches us something."
 
 **Validation Priorities**:
+
 1. PREDICT what will fail based on changes made
 2. Run tests in order of likelihood to fail
 3. Find patterns in any failures that occur
@@ -1203,6 +1212,7 @@ Use test patterns and predictions from context pack:
 5. Learn from every result
 
 **Required Validations**:
+
 - Syntax validation (ESLint, ruff)
 - Code formatting (Prettier, ruff format)
 - Type checking (TypeScript, mypy)
@@ -1339,16 +1349,18 @@ You are the experienced mentor. Your review prevents future regret.
 
 **Your Mandate to the Subagent**:
 Call quality-reviewer with this perspective:
-"You've seen the entire journey - ARCHITECT's warnings, BUILDER's choices, 
+"You've seen the entire journey - ARCHITECT's warnings, BUILDER's choices,
 VALIDATOR's discoveries. Now be the wise mentor who sees what others missed.
 Review for correctness, maintainability, and hidden problems."
 
 **First, absorb the journey**:
+
 - What did ARCHITECT warn about? (Did BUILDER address it?)
 - What patterns were applied? (Did they fit the context?)
 - What did VALIDATOR discover? (Are there systemic issues?)
 
 **Ask the hard questions**:
+
 - "What would I do differently with hindsight?"
 - "What technical debt are we accepting?"
 - "What patterns should we document for next time?"
@@ -1362,7 +1374,8 @@ YOU MUST USE quality-reviewer SUBAGENT TO PERFORM THE REVIEW
 # Review Mission - The Final Defense
 
 **Task ID**: [TASK_ID]
-**Journey Context**: 
+**Journey Context**:
+
 - ARCHITECT warnings: [List key warnings from ARCHITECT phase]
 - BUILDER decisions: [Key implementation choices made]
 - VALIDATOR discoveries: [Test results and patterns found]
@@ -1372,6 +1385,7 @@ YOU MUST USE quality-reviewer SUBAGENT TO PERFORM THE REVIEW
 Review for correctness, maintainability, and hidden problems."
 
 **Review Through These Lenses**:
+
 1. **Correctness**: Does this actually solve the original problem?
 2. **Maintainability**: Could you understand this in 6 months?
 3. **Resilience**: How does this fail gracefully?
@@ -1381,6 +1395,7 @@ Review for correctness, maintainability, and hidden problems."
 **The Carmack Test**: "Could you delete all comments and still understand it?"
 
 **Key Questions**:
+
 - What would you do differently with hindsight?
 - What technical debt are we accepting?
 - What patterns should we document for next time?
@@ -1494,16 +1509,19 @@ You are the organizational memory. Your reflections make everyone better.
 **Deep Reflection Framework**:
 
 **What patterns emerged?**
+
 - Which cached patterns proved invaluable?
 - What new patterns did we discover?
 - Which patterns needed adaptation? Why?
 
 **What surprised us?**
+
 - What took longer than expected? Why?
 - What was easier than anticipated? Why?
 - What assumptions were wrong?
 
 **What would we do differently?**
+
 - Knowing what we know now, how would we approach this?
 - What warning signs did we miss early?
 - What patterns should we cache for next time?

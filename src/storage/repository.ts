@@ -85,7 +85,7 @@ export class PatternRepository {
     if (options.watch) {
       // Watch option kept for backward compatibility but does nothing
     }
-    
+
     this.isInitialized = true;
   }
 
@@ -96,7 +96,6 @@ export class PatternRepository {
     // Watcher removed - no cleanup needed
     this.db.close();
   }
-
 
   /**
    * Get the database instance for dependency injection
@@ -512,7 +511,7 @@ export class PatternRepository {
   public async validate(): Promise<ValidationResult[]> {
     // Validation is now done against patterns in the database
     const patterns = await this.list();
-    
+
     return patterns.map((pattern) => ({
       pattern_id: pattern.id,
       valid: true,

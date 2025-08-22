@@ -41,12 +41,12 @@ export class PatternInserter {
     if (!patternId) return false;
     const segments = patternId.split(":");
     if (segments.length < 2) return false;
-    
+
     // First segment must be PAT or ANTI
     if (segments[0] !== "PAT" && segments[0] !== "ANTI") {
       return false;
     }
-    
+
     // Each segment should contain only letters, numbers, underscores, dots
     return segments.every(
       (segment) => segment.length > 0 && /^[A-Za-z0-9_.-]+$/.test(segment),
@@ -113,7 +113,10 @@ export class PatternInserter {
    * Special case: If a custom ID doesn't start with PAT or ANTI, we need to determine
    * the type from the kind parameter passed to insertNewPattern
    */
-  private expandTo4Segments(patternId: string, kind?: "NEW_PATTERN" | "ANTI_PATTERN"): string {
+  private expandTo4Segments(
+    patternId: string,
+    kind?: "NEW_PATTERN" | "ANTI_PATTERN",
+  ): string {
     const segments = patternId.split(":");
 
     if (segments.length >= 4) {
@@ -122,12 +125,12 @@ export class PatternInserter {
 
     // Determine if it's a pattern or anti-pattern
     let prefix = segments[0];
-    
+
     // If the first segment is not PAT or ANTI, we need to determine the type
     if (prefix !== "PAT" && prefix !== "ANTI") {
       // Use the kind parameter to determine type, or default to PAT
       const typePrefix = kind === "ANTI_PATTERN" ? "ANTI" : "PAT";
-      
+
       if (segments.length === 2) {
         // e.g., "TEST:ANTI" with kind=ANTI_PATTERN → "APEX.SYSTEM:ANTI:TEST:ANTI"
         return `APEX.SYSTEM:${typePrefix}:${segments[0]}:${segments[1]}`;

@@ -170,7 +170,10 @@ export class TaskRepository {
     if (this.searchEngine) {
       // Fire and forget - don't await to avoid blocking task creation
       this.searchEngine.computeSimilarities(id).catch((error) => {
-        console.error(`Failed to compute similarities for new task ${id}:`, error);
+        console.error(
+          `Failed to compute similarities for new task ${id}:`,
+          error,
+        );
       });
     }
 
@@ -281,11 +284,17 @@ export class TaskRepository {
     if (this.searchEngine) {
       const task = this.findById(taskId);
       if (!task) return [];
-      
+
       try {
-        return await this.searchEngine.findSimilar(task, { limit, useCache: true });
+        return await this.searchEngine.findSimilar(task, {
+          limit,
+          useCache: true,
+        });
       } catch (error) {
-        console.error(`TaskSearchEngine failed, falling back to basic similarity:`, error);
+        console.error(
+          `TaskSearchEngine failed, falling back to basic similarity:`,
+          error,
+        );
         // Fall through to basic implementation
       }
     }
@@ -394,7 +403,10 @@ export class TaskRepository {
     if (this.searchEngine) {
       // Fire and forget - don't await to avoid blocking task update
       this.searchEngine.computeSimilarities(id).catch((error) => {
-        console.error(`Failed to recompute similarities for updated task ${id}:`, error);
+        console.error(
+          `Failed to recompute similarities for updated task ${id}:`,
+          error,
+        );
       });
     }
   }
@@ -431,7 +443,10 @@ export class TaskRepository {
       try {
         this.searchEngine.clearCacheForTask(id);
       } catch (error) {
-        console.error(`Failed to clear similarity cache for completed task ${id}:`, error);
+        console.error(
+          `Failed to clear similarity cache for completed task ${id}:`,
+          error,
+        );
       }
     }
   }

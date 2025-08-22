@@ -144,7 +144,6 @@ export class RepoIdentifier {
   static async getDatabasePaths(): Promise<{
     primary: string;
     fallback: string;
-    legacy?: string;
   }> {
     const os = await import("os");
     const homeDir = os.homedir();
@@ -156,18 +155,9 @@ export class RepoIdentifier {
     // Fallback: global shared patterns
     const fallback = path.join(homeDir, ".apex", "global", "patterns.db");
 
-    // Legacy: check for old database locations
-    const legacyPaths = [
-      path.join(process.cwd(), ".apex", "patterns.db"),
-      path.join(process.cwd(), "patterns.db"),
-    ];
-
-    const legacy = legacyPaths.find((p) => fs.existsSync(p));
-
     return {
       primary,
       fallback,
-      ...(legacy && { legacy }),
     };
   }
 }

@@ -40,7 +40,7 @@ async function ensureDatabase() {
 }
 
 // Helper to check and copy Claude Code commands
-async function setupClaudeCodeIntegration() {
+async function setupClaudeCodeIntegration(forceOverwrite = false) {
   // Check for both user-level and project-level .claude directories
   const userClaudeDir = path.join(os.homedir(), ".claude");
   const projectClaudeDir = path.join(process.cwd(), ".claude");
@@ -55,60 +55,70 @@ async function setupClaudeCodeIntegration() {
 
   console.log(chalk.bold("\n🤖 Claude Code Integration\n"));
 
-  // Ask if user wants to install APEX commands
-  const { shouldInstall } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "shouldInstall",
-      message:
-        "Would you like to install APEX command templates and agents for Claude Code?",
-      default: true,
-    },
-  ]);
+  // Ask if user wants to install APEX commands (skip if force flag is set)
+  let shouldInstall = forceOverwrite;
+  if (!forceOverwrite) {
+    const response = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "shouldInstall",
+        message:
+          "Would you like to install APEX command templates and agents for Claude Code?",
+        default: true,
+      },
+    ]);
+    shouldInstall = response.shouldInstall;
+  }
 
-  if (!shouldInstall) {
+  if (!shouldInstall && !forceOverwrite) {
     return;
   }
 
   // Determine installation location - PREFER PROJECT LEVEL TO AVOID OVERWRITING USER FILES
   let targetDir;
   if (userClaudeExists && projectClaudeExists) {
-    // Both exist, let user choose but default to project
-    const { location } = await inquirer.prompt([
-      {
-        type: "list",
-        name: "location",
-        message: "Where would you like to install the APEX commands?",
-        choices: [
-          {
-            name: "Project level (./.claude) - Only for this project (RECOMMENDED)",
-            value: "project",
-          },
-          {
-            name: "User level (~/.claude) - Available across all projects",
-            value: "user",
-          },
-        ],
-        default: "project", // Default to project to avoid overwriting user files
-      },
-    ]);
-    targetDir = location === "user" ? userClaudeDir : projectClaudeDir;
-
-    // Extra warning if user level is selected
-    if (location === "user") {
-      const { confirmUser } = await inquirer.prompt([
+    if (forceOverwrite) {
+      // With force flag, default to project level
+      targetDir = projectClaudeDir;
+      console.log(chalk.dim(`Force installing to project level: ${targetDir}`));
+    } else {
+      // Both exist, let user choose but default to project
+      const { location } = await inquirer.prompt([
         {
-          type: "confirm",
-          name: "confirmUser",
-          message: chalk.yellow(
-            "⚠️  Installing to ~/.claude may overwrite existing commands. Continue?",
-          ),
-          default: false,
+          type: "list",
+          name: "location",
+          message: "Where would you like to install the APEX commands?",
+          choices: [
+            {
+              name: "Project level (./.claude) - Only for this project (RECOMMENDED)",
+              value: "project",
+            },
+            {
+              name: "User level (~/.claude) - Available across all projects",
+              value: "user",
+            },
+          ],
+          default: "project", // Default to project to avoid overwriting user files
         },
       ]);
-      if (!confirmUser) {
-        console.log(chalk.dim("Installation cancelled."));
-        return;
+      targetDir = location === "user" ? userClaudeDir : projectClaudeDir;
+
+      // Extra warning if user level is selected
+      if (location === "user") {
+        const { confirmUser } = await inquirer.prompt([
+          {
+            type: "confirm",
+            name: "confirmUser",
+            message: chalk.yellow(
+              "⚠️  Installing to ~/.claude may overwrite existing commands. Continue?",
+            ),
+            default: false,
+          },
+        ]);
+        if (!confirmUser) {
+          console.log(chalk.dim("Installation cancelled."));
+          return;
+        }
       }
     }
   } else if (projectClaudeExists) {
@@ -116,25 +126,29 @@ async function setupClaudeCodeIntegration() {
     targetDir = projectClaudeDir;
     console.log(chalk.dim(`Installing to project level: ${targetDir}`));
   } else {
-    // Only user level exists - warn before installing
+    // Only user level exists - warn before installing (unless force flag is set)
     targetDir = userClaudeDir;
-    const { confirmUser } = await inquirer.prompt([
-      {
-        type: "confirm",
-        name: "confirmUser",
-        message: chalk.yellow(
-          "⚠️  Only ~/.claude exists. Installing there may overwrite existing commands. Continue?",
-        ),
-        default: false,
-      },
-    ]);
-    if (!confirmUser) {
-      console.log(
-        chalk.dim(
-          "Installation cancelled. Consider creating ./.claude in your project instead.",
-        ),
-      );
-      return;
+    if (!forceOverwrite) {
+      const { confirmUser } = await inquirer.prompt([
+        {
+          type: "confirm",
+          name: "confirmUser",
+          message: chalk.yellow(
+            "⚠️  Only ~/.claude exists. Installing there may overwrite existing commands. Continue?",
+          ),
+          default: false,
+        },
+      ]);
+      if (!confirmUser) {
+        console.log(
+          chalk.dim(
+            "Installation cancelled. Consider creating ./.claude in your project instead.",
+          ),
+        );
+        return;
+      }
+    } else {
+      console.log(chalk.dim(`Force installing to user level: ${targetDir}`));
     }
   }
 
@@ -155,6 +169,11 @@ async function setupClaudeCodeIntegration() {
     // Copy execute/task.md if it exists
     const taskSource = path.join(commandsSourceDir, "execute", "task.md");
     const taskTarget = path.join(targetCommandsDir, "execute_task.md");
+    
+    // Keep track of agent files for potential updates
+    const agentsSourceDir = path.join(__dirname, "..", "agents");
+    const targetAgentsDir = path.join(targetDir, "agents");
+    let mdFiles = [];
 
     if (await fs.pathExists(taskSource)) {
       if (await fs.pathExists(taskTarget)) {
@@ -165,6 +184,11 @@ async function setupClaudeCodeIntegration() {
         if (existingContent === sourceContent) {
           skippedCount++;
           spinner.text = "Skipped execute_task.md (identical file exists)";
+        } else if (forceOverwrite) {
+          // Force overwrite without asking
+          await fs.copy(taskSource, taskTarget);
+          copiedCount++;
+          spinner.text = "Force updated execute_task.md";
         } else {
           // Ask before overwriting
           spinner.stop();
@@ -195,24 +219,36 @@ async function setupClaudeCodeIntegration() {
     }
 
     // 2. Copy agents
-    const agentsSourceDir = path.join(__dirname, "..", "agents");
-    const targetAgentsDir = path.join(targetDir, "agents");
-
     if (await fs.pathExists(agentsSourceDir)) {
       // Ensure target agents directory exists
       await fs.ensureDir(targetAgentsDir);
 
       // Get all agent files
       const agentFiles = await fs.readdir(agentsSourceDir);
-      const mdFiles = agentFiles.filter((f) => f.endsWith(".md"));
+      mdFiles = agentFiles.filter((f) => f.endsWith(".md"));
 
       for (const agentFile of mdFiles) {
         const sourceFile = path.join(agentsSourceDir, agentFile);
         const targetFile = path.join(targetAgentsDir, agentFile);
 
         if (await fs.pathExists(targetFile)) {
-          skippedCount++;
-          spinner.text = `Skipped ${agentFile} (already exists)`;
+          if (forceOverwrite) {
+            // Check if content is different
+            const existingContent = await fs.readFile(targetFile, "utf8");
+            const sourceContent = await fs.readFile(sourceFile, "utf8");
+            
+            if (existingContent === sourceContent) {
+              skippedCount++;
+              spinner.text = `Skipped ${agentFile} (identical)`;
+            } else {
+              await fs.copy(sourceFile, targetFile);
+              copiedCount++;
+              spinner.text = `Force updated ${agentFile}`;
+            }
+          } else {
+            skippedCount++;
+            spinner.text = `Skipped ${agentFile} (already exists)`;
+          }
         } else {
           await fs.copy(sourceFile, targetFile);
           copiedCount++;
@@ -227,10 +263,68 @@ async function setupClaudeCodeIntegration() {
       ),
     );
 
-    console.log(chalk.dim(`\n📁 Commands installed to: ${targetCommandsDir}`));
-    console.log(
-      chalk.dim(`📁 Agents installed to: ${path.join(targetDir, "agents")}`),
-    );
+    // If files were skipped and not using force flag, ask if user wants to update them
+    if (skippedCount > 0 && !forceOverwrite) {
+      console.log(chalk.dim(`\n📁 Commands installed to: ${targetCommandsDir}`));
+      console.log(
+        chalk.dim(`📁 Agents installed to: ${path.join(targetDir, "agents")}`),
+      );
+      
+      const { updateSkipped } = await inquirer.prompt([
+        {
+          type: "confirm",
+          name: "updateSkipped",
+          message: chalk.yellow(
+            `\n${skippedCount} files were skipped because they already exist. Would you like to update them with the latest versions?`,
+          ),
+          default: false,
+        },
+      ]);
+
+      if (updateSkipped) {
+        spinner.start("Updating existing files...");
+        let updatedCount = 0;
+
+        // Update execute_task.md if it exists
+        if (await fs.pathExists(taskSource) && await fs.pathExists(taskTarget)) {
+          const existingContent = await fs.readFile(taskTarget, "utf8");
+          const sourceContent = await fs.readFile(taskSource, "utf8");
+          
+          if (existingContent !== sourceContent) {
+            await fs.copy(taskSource, taskTarget);
+            updatedCount++;
+            spinner.text = "Updated execute_task.md";
+          }
+        }
+
+        // Update agent files
+        for (const agentFile of mdFiles) {
+          const sourceFile = path.join(agentsSourceDir, agentFile);
+          const targetFile = path.join(targetAgentsDir, agentFile);
+
+          if (await fs.pathExists(targetFile)) {
+            const existingContent = await fs.readFile(targetFile, "utf8");
+            const sourceContent = await fs.readFile(sourceFile, "utf8");
+            
+            if (existingContent !== sourceContent) {
+              await fs.copy(sourceFile, targetFile);
+              updatedCount++;
+              spinner.text = `Updated ${agentFile}`;
+            }
+          }
+        }
+
+        spinner.succeed(
+          chalk.green(`✅ Updated ${updatedCount} files`),
+        );
+      }
+    } else {
+      console.log(chalk.dim(`\n📁 Commands installed to: ${targetCommandsDir}`));
+      console.log(
+        chalk.dim(`📁 Agents installed to: ${path.join(targetDir, "agents")}`),
+      );
+    }
+    
     console.log(
       chalk.dim(
         "💡 These enhance Claude Code's ability to work with APEX patterns",
@@ -280,6 +374,7 @@ program
   .command("start")
   .description("Start using APEX (one-command setup)")
   .option("--no-mcp", "Skip MCP information")
+  .option("-f, --force", "Force overwrite existing agents and commands")
   .action(async (options) => {
     try {
       console.log(chalk.bold("\n🚀 Starting APEX...\n"));
@@ -312,7 +407,7 @@ program
       // 4. Handle platform-specific setup
       if (platform === "claude") {
         // Setup Claude Code integration
-        await setupClaudeCodeIntegration();
+        await setupClaudeCodeIntegration(options.force);
       } else {
         // Generate composed prompts for non-Claude platforms
         const { generateComposedPrompts } = await import(

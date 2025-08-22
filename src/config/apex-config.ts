@@ -74,7 +74,6 @@ export class ApexConfig {
    * Priority order:
    * 1. APEX_PATTERNS_DB environment variable
    * 2. Project-specific path in ~/.apex/<repo-id>/patterns.db
-   * 3. Legacy project location (.apex/patterns.db or patterns.db)
    */
   static async getProjectDbPath(): Promise<string> {
     // Check environment variable override first
@@ -84,12 +83,6 @@ export class ApexConfig {
 
     // Get all possible database paths
     const paths = await RepoIdentifier.getDatabasePaths();
-
-    // If legacy database exists and primary doesn't, use legacy for now
-    // This ensures backward compatibility during transition
-    if (paths.legacy && !fs.existsSync(paths.primary)) {
-      return paths.legacy;
-    }
 
     // Return project-specific path (will be created if doesn't exist)
     return paths.primary;
@@ -129,15 +122,37 @@ export class ApexConfig {
    * Returns true if migration was performed
    */
   static async migrateLegacyDatabase(): Promise<boolean> {
-    const paths = await RepoIdentifier.getDatabasePaths();
+    // Check for legacy database locations directly since getDatabasePaths no longer returns legacy
+    const legacyPaths = [
+      path.join(process.cwd(), ".apex", "patterns.db"),
+      path.join(process.cwd(), "patterns.db"),
+    ];
 
-    // Check if migration is needed
-    if (!paths.legacy || !fs.existsSync(paths.legacy)) {
+    const legacyPath = legacyPaths.find((p) => fs.existsSync(p));
+
+    if (!legacyPath) {
       return false; // No legacy database to migrate
     }
 
+    const paths = await RepoIdentifier.getDatabasePaths();
+
     if (fs.existsSync(paths.primary)) {
-      return false; // Project database already exists
+      // Project database already exists
+      // If legacy still exists, we should delete it to prevent confusion
+      if (legacyPath) {
+        try {
+          fs.unlinkSync(legacyPath);
+          console.log(
+            `Removed legacy database at ${legacyPath} (already migrated)`,
+          );
+        } catch (error) {
+          console.error(
+            `Failed to remove legacy database at ${legacyPath}:`,
+            error,
+          );
+        }
+      }
+      return false;
     }
 
     try {
@@ -145,9 +160,22 @@ export class ApexConfig {
       ApexConfig.ensureDbDirectory(paths.primary);
 
       // Copy legacy database to new location
-      fs.copyFileSync(paths.legacy, paths.primary);
+      fs.copyFileSync(legacyPath, paths.primary);
 
-      console.log(`Migrated database from ${paths.legacy} to ${paths.primary}`);
+      console.log(`Migrated database from ${legacyPath} to ${paths.primary}`);
+
+      // Delete the legacy database after successful migration
+      try {
+        fs.unlinkSync(legacyPath);
+        console.log(`Removed legacy database at ${legacyPath}`);
+      } catch (error) {
+        console.error(
+          `Migration successful but failed to remove legacy database:`,
+          error,
+        );
+        // Migration was successful even if we couldn't delete the old file
+      }
+
       return true;
     } catch (error) {
       console.error("Failed to migrate legacy database:", error);

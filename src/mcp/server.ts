@@ -69,6 +69,7 @@ export class ApexMCPServer {
     try {
       // Import required modules
       const { ApexConfig } = await import("../config/apex-config.js");
+      const { AutoMigrator } = await import("../migrations/auto-migrator.js");
 
       // Try to migrate legacy database if needed
       const migrated = await ApexConfig.migrateLegacyDatabase();
@@ -78,9 +79,15 @@ export class ApexMCPServer {
         );
       }
 
+      // Get database path for migrations
+      const dbPath = await ApexConfig.getProjectDbPath();
+      
+      // Run migrations to ensure all tables exist (including task_evidence)
+      const migrator = new AutoMigrator(dbPath);
+      await migrator.runMigrations();
+
       // Log current working directory for debugging (only if debug env var is set)
       if (process.env.APEX_DEBUG) {
-        const dbPath = await ApexConfig.getProjectDbPath();
         const globalDbPath = await ApexConfig.getGlobalDbPath();
         console.error(`[APEX MCP] Current directory: ${process.cwd()}`);
         console.error(`[APEX MCP] Using project database: ${dbPath}`);
