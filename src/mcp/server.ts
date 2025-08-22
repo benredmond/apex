@@ -84,7 +84,7 @@ export class ApexMCPServer {
       
       // Run migrations to ensure all tables exist (including task_evidence)
       const migrator = new AutoMigrator(dbPath);
-      await migrator.runMigrations();
+      await migrator.autoMigrate({ silent: true });
 
       // Log current working directory for debugging (only if debug env var is set)
       if (process.env.APEX_DEBUG) {
