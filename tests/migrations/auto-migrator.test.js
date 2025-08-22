@@ -7,7 +7,9 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { AutoMigrator } from "../../src/migrations/auto-migrator.ts";
+// Temporarily disabled due to ESM module linking issue
+// import { AutoMigrator } from "../../src/migrations/auto-migrator.ts";
+const { AutoMigrator } = await import("../../src/migrations/auto-migrator.ts");
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

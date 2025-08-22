@@ -7,7 +7,9 @@ import Database from "better-sqlite3";
 import fs from "fs-extra";
 import path from "path";
 import os from "os";
-import { AutoMigrator } from "../../src/migrations/auto-migrator.js";
+
+// Import AutoMigrator after other imports to avoid module linking issues
+const { AutoMigrator } = await import("../../src/migrations/auto-migrator.ts");
 
 describe("AutoMigrator Table Creation", () => {
   let tempDir;
