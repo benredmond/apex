@@ -25,15 +25,14 @@ const program = new Command();
 
 // Helper to ensure database is ready
 async function ensureDatabase() {
-  if (!ApexConfig.isInitialized()) {
-    const spinner = ora("Initializing APEX...").start();
+  // Get the correct database path
+  const dbPath = await ApexConfig.getProjectDbPath();
 
-    // Create database
-    const { PatternDatabase } = await import("../../dist/storage/database.js");
-    new PatternDatabase();
-
-    spinner.succeed(chalk.green("APEX initialized"));
-  }
+  // Ensure directory exists
+  ApexConfig.ensureDbDirectory(dbPath);
+  // Initialize database at the correct path
+  const { PatternDatabase } = await import("../../dist/storage/database.js");
+  new PatternDatabase(dbPath);
 
   // Auto-migrate if needed
   const migrator = new AutoMigrator();
@@ -786,8 +785,6 @@ program
 
         const apexPath = path.resolve(path.join(__dirname, "../.."));
         const serverPath = path.join(apexPath, "dist", "mcp", "server.js");
-        // Use centralized configuration to get the proper database path
-        const { ApexConfig } = await import("../config/apex-config.js");
         const dbPath = await ApexConfig.getProjectDbPath();
 
         console.log(
@@ -886,8 +883,6 @@ program
           "mcp",
           "server.js",
         );
-          // Use centralized configuration to get the proper database path
-        const { ApexConfig } = await import("../config/apex-config.js");
         const dbPath = await ApexConfig.getProjectDbPath();
 
         // Check if server file exists
