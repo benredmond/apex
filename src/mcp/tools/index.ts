@@ -56,7 +56,7 @@ export async function initializeTools(
   const { TaskSearchEngine } = await import(
     "../../intelligence/task-search.js"
   );
-  const taskSearchEngine = new TaskSearchEngine(db);
+  const taskSearchEngine = new TaskSearchEngine(db, taskRepository);
   taskRepository.setSearchEngine(taskSearchEngine);
 
   // [PAT:MIGRATION:BACKFILL] - Backfill similarities for existing tasks on first run

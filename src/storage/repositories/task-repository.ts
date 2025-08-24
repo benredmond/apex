@@ -38,7 +38,12 @@ export class TaskRepository {
     this.db = db;
     this.searchEngine = searchEngine;
     // [FIX:SQLITE:SYNC] ★★★★★ - Prepare statements synchronously for performance
-    this.statements = this.prepareStatements();
+    try {
+      this.statements = this.prepareStatements();
+    } catch (error) {
+      console.error(`[TaskRepository] Failed to prepare statements:`, error);
+      throw error;
+    }
   }
 
   /**
@@ -50,6 +55,12 @@ export class TaskRepository {
   }
 
   private prepareStatements() {
+    console.error(
+      `[TaskRepository] Preparing statements with database:`,
+      this.db ? "available" : "not available",
+    );
+    console.error(`[TaskRepository] Database path:`, (this.db as any)?.name);
+
     return {
       create: this.db.prepare(`
         INSERT INTO tasks (
@@ -164,7 +175,14 @@ export class TaskRepository {
     };
 
     // [FIX:SQLITE:SYNC] ★★★★★ - Synchronous insert
-    this.statements.create.run(newTask);
+    try {
+      this.statements.create.run(newTask);
+    } catch (error) {
+      // Log the actual SQLite error for debugging
+      console.error(`[TaskRepository] Failed to insert task:`, error);
+      console.error(`[TaskRepository] Task data:`, newTask);
+      throw error;
+    }
 
     // [PAT:LIFECYCLE:EVENT_HOOKS] - Compute similarities for new task (async, non-blocking)
     if (this.searchEngine) {

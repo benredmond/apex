@@ -27,9 +27,9 @@ export class TaskSearchEngine {
     clearCache: Database.Statement;
   };
 
-  constructor(db: Database.Database) {
+  constructor(db: Database.Database, taskRepo?: TaskRepository) {
     this.db = db;
-    this.repo = new TaskRepository(db);
+    this.repo = taskRepo || new TaskRepository(db);
     this.fuzzyMatcher = new FuzzyMatcher();
     this.tagger = new TaskTagger();
 

@@ -90,6 +90,16 @@ export class TaskService {
       // First create a basic task to get ID
       const tempBrief = this.generateBasicBrief(request.intent, request.type);
 
+      console.error(
+        `[TaskService] Creating task with intent: ${request.intent}`,
+      );
+      console.error(
+        `[TaskService] Database available: ${this.db ? "yes" : "no"}`,
+      );
+      console.error(
+        `[TaskService] Repository available: ${this.repository ? "yes" : "no"}`,
+      );
+
       // Create task in database
       const task = this.repository.create(
         {
@@ -104,7 +114,9 @@ export class TaskService {
       // Now generate enhanced brief if BriefGenerator is available
       let brief: TaskBrief = tempBrief;
       if (this.db && !this.briefGenerator) {
-        this.briefGenerator = new BriefGenerator(this.db);
+        this.briefGenerator = new BriefGenerator(this.db, {
+          taskRepo: this.repository,
+        });
       }
 
       if (this.briefGenerator) {

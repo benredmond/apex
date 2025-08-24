@@ -6,17 +6,22 @@
 import Database from "better-sqlite3";
 import { MigrationRunner } from "./MigrationRunner.js";
 import { MigrationLoader } from "./MigrationLoader.js";
+import { MigrationLock } from "./migration-lock.js";
 import { ApexConfig } from "../config/apex-config.js";
 import chalk from "chalk";
 import ora from "ora";
 
 export class AutoMigrator {
   private db: Database.Database;
+  private dbPath: string;
   private runner: MigrationRunner;
   private loader: MigrationLoader;
 
-  constructor(dbPath: string = ApexConfig.getDbPath()) {
-    this.db = new Database(dbPath);
+  constructor(dbPath?: string) {
+    // Use provided path or fall back to legacy sync method
+    this.dbPath = dbPath || ApexConfig.getDbPath();
+    const finalPath = this.dbPath;
+    this.db = new Database(finalPath);
     this.runner = new MigrationRunner(this.db);
     this.loader = new MigrationLoader();
   }
@@ -26,6 +31,45 @@ export class AutoMigrator {
    * Silent unless there's an error
    */
   async autoMigrate(options: { silent?: boolean } = {}): Promise<boolean> {
+    // Get database path for lock file
+    const finalPath = this.dbPath;
+    const lock = new MigrationLock(finalPath);
+
+    // Try to acquire migration lock
+    if (!lock.tryAcquire()) {
+      if (!options.silent) {
+        console.log("Another process is running migrations, waiting...");
+      }
+
+      // Wait for lock to be available (max 30 seconds)
+      const lockAvailable = await lock.waitForLock(30000);
+
+      if (!lockAvailable) {
+        const lockInfo = lock.getLockInfo();
+        if (!options.silent) {
+          console.error(chalk.red("Failed to acquire migration lock"));
+          if (lockInfo) {
+            console.error(
+              chalk.yellow(
+                `Lock held by process ${lockInfo.pid} for ${Math.floor(lockInfo.age / 1000)}s`,
+              ),
+            );
+          }
+        }
+        return false;
+      }
+
+      // Try to acquire again after waiting
+      if (!lock.tryAcquire()) {
+        if (!options.silent) {
+          console.error(
+            chalk.red("Failed to acquire migration lock after waiting"),
+          );
+        }
+        return false;
+      }
+    }
+
     try {
       // Check if this is a fresh database
       const isFreshDb = this.isFreshDatabase();
@@ -65,9 +109,9 @@ export class AutoMigrator {
         ).start();
       }
 
-      // Apply migrations
+      // Apply migrations with force flag to handle checksum mismatches from rebuilds
       try {
-        await this.runner.runMigrations(migrations);
+        await this.runner.runMigrations(migrations, { force: true });
       } catch (error) {
         if (spinner) {
           spinner.fail(chalk.red("Database update failed"));
@@ -90,6 +134,8 @@ export class AutoMigrator {
       }
       return false;
     } finally {
+      // Always release lock and close database
+      lock.release();
       this.db.close();
     }
   }

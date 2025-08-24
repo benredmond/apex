@@ -30,12 +30,9 @@ async function ensureDatabase() {
 
   // Ensure directory exists
   ApexConfig.ensureDbDirectory(dbPath);
-  // Initialize database at the correct path
-  const { PatternDatabase } = await import("../../dist/storage/database.js");
-  new PatternDatabase(dbPath);
-
-  // Auto-migrate if needed
-  const migrator = new AutoMigrator();
+  
+  // Auto-migrate if needed (AutoMigrator will create its own db connection)
+  const migrator = new AutoMigrator(dbPath);
   await migrator.autoMigrate({ silent: false });
 }
 

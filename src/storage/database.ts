@@ -80,7 +80,10 @@ export class PatternDatabase {
     this.db.pragma("read_uncommitted = 1");
     this.db.pragma("busy_timeout = 30000"); // Increase to 30 seconds for heavy concurrent access
     this.db.pragma("wal_autocheckpoint = 1000"); // Auto-checkpoint every 1000 pages
-    this.db.pragma("wal_checkpoint(TRUNCATE)"); // Clean up WAL file on startup
+
+    // Don't truncate WAL on startup - it can cause disk I/O errors with concurrent access
+    // Instead, just do a passive checkpoint
+    this.db.pragma("wal_checkpoint(PASSIVE)");
 
     // Increase cache size for better performance with large codebases
     const cacheSize = process.env.APEX_DB_CACHE_SIZE

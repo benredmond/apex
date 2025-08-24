@@ -41,11 +41,14 @@ export class BriefGenerator {
 
   constructor(
     db: Database.Database,
-    options?: { patternRepo?: PatternRepository },
+    options?: {
+      patternRepo?: PatternRepository;
+      taskRepo?: TaskRepository;
+    },
   ) {
     this.db = db;
-    this.taskSearch = new TaskSearchEngine(db);
-    this.taskRepo = new TaskRepository(db);
+    this.taskRepo = options?.taskRepo || new TaskRepository(db);
+    this.taskSearch = new TaskSearchEngine(db, this.taskRepo);
     // Pattern repository should be provided by caller
     // If not provided, we'll create one but it may not use the right path
     // TODO: Refactor to require pattern repository in constructor

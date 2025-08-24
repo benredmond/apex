@@ -55,7 +55,7 @@ Execute phases sequentially:
 
 ### If Linear/JIRA ID (e.g., "APE-59"):
 
-1. Use mcp**linear-server**get_issue or similar to fetch details
+1. Use MCP or similar to fetch details
 2. Extract title, description, type from issue
 3. Call apex_task_create with:
    - intent: Issue title + description
@@ -131,7 +131,7 @@ prompt_enhancement:
     5. Optimize_for_Execution:
       - Format for 5-phase workflow
       - Add measurable acceptance criteria
-      - Include testing requirements
+      - Please include testing requirements! Very important
 ```
 
 ### Prompt Rewriting Examples
@@ -155,6 +155,7 @@ improved: |
   - Users can log in immediately after password reset
   - All authentication tests pass
   - No performance degradation
+  - Testing added to cover the bug scenario
 ```
 
 **Example 2: Feature Request Enhancement**
@@ -179,6 +180,7 @@ improved: |
   - Respects system dark mode preference on first visit
   - All UI elements have appropriate dark mode colors
   - No contrast/accessibility issues in either theme
+  - Testing added to cover the dark mode toggles
 ```
 
 **Example 3: Complex Task Structuring**
@@ -259,19 +261,6 @@ enhanced_prompt_storage:
 - All phase executions
 - Final reflection and learning capture
 
-### Update Task Brief (Optional)
-
-**If significant improvements were made, consider updating the task in the database:**
-
-```yaml
-# Only if the enhancement significantly improves clarity
-if enhancement_is_significant:
-  apex_task_update:
-    id: taskId
-    # Update with enhanced brief or add to notes
-    # This helps future similar tasks
-```
-
 ### Quick Enhancement Checklist
 
 ✅ **Before proceeding, ensure the enhanced brief has:**
@@ -297,7 +286,7 @@ Record initial checkpoint:
 - Call apex_task_checkpoint with:
   - id: taskId
   - message: "Starting intelligence gathering phase"
-  - confidence: 0.3
+  - confidence: <confidence level of completing task>
 
 ### 🧠 Intelligence Orchestration - Prevent Failure Before It Happens
 
@@ -424,9 +413,9 @@ context_pack:
 # ===
 ```
 
-### Intelligence Display Standards
+### Intelligence Display
 
-For any intelligence insights used in subsequent phases:
+Please display the results of the context pack for the user:
 
 ```yaml
 display_format:
@@ -447,12 +436,12 @@ display_format:
 
 ### Validation Gate
 
-If `context_pack.validation_results.validation_status` is "blocked":
+If `context_pack.validation_results.validation_status` is "blocked" OR you determine that there is ANY uncertainty that the
+user needs to resolve (DO NOT make assumptions on behalf of the user):
 
-1. Update task status to "blocked"
-2. Document missing requirements from validation_results
-3. Report to user with actionable next steps
-4. STOP execution - do not proceed
+1. Document missing requirements from validation_results
+2. Report to user with actionable next steps / questions.
+3. STOP execution - do not proceed
 
 If validation_status is "ready":
 
@@ -640,6 +629,8 @@ historical_checks:
 #### Assumption Verification Gate
 
 **Document ALL assumptions with evidence:**
+
+Example:
 
 ```markdown
 ## Verified Assumptions
@@ -1669,8 +1660,8 @@ Final checkpoint and evidence retrieval:
    # Check what files were modified
    git status --short
 
-   # Stage all changes
-   git add -A
+   # Stage ONLY RELEVANT changes
+   git add ...
 
    # Create a meaningful commit message
    git commit -m "Task [TASK_ID]: [Brief description of what was done]
