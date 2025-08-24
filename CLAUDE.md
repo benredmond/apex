@@ -119,3 +119,4 @@ This creates a feedback loop where each task execution makes the next one more e
 - Tools provide context-aware intelligence based on learned patterns
 - No runtime overhead - tools are invoked on-demand only
 - Pattern cache enables 40-55% faster development through reuse
+- the db is in ~/.apex

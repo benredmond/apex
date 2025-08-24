@@ -35,6 +35,17 @@ export class PatternRepository {
       enableFallback?: boolean;
     } = {},
   ) {
+    // DEFENSIVE: If running as MCP server, require absolute path
+    // MCP is started with: apex mcp serve
+    const isMCP = process.argv.some(arg => arg.includes("mcp")) && 
+                  process.argv.some(arg => arg.includes("serve"));
+    if (isMCP && options.dbPath && !path.isAbsolute(options.dbPath)) {
+      throw new Error(
+        `PatternRepository: MCP server must use absolute database paths. ` +
+        `Got: ${options.dbPath}. Use PatternRepository.createWithProjectPaths() instead.`
+      );
+    }
+
     this.db = new PatternDatabase(options.dbPath, {
       fallbackPath: options.fallbackPath,
       enableFallback: options.enableFallback,

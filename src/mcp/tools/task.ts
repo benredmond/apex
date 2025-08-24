@@ -7,6 +7,7 @@
 import { z } from "zod";
 import type Database from "better-sqlite3";
 import { TaskRepository } from "../../storage/repositories/task-repository.js";
+import { PatternRepository } from "../../storage/repository.js";
 import { BriefGenerator } from "../../intelligence/brief-generator.js";
 import { ReflectionService } from "./reflect.js";
 import { TagExpander } from "../../intelligence/tag-expander.js";
@@ -50,6 +51,7 @@ import {
 export class TaskService {
   private briefGenerator?: BriefGenerator;
   private reflectionService?: ReflectionService;
+  private patternRepository?: PatternRepository;
   private tagExpander: TagExpander;
 
   constructor(
@@ -90,16 +92,6 @@ export class TaskService {
       // First create a basic task to get ID
       const tempBrief = this.generateBasicBrief(request.intent, request.type);
 
-      console.error(
-        `[TaskService] Creating task with intent: ${request.intent}`,
-      );
-      console.error(
-        `[TaskService] Database available: ${this.db ? "yes" : "no"}`,
-      );
-      console.error(
-        `[TaskService] Repository available: ${this.repository ? "yes" : "no"}`,
-      );
-
       // Create task in database
       const task = this.repository.create(
         {
@@ -116,6 +108,7 @@ export class TaskService {
       if (this.db && !this.briefGenerator) {
         this.briefGenerator = new BriefGenerator(this.db, {
           taskRepo: this.repository,
+          patternRepo: this.patternRepository,
         });
       }
 

@@ -39,6 +39,27 @@ export class PatternDatabase {
       enableFallback?: boolean;
     },
   ) {
+    // DEFENSIVE: Warn if using relative path (should always use absolute paths from ~/.apex)
+    if (!path.isAbsolute(dbPath)) {
+      // Check if we're in MCP context (which should always use absolute paths)
+      // MCP is started with: apex mcp serve
+      const isMCP = process.argv.some(arg => arg.includes("mcp")) && 
+                    process.argv.some(arg => arg.includes("serve"));
+      if (isMCP) {
+        throw new Error(
+          `PatternDatabase: MCP must use absolute database paths. Got relative path: ${dbPath}. ` +
+          `This would create a local database. Use PatternRepository.createWithProjectPaths() instead.`
+        );
+      }
+      // For non-MCP (CLI), warn but allow for backward compatibility
+      if (!dbPath.includes(".apex")) {
+        console.warn(
+          `⚠️  WARNING: Using relative database path '${dbPath}' will create a local database. ` +
+          `Consider using absolute paths from ~/.apex for proper isolation.`
+        );
+      }
+    }
+
     // Use centralized config for database path
     const fullPath = path.isAbsolute(dbPath)
       ? dbPath

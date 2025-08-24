@@ -14,7 +14,10 @@ const __dirname = path.dirname(__filename);
 
 export class ApexConfig {
   // Database - project-specific by default
-  static readonly DB_PATH = "patterns.db"; // Legacy fallback
+  /**
+   * @deprecated This creates local databases. Use getProjectDbPath() instead.
+   */
+  static readonly DB_PATH = "patterns.db"; // Legacy fallback - DO NOT USE
 
   // Directories
   static readonly APEX_DIR = ".apex";
@@ -64,8 +67,13 @@ export class ApexConfig {
 
   /**
    * Get the full database path (legacy method for backward compatibility)
+   * @deprecated Use getProjectDbPath() instead to ensure proper isolation
    */
   static getDbPath(): string {
+    console.warn(
+      "⚠️  ApexConfig.getDbPath() is deprecated and creates local databases. " +
+      "Use ApexConfig.getProjectDbPath() for proper ~/.apex isolation."
+    );
     return path.join(ApexConfig.getProjectRoot(), ApexConfig.DB_PATH);
   }
 

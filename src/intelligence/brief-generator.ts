@@ -49,10 +49,13 @@ export class BriefGenerator {
     this.db = db;
     this.taskRepo = options?.taskRepo || new TaskRepository(db);
     this.taskSearch = new TaskSearchEngine(db, this.taskRepo);
-    // Pattern repository should be provided by caller
-    // If not provided, we'll create one but it may not use the right path
-    // TODO: Refactor to require pattern repository in constructor
-    this.patternRepo = options?.patternRepo || new PatternRepository();
+    // Pattern repository MUST be provided by caller to ensure correct database path
+    if (!options?.patternRepo) {
+      throw new Error(
+        "PatternRepository must be provided to BriefGenerator to ensure correct database path"
+      );
+    }
+    this.patternRepo = options.patternRepo;
     this.failureCorpus = new FailureCorpus();
 
     // [PAT:CACHE:LRU] ★★★★☆ - LRU cache with 1000 entries, 5-minute TTL

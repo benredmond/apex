@@ -86,6 +86,8 @@ export async function initializeTools(
   taskService = new TaskService(taskRepository, db);
   // Inject reflection service into task service for integration
   (taskService as any).reflectionService = reflectionService;
+  // Inject pattern repository for BriefGenerator
+  (taskService as any).patternRepository = repo;
 
   // Initialize context pack service with shared database instance
   const contextPackService = new ContextPackService(taskRepository, repo, db);
