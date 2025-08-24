@@ -132,15 +132,50 @@ describe("Task MCP Tools", () => {
   });
 
   describe("apex.task.find", () => {
+    let testTask1: any;
+    let testTask2: any;
+    let testTask3: any;
+    let testTask4: any;
+
     beforeEach(async () => {
       // Create test tasks
-      await service.create({ intent: "Task 1", type: "feature" });
-      await service.create({ intent: "Task 2", type: "bug" });
-      await service.create({ intent: "Task 3", type: "feature" });
+      testTask1 = await service.create({ intent: "Task 1", type: "feature" });
+      testTask2 = await service.create({ intent: "Task 2", type: "bug" });
+      testTask3 = await service.create({ intent: "Task 3", type: "feature" });
       
       // Complete one task
-      const task4 = await service.create({ intent: "Task 4", type: "test" });
-      repository.complete(task4.id, "success", "Test completed", ["PAT:TEST"]);
+      testTask4 = await service.create({ intent: "Task 4", type: "test" });
+      repository.complete(testTask4.id, "success", "Test completed", ["PAT:TEST"]);
+    });
+
+    it("should find a specific task by task_id", async () => {
+      const tasks = await service.find({ task_id: testTask2.id });
+      
+      expect(Array.isArray(tasks)).toBe(true);
+      expect(tasks.length).toBe(1);
+      expect(tasks[0].id).toBe(testTask2.id);
+      expect(tasks[0].brief.tl_dr).toContain("Task 2");
+    });
+
+    it("should return empty array for non-existent task_id", async () => {
+      const tasks = await service.find({ task_id: "non-existent-id" });
+      
+      expect(Array.isArray(tasks)).toBe(true);
+      expect(tasks.length).toBe(0);
+    });
+
+    it("should give task_id precedence over other filters", async () => {
+      // testTask4 is completed, but we're searching for active status
+      // task_id should take precedence
+      const tasks = await service.find({ 
+        task_id: testTask4.id,
+        status: "active"  // This should be ignored
+      });
+      
+      expect(Array.isArray(tasks)).toBe(true);
+      expect(tasks.length).toBe(1);
+      expect(tasks[0].id).toBe(testTask4.id);
+      expect(tasks[0].status).toBe("completed"); // Not active!
     });
 
     it("should find active tasks", async () => {

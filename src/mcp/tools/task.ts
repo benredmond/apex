@@ -156,6 +156,12 @@ export class TaskService {
     const request = parseResult.data;
 
     try {
+      // Check task_id first (takes precedence over other filters)
+      if (request.task_id) {
+        const task = this.repository.findById(request.task_id);
+        return task ? [task] : [];
+      }
+
       // For now, only support status-based search
       // TODO: Add support for tags, themes, components once implemented
       if (request.status) {

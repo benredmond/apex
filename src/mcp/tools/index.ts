@@ -1016,6 +1016,10 @@ export function getToolsList(): Tool[] {
       inputSchema: {
         type: "object",
         properties: {
+          task_id: {
+            type: "string",
+            description: "Specific task ID to find (takes precedence over other filters)",
+          },
           tags: {
             type: "array",
             items: { type: "string" },

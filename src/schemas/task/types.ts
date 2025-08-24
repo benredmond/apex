@@ -146,6 +146,7 @@ export const CreateRequestSchema = z.object({
 export type CreateRequest = z.infer<typeof CreateRequestSchema>;
 
 export const FindRequestSchema = z.object({
+  task_id: z.string().optional(),
   tags: z.array(z.string()).optional(),
   themes: z.array(z.string()).optional(),
   components: z.array(z.string()).optional(),
