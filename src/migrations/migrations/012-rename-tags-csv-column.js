@@ -94,9 +94,46 @@ export const migration = {
         FROM patterns
       `);
 
-      // Drop old table and rename new table
+      // Handle foreign key constraints by temporarily backing up pattern_metadata
+      const metadataTableExists = db
+        .prepare(
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='pattern_metadata'`,
+        )
+        .get();
+      
+      let metadataBackup = [];
+      if (metadataTableExists) {
+        // Backup pattern_metadata data
+        metadataBackup = db.prepare("SELECT * FROM pattern_metadata").all();
+        // Drop pattern_metadata table to remove foreign key constraint
+        db.exec("DROP TABLE pattern_metadata");
+      }
+      
+      // Now we can safely drop and rename the patterns table
       db.exec("DROP TABLE patterns");
       db.exec("ALTER TABLE patterns_new RENAME TO patterns");
+      
+      // Recreate pattern_metadata table if it existed
+      if (metadataTableExists) {
+        db.exec(`
+          CREATE TABLE pattern_metadata (
+            pattern_id TEXT PRIMARY KEY,
+            tags TEXT,
+            keywords TEXT,
+            FOREIGN KEY (pattern_id) REFERENCES patterns(id)
+          )
+        `);
+        
+        // Restore pattern_metadata data
+        if (metadataBackup.length > 0) {
+          const insertStmt = db.prepare(
+            "INSERT INTO pattern_metadata (pattern_id, tags, keywords) VALUES (?, ?, ?)"
+          );
+          for (const row of metadataBackup) {
+            insertStmt.run(row.pattern_id, row.tags, row.keywords);
+          }
+        }
+      }
 
       // Recreate indexes
       db.exec("CREATE INDEX idx_patterns_type ON patterns(type)");
@@ -124,51 +161,108 @@ export const migration = {
         }
       }
 
-      // Create table with tags_csv column
+      // Get current table structure to build dynamically
+      const tableInfo = db.pragma("table_info(patterns)");
+      
+      // Build CREATE TABLE statement dynamically based on existing columns
+      let createTableSQL = "CREATE TABLE patterns_old (";
+      const columnDefs = [];
+      
+      for (const col of tableInfo) {
+        if (col.name === "tags") {
+          // Rename tags back to tags_csv
+          columnDefs.push(
+            `tags_csv ${col.type}${col.notnull ? " NOT NULL" : ""}${col.dflt_value ? ` DEFAULT ${col.dflt_value}` : ""}`,
+          );
+        } else if (col.name !== "tags_csv") {
+          // Keep all other columns as-is
+          let def = `${col.name} ${col.type}`;
+          if (col.notnull) def += " NOT NULL";
+          if (col.dflt_value !== null) def += ` DEFAULT ${col.dflt_value}`;
+          if (col.pk) def += " PRIMARY KEY";
+          columnDefs.push(def);
+        }
+      }
+      
+      createTableSQL += columnDefs.join(", ");
+      
+      // Add constraints if columns exist
+      if (tableInfo.some((col) => col.name === "type")) {
+        createTableSQL +=
+          ", CHECK (type IN ('CODEBASE','LANG','ANTI','FAILURE','POLICY','TEST','MIGRATION'))";
+      }
+      if (tableInfo.some((col) => col.name === "alias")) {
+        createTableSQL = createTableSQL.replace(
+          /alias TEXT/,
+          "alias TEXT UNIQUE",
+        );
+      }
+      
+      createTableSQL += ")";
+      
+      db.exec(createTableSQL);
+      
+      // Build column lists for INSERT dynamically
+      const oldColumns = [];
+      const newColumns = [];
+      
+      for (const col of tableInfo) {
+        if (col.name === "tags") {
+          newColumns.push("tags_csv");
+          oldColumns.push("tags");
+        } else if (col.name !== "tags_csv") {
+          newColumns.push(col.name);
+          oldColumns.push(col.name);
+        }
+      }
+      
+      // Copy data back with dynamic columns
       db.exec(`
-        CREATE TABLE patterns_old (
-          id                TEXT PRIMARY KEY,
-          schema_version    TEXT NOT NULL,
-          pattern_version   TEXT NOT NULL,
-          type              TEXT NOT NULL CHECK (type IN ('CODEBASE','LANG','ANTI','FAILURE','POLICY','TEST','MIGRATION')),
-          title             TEXT NOT NULL,
-          summary           TEXT,
-          trust_score       REAL NOT NULL DEFAULT 0.5,
-          created_at        TEXT NOT NULL,
-          updated_at        TEXT NOT NULL,
-          source_repo       TEXT,
-          tags_csv          TEXT,
-          pattern_digest    TEXT NOT NULL,
-          json_canonical    BLOB NOT NULL,
-          invalid           INTEGER NOT NULL DEFAULT 0,
-          invalid_reason    TEXT,
-          alias             TEXT UNIQUE,
-          title_searchable  TEXT,
-          keywords_searchable TEXT,
-          search_text       TEXT,
-          fts_populated     INTEGER DEFAULT 0
-        )
-      `);
-
-      // Copy data back
-      db.exec(`
-        INSERT INTO patterns_old (
-          id, schema_version, pattern_version, type, title, summary,
-          trust_score, created_at, updated_at, source_repo, tags_csv,
-          pattern_digest, json_canonical, invalid, invalid_reason, alias,
-          title_searchable, keywords_searchable, search_text, fts_populated
-        )
-        SELECT 
-          id, schema_version, pattern_version, type, title, summary,
-          trust_score, created_at, updated_at, source_repo, tags,
-          pattern_digest, json_canonical, invalid, invalid_reason, alias,
-          title_searchable, keywords_searchable, search_text, fts_populated
+        INSERT INTO patterns_old (${newColumns.join(", ")})
+        SELECT ${oldColumns.join(", ")}
         FROM patterns
       `);
 
-      // Drop and rename
+      // Handle foreign key constraints by temporarily backing up pattern_metadata
+      const metadataTableExists = db
+        .prepare(
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='pattern_metadata'`,
+        )
+        .get();
+      
+      let metadataBackup = [];
+      if (metadataTableExists) {
+        // Backup pattern_metadata data
+        metadataBackup = db.prepare("SELECT * FROM pattern_metadata").all();
+        // Drop pattern_metadata table to remove foreign key constraint
+        db.exec("DROP TABLE pattern_metadata");
+      }
+      
+      // Now we can safely drop and rename
       db.exec("DROP TABLE patterns");
       db.exec("ALTER TABLE patterns_old RENAME TO patterns");
+      
+      // Recreate pattern_metadata table if it existed
+      if (metadataTableExists) {
+        db.exec(`
+          CREATE TABLE pattern_metadata (
+            pattern_id TEXT PRIMARY KEY,
+            tags TEXT,
+            keywords TEXT,
+            FOREIGN KEY (pattern_id) REFERENCES patterns(id)
+          )
+        `);
+        
+        // Restore pattern_metadata data
+        if (metadataBackup.length > 0) {
+          const insertStmt = db.prepare(
+            "INSERT INTO pattern_metadata (pattern_id, tags, keywords) VALUES (?, ?, ?)"
+          );
+          for (const row of metadataBackup) {
+            insertStmt.run(row.pattern_id, row.tags, row.keywords);
+          }
+        }
+      }
 
       // Recreate indexes
       db.exec("CREATE INDEX idx_patterns_type ON patterns(type)");
