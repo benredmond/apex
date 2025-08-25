@@ -236,6 +236,42 @@ describe('Migration 010: Add Task Tags', () => {
       expect(testTask).toBeFalsy();
     });
 
+    it('should dynamically detect and use available columns during validation', () => {
+      // Create database with different column combinations
+      const testDb = new Database(':memory:');
+      
+      // Test with id, title, and phase (but no task_type or status)
+      testDb.exec(`
+        CREATE TABLE tasks (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          phase TEXT DEFAULT 'ARCHITECT'
+        )
+      `);
+      
+      // Run migration
+      migration.up(testDb);
+      
+      // Capture console output to verify column detection
+      const originalLog = console.log;
+      const logs: string[] = [];
+      console.log = (msg: string) => logs.push(msg);
+      
+      // Run validation
+      const isValid = migration.validate(testDb);
+      
+      // Restore console
+      console.log = originalLog;
+      
+      // Should be valid
+      expect(isValid).toBe(true);
+      
+      // Verify the validation succeeded
+      expect(logs.some(log => log.includes('validation passed'))).toBe(true);
+      
+      testDb.close();
+    });
+
     it('should return false if index is missing', () => {
       // Run migration
       migration.up(db);
@@ -296,6 +332,77 @@ describe('Migration 010: Add Task Tags', () => {
       expect(migration.validate(emptyDb)).toBe(true);
       
       emptyDb.close();
+    });
+
+    it('should validate with minimal schema (only id and title)', () => {
+      // Create minimal database with only required columns
+      const minimalDb = new Database(':memory:');
+      
+      // Create minimal tasks table with only required columns
+      minimalDb.exec(`
+        CREATE TABLE tasks (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL
+        )
+      `);
+      
+      // Run migration to add tags column
+      migration.up(minimalDb);
+      
+      // Validation should succeed with minimal schema
+      const isValid = migration.validate(minimalDb);
+      expect(isValid).toBe(true);
+      
+      // Verify test data was cleaned up
+      const testTask = minimalDb.prepare('SELECT * FROM tasks WHERE id = ?').get('TEST_TAGS_001');
+      expect(testTask).toBeFalsy();
+      
+      minimalDb.close();
+    });
+
+    it('should validate with partial schema (missing some columns)', () => {
+      // Create database with partial schema
+      const partialDb = new Database(':memory:');
+      
+      // Create tasks table with some but not all columns
+      partialDb.exec(`
+        CREATE TABLE tasks (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          status TEXT DEFAULT 'active'
+        )
+      `);
+      
+      // Run migration
+      migration.up(partialDb);
+      
+      // Validation should work with partial schema
+      const isValid = migration.validate(partialDb);
+      expect(isValid).toBe(true);
+      
+      // Check that validation used available columns
+      const insertedData = partialDb.prepare(
+        'SELECT * FROM tasks WHERE id LIKE ?'
+      ).all('TEST_TAGS_%');
+      expect(insertedData).toHaveLength(0); // Should be cleaned up
+      
+      partialDb.close();
+    });
+
+    it('should validate with full schema from migration 006', () => {
+      // Validation should also work with complete schema
+      migration.up(db);
+      
+      // Full schema has all columns
+      const columns = db.pragma('table_info(tasks)').map((col: any) => col.name);
+      expect(columns).toContain('task_type');
+      expect(columns).toContain('status');
+      expect(columns).toContain('phase');
+      expect(columns).toContain('tags');
+      
+      // Validation should succeed
+      const isValid = migration.validate(db);
+      expect(isValid).toBe(true);
     });
 
     it('should handle large tag arrays', () => {

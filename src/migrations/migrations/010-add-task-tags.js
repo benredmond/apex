@@ -69,17 +69,41 @@ export const migration = {
         return false;
       }
 
-      // Test insert with tags
+      // Test insert with tags - schema-aware approach
       const testStart = Date.now();
-      db.prepare(
-        `INSERT INTO tasks (id, title, task_type, status, phase, tags) 
-         VALUES ('TEST_TAGS_001', 'Test Task with Tags', 'test', 'active', 'ARCHITECT', ?)`,
-      ).run(JSON.stringify(["test", "validation", "tags"]));
+      
+      // Build dynamic insert based on available columns
+      const testId = "TEST_TAGS_001";
+      const testTitle = "Test Task with Tags";
+      const testTags = JSON.stringify(["test", "validation", "tags"]);
+      
+      // Determine which columns we can use for the test insert
+      const availableColumns = ["id", "title", "tags"];
+      const values = [testId, testTitle, testTags];
+      
+      // Add optional columns if they exist
+      if (columns.includes("task_type")) {
+        availableColumns.push("task_type");
+        values.push("test");
+      }
+      if (columns.includes("status")) {
+        availableColumns.push("status");
+        values.push("active");
+      }
+      if (columns.includes("phase")) {
+        availableColumns.push("phase");
+        values.push("ARCHITECT");
+      }
+      
+      // Build and execute the insert statement
+      const placeholders = availableColumns.map(() => "?").join(", ");
+      const insertSql = `INSERT INTO tasks (${availableColumns.join(", ")}) VALUES (${placeholders})`;
+      db.prepare(insertSql).run(...values);
 
       // Query test
       const result = db
         .prepare("SELECT tags FROM tasks WHERE id = ?")
-        .get("TEST_TAGS_001");
+        .get(testId);
 
       // Verify tags can be parsed back
       const tags = JSON.parse(result.tags);
@@ -89,7 +113,7 @@ export const migration = {
       }
 
       // Clean up test data
-      db.prepare("DELETE FROM tasks WHERE id = ?").run("TEST_TAGS_001");
+      db.prepare("DELETE FROM tasks WHERE id = ?").run(testId);
 
       const duration = Date.now() - testStart;
       console.log(
