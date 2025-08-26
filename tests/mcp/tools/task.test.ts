@@ -90,6 +90,8 @@ describe("Task MCP Tools", () => {
     // Clean up
     db.close();
     fs.removeSync(tempDir);
+    jest.clearAllTimers(); // Clear any pending timers (important for setTimeout usage)
+    jest.clearAllMocks();  // Clear again for safety
   });
 
   describe("apex.task.create", () => {

@@ -117,6 +117,8 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
 
   afterEach(() => {
     db.close();
+    jest.clearAllTimers(); // Clear any pending timers
+    jest.clearAllMocks();  // Clear again for safety
   });
 
   it("should return enhanced metadata fields in pattern pack", async () => {

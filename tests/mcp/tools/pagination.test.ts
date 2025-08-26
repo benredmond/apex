@@ -155,6 +155,8 @@ describe("Pagination Functionality (Task OVPyryTppa-NzUXpo205T)", () => {
     if (repository) {
       await repository.shutdown();
     }
+    jest.clearAllTimers(); // Clear any pending timers
+    jest.clearAllMocks();  // Clear again for safety
   });
 
   describe("PatternLookupService Pagination", () => {

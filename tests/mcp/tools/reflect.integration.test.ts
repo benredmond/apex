@@ -85,6 +85,8 @@ describe("ReflectionService Integration Tests", () => {
     if (tempDir && fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
+    jest.clearAllTimers(); // Clear any pending timers
+    jest.clearAllMocks();  // Clear again for safety
   });
 
   describe("Pattern Auto-Creation", () => {

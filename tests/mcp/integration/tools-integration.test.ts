@@ -50,6 +50,7 @@ describe("MCP Tools Integration", () => {
   afterAll(async () => {
     await repository.shutdown();
     await fs.remove(tempDir);
+    jest.clearAllMocks();    // Clean up mocks after all tests
   });
 
   describe("End-to-End Pattern Lookup", () => {

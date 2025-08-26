@@ -103,6 +103,8 @@ describe("APE-65: Pattern Metadata Performance", () => {
 
   afterEach(() => {
     db.close();
+    jest.clearAllTimers(); // Clear any pending timers
+    jest.clearAllMocks();  // Clear again for safety
   });
 
   it("should extract pattern metadata within 500ms for 100 patterns", async () => {

@@ -75,6 +75,11 @@ describe('ContextPackService', () => {
     service = new ContextPackService(mockTaskRepo, mockPatternRepo, mockDb, { skipPrecompute: true });
   });
 
+  afterEach(() => {
+    jest.clearAllTimers(); // Clear any pending timers
+    jest.clearAllMocks();  // Clear again for safety
+  });
+
   describe('getContextPack', () => {
     it('should return a complete context pack', async () => {
       const result = await service.getContextPack();

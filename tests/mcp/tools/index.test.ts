@@ -112,6 +112,8 @@ describe("MCP Tools Orchestration", () => {
   afterEach(async () => {
     await repository.shutdown();
     await fs.remove(tempDir);
+    jest.clearAllTimers(); // Clear any pending timers
+    jest.clearAllMocks();  // Clear again for safety
   });
 
   describe("Tool Registration", () => {

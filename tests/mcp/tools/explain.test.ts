@@ -110,8 +110,7 @@ describe("PatternExplainer - Context-Aware Guidance", () => {
   };
 
   beforeEach(() => {
-    // Reset mocks
-    jest.clearAllMocks();
+    // Reset mocks - NOTE: Cannot use jest.clearAllMocks() with unstable_mockModule
     
     // Setup repository mock
     mockRepository = new PatternRepository("test.db") as jest.Mocked<PatternRepository>;
@@ -132,7 +131,7 @@ describe("PatternExplainer - Context-Aware Guidance", () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    // NOTE: Cannot use jest cleanup methods with unstable_mockModule - causes "module is already linked" error
   });
 
   describe("Basic Functionality", () => {
