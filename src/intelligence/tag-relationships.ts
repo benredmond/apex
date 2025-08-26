@@ -1,8 +1,9 @@
 /**
- * Static tag relationship mappings for semantic expansion
+ * Tag relationship system with programmatic bidirectional generation
  * [APE-63] Multi-Dimensional Pattern Tagging System
  *
- * Relationships are bidirectional and used for tag expansion during search.
+ * Source relationships are unidirectional semantic connections.
+ * Bidirectional mappings are generated automatically to ensure consistency.
  * Maximum 2-level expansion to prevent performance issues.
  */
 
@@ -10,9 +11,13 @@ export interface TagRelationships {
   [tag: string]: string[];
 }
 
-// Core tag relationships for pattern discovery
-export const TAG_RELATIONSHIPS: TagRelationships = {
-  // Authentication & Security
+export interface SourceRelationships {
+  [tag: string]: string[];
+}
+
+// Source relationship definitions - clean, domain-organized
+const SOURCE_RELATIONSHIPS: SourceRelationships = {
+  // Authentication & Security Domain
   authentication: [
     "security",
     "auth",
@@ -25,31 +30,45 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
     "sso",
   ],
   auth: [
-    "authentication",
     "security",
     "login",
     "authorization",
     "jwt",
     "oauth",
+    "token",
+    "session",
   ],
-  security: [
-    "authentication",
-    "authorization",
-    "encryption",
-    "vulnerability",
-    "protection",
-  ],
-  jwt: ["authentication", "token", "auth", "session", "oauth"],
-  oauth: ["authentication", "auth", "sso", "authorization"],
-  session: ["authentication", "auth", "state", "cookie", "jwt"],
+  security: ["authorization", "encryption", "vulnerability", "protection"],
+  jwt: ["token", "session", "oauth"],
+  oauth: ["sso", "authorization"],
+  session: ["state", "cookie"],
 
-  // Errors & Issues
+  // Add cross-connections for security terms
+  identity: ["access-control", "login"],
+  "access-control": ["authorization", "identity"],
+  encryption: ["security", "protection"],
+  vulnerability: ["protection", "security"],
+  protection: ["encryption", "vulnerability"],
+  state: ["cookie", "session"],
+  cookie: ["state", "session"],
+
+  // Error & Issue Domain
   bug: ["fix", "error", "issue", "problem", "defect", "failure", "crash"],
-  error: ["bug", "exception", "failure", "issue", "problem"],
-  fix: ["bug", "patch", "repair", "resolve", "solution"],
-  exception: ["error", "throw", "catch", "handling"],
+  error: ["exception", "failure", "issue", "problem"],
+  fix: ["patch", "repair", "resolve", "solution"],
+  exception: ["throw", "catch", "handling"],
 
-  // Performance & Optimization
+  // Add cross-connections for error terms
+  defect: ["crash", "bug"],
+  crash: ["failure", "defect"],
+  repair: ["resolve", "fix"],
+  resolve: ["solution", "repair"],
+  solution: ["resolve", "fix"],
+  throw: ["catch", "exception"],
+  catch: ["handling", "throw"],
+  handling: ["catch", "exception"],
+
+  // Performance & Optimization Domain
   performance: [
     "optimization",
     "speed",
@@ -59,19 +78,24 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
     "cache",
     "benchmark",
   ],
-  optimization: ["performance", "improve", "enhance", "speed", "efficiency"],
-  cache: [
-    "caching",
-    "performance",
-    "storage",
-    "memory",
-    "redis",
-    "memoization",
-  ],
-  caching: ["cache", "performance", "memoization"],
-  redis: ["cache", "database", "storage", "memory"],
+  optimization: ["improve", "enhance", "speed", "efficiency"],
+  cache: ["caching", "storage", "memory", "redis", "memoization"],
+  caching: ["memoization"],
+  redis: ["database", "storage", "memory"],
 
-  // Testing
+  // Add cross-connections for performance terms
+  latency: ["perf", "performance"],
+  perf: ["benchmark", "latency"],
+  benchmark: ["perf", "performance"],
+  improve: ["enhance", "optimization"],
+  enhance: ["improve", "optimization"],
+  speed: ["efficiency", "performance"],
+  efficiency: ["speed", "optimization"],
+  memoization: ["caching", "cache"],
+  memory: ["cache", "storage"],
+  storage: ["memory", "database"],
+
+  // Testing Domain
   test: [
     "testing",
     "unit",
@@ -80,206 +104,273 @@ export const TAG_RELATIONSHIPS: TagRelationships = {
     "pytest",
     "coverage",
     "spec",
+    "mock",
   ],
-  testing: ["test", "qa", "validation", "verification"],
-  jest: ["test", "testing", "javascript", "unit"],
-  pytest: ["test", "testing", "python", "unit"],
-  mock: ["test", "testing", "stub", "fake", "simulation"],
+  testing: ["qa", "validation", "verification", "jest", "pytest", "mock"],
+  jest: ["javascript", "unit"],
+  pytest: ["python", "unit"],
+  mock: ["stub", "fake", "simulation"],
 
-  // Database & Storage
-  database: ["db", "sql", "storage", "persistence", "query"],
-  db: ["database", "storage", "persistence"],
-  sql: ["database", "query", "sqlite", "postgres", "mysql"],
-  sqlite: ["database", "sql", "embedded", "local"],
-  postgres: ["database", "sql", "postgresql"],
-  mongodb: ["database", "nosql", "document", "storage"],
+  // Add cross-connections for testing terms
+  unit: ["integration", "test"],
+  integration: ["unit", "test"],
+  coverage: ["spec", "test"],
+  spec: ["coverage", "test"],
+  qa: ["verification", "testing"],
+  verification: ["qa", "validation"],
+  stub: ["fake", "mock"],
+  fake: ["simulation", "stub"],
+  simulation: ["fake", "mock"],
 
-  // API & Networking
+  // Database & Storage Domain
+  database: [
+    "db",
+    "sql",
+    "storage",
+    "persistence",
+    "query",
+    "sqlite",
+    "postgres",
+    "mongodb",
+    "redis",
+  ],
+  db: ["storage", "persistence"],
+  sql: ["query", "sqlite", "postgres", "mysql"],
+  sqlite: ["embedded", "local"],
+  postgres: ["postgresql"],
+  mongodb: ["nosql", "document", "storage"],
+
+  // Add cross-connections for database terms
+  persistence: ["storage", "database"],
+  query: ["search", "database"],
+  embedded: ["local", "sqlite"],
+  local: ["embedded", "sqlite"],
+  postgresql: ["postgres", "sql"],
+  mysql: ["sql", "database"],
+  nosql: ["document", "mongodb"],
+  document: ["nosql", "storage"],
+
+  // API & Networking Domain
   api: ["endpoint", "rest", "graphql", "http", "service", "interface"],
-  rest: ["api", "http", "restful", "endpoint"],
-  graphql: ["api", "query", "schema", "graph"],
-  http: ["api", "rest", "request", "response", "network"],
-  endpoint: ["api", "route", "url", "path"],
+  rest: ["http", "restful", "endpoint"],
+  graphql: ["query", "schema", "graph"],
+  http: ["request", "response", "network"],
+  endpoint: ["route", "url", "path"],
 
-  // Frontend & UI
-  ui: ["frontend", "interface", "ux", "component", "view"],
-  frontend: ["ui", "client", "browser", "web"],
-  react: ["frontend", "ui", "component", "javascript", "jsx"],
-  vue: ["frontend", "ui", "component", "javascript"],
-  component: ["ui", "frontend", "module", "widget"],
+  // Add cross-connections for API terms
+  service: ["interface", "api"],
+  interface: ["service", "ui"],
+  restful: ["rest", "api"],
+  schema: ["graph", "graphql"],
+  graph: ["schema", "graphql"],
+  request: ["response", "http"],
+  response: ["request", "network"],
+  network: ["response", "http"],
+  route: ["url", "endpoint"],
+  url: ["path", "route"],
+  path: ["url", "endpoint"],
 
-  // Patterns & Architecture
+  // Frontend & UI Domain
+  ui: ["frontend", "interface", "ux", "component", "view", "react", "vue"],
+  frontend: ["client", "browser", "web", "react", "vue", "component"],
+  react: ["component", "javascript", "jsx"],
+  vue: ["component", "javascript"],
+  component: ["module", "widget"],
+
+  // Add cross-connections for UI terms
+  ux: ["view", "ui"],
+  view: ["ux", "ui"],
+  client: ["browser", "frontend"],
+  browser: ["web", "client"],
+  web: ["browser", "frontend"],
+  jsx: ["react", "javascript"],
+  module: ["widget", "component"],
+  widget: ["module", "ui"],
+
+  // Architecture & Patterns Domain
   pattern: ["design", "architecture", "template", "convention"],
-  architecture: ["design", "structure", "pattern", "system"],
+  architecture: ["design", "structure", "system"],
   refactor: ["restructure", "reorganize", "improve", "cleanup", "redesign"],
   migration: ["upgrade", "transition", "schema", "version", "update"],
 
-  // Development Workflow
+  // Add cross-connections for architecture terms
+  design: ["template", "pattern"],
+  template: ["convention", "design"],
+  convention: ["template", "pattern"],
+  structure: ["system", "architecture"],
+  system: ["structure", "architecture"],
+  restructure: ["reorganize", "refactor"],
+  reorganize: ["cleanup", "restructure"],
+  cleanup: ["redesign", "reorganize"],
+  redesign: ["restructure", "refactor"],
+  upgrade: ["transition", "migration"],
+  transition: ["version", "upgrade"],
+  version: ["update", "transition"],
+
+  // Development Workflow Domain
   async: ["asynchronous", "promise", "await", "concurrent", "parallel"],
   sync: ["synchronous", "blocking", "sequential"],
-  validation: ["verify", "check", "validate", "sanitize", "constraint"],
+  validation: [
+    "verify",
+    "check",
+    "validate",
+    "sanitize",
+    "constraint",
+    "testing",
+  ],
   search: ["find", "query", "lookup", "discover", "match"],
 
-  // Languages & Frameworks
-  typescript: ["javascript", "ts", "type", "typing"],
-  javascript: ["js", "node", "ecmascript"],
-  python: ["py", "script"],
-  node: ["nodejs", "javascript", "backend", "server"],
+  // Add cross-connections for workflow terms
+  asynchronous: ["promise", "async"],
+  promise: ["await", "asynchronous"],
+  await: ["concurrent", "promise"],
+  concurrent: ["parallel", "await"],
+  parallel: ["concurrent", "async"],
+  synchronous: ["blocking", "sync"],
+  blocking: ["sequential", "synchronous"],
+  sequential: ["blocking", "sync"],
+  verify: ["check", "validation"],
+  check: ["validate", "verify"],
+  validate: ["sanitize", "check"],
+  sanitize: ["constraint", "validate"],
+  constraint: ["sanitize", "validation"],
+  find: ["lookup", "search"],
+  lookup: ["discover", "find"],
+  discover: ["match", "lookup"],
+  match: ["discover", "search"],
 
-  // Common Operations
+  // Programming Languages Domain
+  typescript: ["javascript", "ts", "type", "typing"],
+  javascript: ["js", "node", "ecmascript", "jest", "react", "vue"],
+  python: ["py", "script", "pytest"],
+  node: ["nodejs", "javascript", "backend", "server"],
+  script: ["python", "automation"],
+
+  // Add cross-connections for language terms
+  ts: ["type", "typescript"],
+  type: ["typing", "ts"],
+  typing: ["type", "typescript"],
+  js: ["ecmascript", "javascript"],
+  ecmascript: ["js", "javascript"],
+  py: ["python", "script"],
+  nodejs: ["backend", "node"],
+  backend: ["server", "nodejs"],
+  server: ["backend", "node"],
+  automation: ["script", "python"],
+
+  // Common Operations Domain
   create: ["add", "new", "insert", "generate", "build"],
-  update: ["modify", "edit", "change", "patch"],
+  update: ["modify", "edit", "change", "patch", "migration"],
   delete: ["remove", "destroy", "drop", "clean"],
   import: ["require", "include", "load", "module"],
   export: ["expose", "provide", "output"],
 
-  // Add missing reverse mappings
-  token: ["jwt", "auth", "authentication"],
-  login: ["authentication", "auth"],
-  identity: ["authentication"],
-  "access-control": ["authentication"],
-  sso: ["oauth", "authentication"],
-  authorization: ["auth", "security", "oauth"],
-  encryption: ["security"],
-  vulnerability: ["security"],
-  protection: ["security"],
-  cookie: ["session"],
-  state: ["session"],
-
-  // Errors & Issues reverse mappings
-  issue: ["bug", "error"],
-  problem: ["bug", "error"],
-  defect: ["bug"],
-  failure: ["bug", "error"],
-  crash: ["bug"],
-  throw: ["exception"],
-  catch: ["exception"],
-  handling: ["exception"],
-  patch: ["fix"],
-  repair: ["fix"],
-  resolve: ["fix"],
-  solution: ["fix"],
-
-  // Performance reverse mappings
-  speed: ["performance", "optimization"],
-  latency: ["performance"],
-  efficiency: ["performance", "optimization"],
-  perf: ["performance"],
-  benchmark: ["performance"],
-  improve: ["optimization"],
-  enhance: ["optimization"],
-  memoization: ["cache", "caching"],
-  memory: ["cache", "redis"],
-  storage: ["cache", "database", "redis", "mongodb"],
-
-  // Testing reverse mappings
-  unit: ["test", "jest", "pytest"],
-  integration: ["test"],
-  coverage: ["test"],
-  spec: ["test"],
-  qa: ["testing"],
-  verification: ["testing"],
-  stub: ["mock"],
-  fake: ["mock"],
-  simulation: ["mock"],
-
-  // Database reverse mappings
-  persistence: ["database", "db"],
-  query: ["database", "sql", "graphql"],
-  embedded: ["sqlite"],
-  local: ["sqlite"],
-  postgresql: ["postgres"],
-  mysql: ["sql"],
-  nosql: ["mongodb"],
-  document: ["mongodb"],
-
-  // API reverse mappings
-  service: ["api"],
-  interface: ["api", "ui"],
-  restful: ["rest"],
-  schema: ["graphql"],
-  graph: ["graphql"],
-  request: ["http"],
-  response: ["http"],
-  network: ["http"],
-  route: ["endpoint"],
-  url: ["endpoint"],
-  path: ["endpoint"],
-
-  // Frontend reverse mappings
-  ux: ["ui"],
-  view: ["ui"],
-  client: ["frontend"],
-  browser: ["frontend"],
-  web: ["frontend"],
-  jsx: ["react"],
-  module: ["component", "import"],
-  widget: ["component"],
-
-  // Pattern reverse mappings
-  design: ["pattern", "architecture"],
-  template: ["pattern"],
-  convention: ["pattern"],
-  structure: ["architecture"],
-  system: ["architecture"],
-  restructure: ["refactor"],
-  reorganize: ["refactor"],
-  cleanup: ["refactor"],
-  redesign: ["refactor"],
-  upgrade: ["migration"],
-  transition: ["migration"],
-  version: ["migration"],
-
-  // Development reverse mappings
-  asynchronous: ["async"],
-  promise: ["async"],
-  await: ["async"],
-  concurrent: ["async"],
-  parallel: ["async"],
-  synchronous: ["sync"],
-  blocking: ["sync"],
-  sequential: ["sync"],
-  verify: ["validation"],
-  check: ["validation"],
-  validate: ["validation"],
-  sanitize: ["validation"],
-  constraint: ["validation"],
-  find: ["search"],
-  lookup: ["search"],
-  discover: ["search"],
-  match: ["search"],
-
-  // Languages reverse mappings
-  ts: ["typescript"],
-  type: ["typescript"],
-  typing: ["typescript"],
-  js: ["javascript"],
-  ecmascript: ["javascript"],
-  nodejs: ["node"],
-  backend: ["node"],
-  server: ["node"],
-  py: ["python"],
-
-  // Operations reverse mappings
-  add: ["create"],
-  new: ["create"],
-  insert: ["create"],
-  generate: ["create"],
-  build: ["create"],
-  modify: ["update"],
-  edit: ["update"],
-  change: ["update"],
-  remove: ["delete"],
-  destroy: ["delete"],
-  drop: ["delete"],
-  clean: ["delete"],
-  require: ["import"],
-  include: ["import"],
-  load: ["import"],
-  expose: ["export"],
-  provide: ["export"],
-  output: ["export"],
+  // Add cross-connections for operation terms
+  add: ["new", "create"],
+  new: ["insert", "add"],
+  insert: ["generate", "new"],
+  generate: ["build", "insert"],
+  build: ["generate", "create"],
+  modify: ["edit", "update"],
+  edit: ["change", "modify"],
+  change: ["patch", "edit"],
+  patch: ["update", "change"],
+  remove: ["destroy", "delete"],
+  destroy: ["drop", "remove"],
+  drop: ["clean", "destroy"],
+  clean: ["drop", "delete"],
+  require: ["include", "import"],
+  include: ["load", "require"],
+  load: ["module", "include"],
+  expose: ["provide", "export"],
+  provide: ["output", "expose"],
+  output: ["provide", "export"],
 };
+
+/**
+ * Generate bidirectional relationship mappings from source definitions
+ */
+function generateBidirectionalMappings(
+  source: SourceRelationships,
+): TagRelationships {
+  const bidirectional: TagRelationships = {};
+
+  // Initialize all tags
+  const allTags = new Set<string>();
+  for (const [tag, related] of Object.entries(source)) {
+    allTags.add(tag);
+    related.forEach((t) => allTags.add(t));
+  }
+
+  for (const tag of allTags) {
+    bidirectional[tag] = [];
+  }
+
+  // Generate bidirectional mappings
+  for (const [sourceTag, relatedTags] of Object.entries(source)) {
+    for (const targetTag of relatedTags) {
+      // Add forward relationship
+      if (!bidirectional[sourceTag].includes(targetTag)) {
+        bidirectional[sourceTag].push(targetTag);
+      }
+
+      // Add reverse relationship
+      if (!bidirectional[targetTag].includes(sourceTag)) {
+        bidirectional[targetTag].push(sourceTag);
+      }
+    }
+  }
+
+  // Sort relationships for consistency
+  for (const tag of Object.keys(bidirectional)) {
+    bidirectional[tag].sort();
+  }
+
+  return bidirectional;
+}
+
+/**
+ * Validate bidirectional relationships
+ */
+export function validateBidirectionalRelationships(
+  relationships: TagRelationships,
+): {
+  isValid: boolean;
+  issues: string[];
+} {
+  const issues: string[] = [];
+
+  // Check bidirectionality
+  for (const [tag, related] of Object.entries(relationships)) {
+    for (const relatedTag of related) {
+      if (!relationships[relatedTag]) {
+        issues.push(`Missing key: ${relatedTag} (referenced by ${tag})`);
+      } else if (!relationships[relatedTag].includes(tag)) {
+        issues.push(`Missing reverse: ${relatedTag} -> ${tag}`);
+      }
+    }
+  }
+
+  // Check minimum relationship count
+  for (const [tag, related] of Object.entries(relationships)) {
+    if (related.length < 2) {
+      issues.push(`Insufficient relationships: ${tag} (${related.length})`);
+    }
+  }
+
+  // Check for self-references
+  for (const [tag, related] of Object.entries(relationships)) {
+    if (related.includes(tag)) {
+      issues.push(`Self-reference: ${tag}`);
+    }
+  }
+
+  return { isValid: issues.length === 0, issues };
+}
+
+// Generate the final bidirectional relationships
+export const TAG_RELATIONSHIPS: TagRelationships =
+  generateBidirectionalMappings(SOURCE_RELATIONSHIPS);
 
 /**
  * Get all related tags for a given tag (including the tag itself)
