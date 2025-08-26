@@ -10,7 +10,9 @@ import { ReflectionStorage } from "../../../src/reflection/storage.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-describe("APE-65: Pattern Metadata Performance", () => {
+// Skipped due to Jest ESM module linking issue (see task 48CESPldy74LIBswPVg33)
+// Error: "module is already linked" when using jest.unstable_mockModule
+describe.skip("APE-65: Pattern Metadata Performance", () => {
   let db: Database.Database;
   let repository: PatternRepository;
   let lookupService: PatternLookupService;
