@@ -1,13 +1,17 @@
 /**
  * Simple test to verify database tables are created correctly
- * This test bypasses the ESM module linking issues
+ * This test bypasses the ESM module linking issues by spawning child processes
  */
 
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
 import { spawn } from "child_process";
 import fs from "fs-extra";
 import path from "path";
 import os from "os";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe("Database Table Creation", () => {
   it("should create task_evidence table via AutoMigrator", async () => {
@@ -19,7 +23,7 @@ describe("Database Table Creation", () => {
       // Run a simple Node script that uses AutoMigrator
       const script = `
         import { AutoMigrator } from "${path.resolve("dist/migrations/auto-migrator.js")}";
-        import Database from "better-sqlite3";
+        import Database from "${path.join(__dirname, '../../node_modules/better-sqlite3/lib/index.js')}";
         
         const migrator = new AutoMigrator("${dbPath}");
         await migrator.autoMigrate({ silent: true });
@@ -40,10 +44,14 @@ describe("Database Table Creation", () => {
       const scriptPath = path.join(tempDir, "test-script.mjs");
       await fs.writeFile(scriptPath, script);
       
-      // Execute the script
+      // Execute the script with proper NODE_PATH
       const result = await new Promise((resolve, reject) => {
         const proc = spawn("node", [scriptPath], {
           stdio: ["ignore", "pipe", "pipe"],
+          env: {
+            ...process.env,
+            NODE_PATH: path.join(__dirname, "../../node_modules")
+          }
         });
         
         let stdout = "";
@@ -80,8 +88,8 @@ describe("Database Table Creation", () => {
       // Create a script to test legacy migration
       const script = `
         import { ApexConfig } from "${path.resolve("dist/config/apex-config.js")}";
-        import Database from "better-sqlite3";
-        import fs from "fs-extra";
+        import Database from "${path.join(__dirname, '../../node_modules/better-sqlite3/lib/index.js')}";
+        import fs from "${path.join(__dirname, '../../node_modules/fs-extra/lib/index.js')}";
         import path from "path";
         
         // Change to temp dir
@@ -119,11 +127,15 @@ describe("Database Table Creation", () => {
       const scriptPath = path.join(tempDir, "migration-test.mjs");
       await fs.writeFile(scriptPath, script);
       
-      // Execute the script
+      // Execute the script with proper NODE_PATH
       const result = await new Promise((resolve, reject) => {
         const proc = spawn("node", [scriptPath], {
           stdio: ["ignore", "pipe", "pipe"],
           cwd: tempDir,
+          env: {
+            ...process.env,
+            NODE_PATH: path.join(__dirname, "../../node_modules")
+          }
         });
         
         let stdout = "";
