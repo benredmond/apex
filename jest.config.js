@@ -21,11 +21,7 @@ export default {
   testMatch: [
     '**/tests/**/*.test.{ts,js}'
   ],
-  testPathIgnorePatterns: [
-    'tests/search/discover-enhanced\\.test\\.ts',
-    'tests/mcp/tools/lookup-enhanced\\.test\\.ts',
-    'tests/mcp/tools/metadata-performance\\.test\\.ts'
-  ],
+  testPathIgnorePatterns: [],
   collectCoverageFrom: [
     'src/**/*.{ts,js}',
     '!src/**/*.d.ts',
