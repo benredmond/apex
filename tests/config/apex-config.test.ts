@@ -4,15 +4,15 @@ import path from "path";
 import os from "os";
 import Database from "better-sqlite3";
 
-// Mock RepoIdentifier
-jest.mock("../../src/utils/repo-identifier.js", () => ({
+// [FIX:TEST:ES_MODULE_MOCK_ORDER] ★★★☆☆ - Define mock functions externally
+const mockGetDatabasePaths = jest.fn();
+const mockGetIdentifier = jest.fn();
+
+// Mock RepoIdentifier before any imports that use it
+jest.unstable_mockModule("../../src/utils/repo-identifier.js", () => ({
   RepoIdentifier: {
-    getDatabasePaths: jest.fn().mockResolvedValue({
-      primary: path.join(os.homedir(), ".apex", "test-project", "patterns.db"),
-      fallback: path.join(os.homedir(), ".apex", "global", "patterns.db"),
-      // Note: no legacy field anymore!
-    }),
-    getIdentifier: jest.fn().mockResolvedValue("test-project"),
+    getDatabasePaths: mockGetDatabasePaths,
+    getIdentifier: mockGetIdentifier,
   },
 }));
 
@@ -21,12 +21,22 @@ describe("ApexConfig Database Path Resolution", () => {
   let originalCwd: string;
   
   beforeEach(async () => {
+    // Clear all mocks
+    jest.clearAllMocks();
+    
     // Save original cwd
     originalCwd = process.cwd();
     
     // Create temp directory
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "apex-config-test-"));
     process.chdir(tempDir);
+    
+    // Configure default mock behaviors to use temp directory for isolation
+    mockGetDatabasePaths.mockResolvedValue({
+      primary: path.join(tempDir, ".apex", "test-project", "patterns.db"),
+      fallback: path.join(tempDir, ".apex", "global", "patterns.db"),
+    });
+    mockGetIdentifier.mockResolvedValue("test-project");
     
     // Clear environment variables
     delete process.env.APEX_PATTERNS_DB;
@@ -110,7 +120,7 @@ describe("ApexConfig Database Path Resolution", () => {
       expect(await fs.pathExists(legacyPath)).toBe(false);
       
       // Data should be in new location
-      const primaryPath = path.join(os.homedir(), ".apex", "test-project", "patterns.db");
+      const primaryPath = path.join(tempDir, ".apex", "test-project", "patterns.db");
       if (await fs.pathExists(primaryPath)) {
         const newDb = new Database(primaryPath, { readonly: true });
         const result = newDb.prepare("SELECT * FROM patterns WHERE id = 'TEST'").get() as any;
@@ -127,7 +137,7 @@ describe("ApexConfig Database Path Resolution", () => {
       const legacyPath = path.join(tempDir, "patterns.db");
       await fs.writeFile(legacyPath, "legacy database");
       
-      const primaryPath = path.join(os.homedir(), ".apex", "test-project", "patterns.db");
+      const primaryPath = path.join(tempDir, ".apex", "test-project", "patterns.db");
       await fs.ensureDir(path.dirname(primaryPath));
       await fs.writeFile(primaryPath, "primary database");
       
@@ -160,10 +170,9 @@ describe("ApexConfig Database Path Resolution", () => {
       await fs.writeFile(legacyPath, "legacy database");
       
       // Make primary path unwritable by using invalid path
-      const { RepoIdentifier } = await import("../../src/utils/repo-identifier.js");
-      (RepoIdentifier.getDatabasePaths as jest.Mock).mockResolvedValueOnce({
+      mockGetDatabasePaths.mockResolvedValueOnce({
         primary: "/invalid/path/that/cannot/be/created/patterns.db",
-        fallback: path.join(os.homedir(), ".apex", "global", "patterns.db"),
+        fallback: path.join(tempDir, ".apex", "global", "patterns.db"),
       });
       
       const { ApexConfig } = await import("../../src/config/apex-config.js");
