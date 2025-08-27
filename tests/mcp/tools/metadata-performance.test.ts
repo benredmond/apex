@@ -106,10 +106,11 @@ describe("APE-65: Pattern Metadata Performance", () => {
         // Insert 100 test patterns with full metadata
         const insertStmt = db.prepare(\`
           INSERT INTO patterns (
-            id, type, title, summary, trust_score,
+            id, schema_version, pattern_version, type, title, summary, trust_score,
+            created_at, updated_at, pattern_digest, json_canonical,
             alpha, beta, usage_count, success_count,
             key_insight, when_to_use, common_pitfalls, tags, search_index
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         \`);
         
         const insertFts = db.prepare(\`
@@ -131,7 +132,11 @@ describe("APE-65: Pattern Metadata Performance", () => {
             ]);
             
             insertStmt.run(
-              id, "CODEBASE", title, summary, 0.5 + (i / 200),
+              id, "1.0", "1.0", "CODEBASE", title, summary, 0.5 + (i / 200),
+              new Date().toISOString(),
+              new Date().toISOString(),
+              \`test-digest-\${i}\`,
+              JSON.stringify({}),
               10 + i, 5, 100 + i, 80 + i,
               \`Key insight for pattern \${i}\`,
               \`Use when scenario \${i}\`,

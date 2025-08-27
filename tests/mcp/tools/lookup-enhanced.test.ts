@@ -121,16 +121,23 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
         
         db.prepare(\`
           INSERT INTO patterns (
-            id, type, title, summary, trust_score,
+            id, schema_version, pattern_version, type, title, summary, trust_score,
+            created_at, updated_at, pattern_digest, json_canonical,
             alpha, beta, usage_count, success_count,
             key_insight, when_to_use, common_pitfalls
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         \`).run(
           "PAT:TEST:MOCK",
+          "1.0",
+          "1.0",
           "CODEBASE",
           "Jest API Mocking Patterns",
           "Mock API calls in Jest tests with proper isolation",
           0.88,
+          new Date().toISOString(),
+          new Date().toISOString(),
+          "test-digest",
+          JSON.stringify({}),
           88,
           12,
           234,
@@ -251,6 +258,8 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
         db.exec(\`
           CREATE TABLE IF NOT EXISTS patterns (
             id                TEXT PRIMARY KEY,
+            schema_version    TEXT NOT NULL DEFAULT '1.0',
+            pattern_version   TEXT NOT NULL DEFAULT '1.0',
             type              TEXT NOT NULL,
             title             TEXT NOT NULL,
             summary           TEXT NOT NULL,
@@ -280,14 +289,22 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
         // Insert pattern with alpha/beta but no trust_score
         db.prepare(\`
           INSERT INTO patterns (
-            id, type, title, summary,
+            id, schema_version, pattern_version, type, title, summary,
+            trust_score, created_at, updated_at, pattern_digest, json_canonical,
             alpha, beta, usage_count, success_count
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         \`).run(
           "PAT:WILSON:TEST",
+          "1.0",
+          "1.0",
           "CODEBASE",
           "Wilson Score Test",
           "Testing Wilson score calculation",
+          0.5,
+          new Date().toISOString(),
+          new Date().toISOString(),
+          "test-digest",
+          JSON.stringify({}),
           40,
           10,
           50,

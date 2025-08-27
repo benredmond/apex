@@ -75,7 +75,11 @@ describe("Enhanced Pattern Discovery", () => {
                 tags              TEXT,
                 keywords          TEXT,
                 search_index      TEXT,
-                status            TEXT DEFAULT 'active'
+                status            TEXT DEFAULT 'active',
+                source_repo       TEXT,
+                alias             TEXT,
+                invalid           INTEGER DEFAULT 0,
+                invalid_reason    TEXT
               );
             \`);
             
@@ -353,6 +357,8 @@ describe("Enhanced Pattern Discovery", () => {
           db.exec(\`
             CREATE TABLE IF NOT EXISTS patterns (
               id TEXT PRIMARY KEY,
+              schema_version TEXT NOT NULL DEFAULT '1.0',
+              pattern_version TEXT NOT NULL DEFAULT '1.0',
               type TEXT NOT NULL,
               title TEXT,
               summary TEXT,
@@ -364,7 +370,11 @@ describe("Enhanced Pattern Discovery", () => {
               tags TEXT,
               keywords TEXT,
               search_index TEXT,
-              status TEXT DEFAULT 'active'
+              status TEXT DEFAULT 'active',
+              source_repo TEXT,
+              alias TEXT,
+              invalid INTEGER DEFAULT 0,
+              invalid_reason TEXT
             );
           \`);
           
@@ -374,10 +384,16 @@ describe("Enhanced Pattern Discovery", () => {
           // Insert a test pattern
           await repository.create({
             id: 'PAT:AUTH:TEST',
+            schema_version: '1.0',
+            pattern_version: '1.0',
             type: 'CODEBASE',
             title: 'Test Pattern',
             summary: 'Authentication pattern for testing',
             trust_score: 0.9,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            pattern_digest: 'test-digest',
+            json_canonical: JSON.stringify({}),
             tags: ['auth'],
             keywords: ['authentication'],
             search_index: 'test pattern authentication'
@@ -573,23 +589,39 @@ describe("Enhanced Pattern Discovery", () => {
           db.exec(\`
             CREATE TABLE IF NOT EXISTS patterns (
               id TEXT PRIMARY KEY,
+              schema_version TEXT NOT NULL DEFAULT '1.0',
+              pattern_version TEXT NOT NULL DEFAULT '1.0',
               type TEXT NOT NULL,
               title TEXT,
               summary TEXT,
               trust_score REAL DEFAULT 0.5,
+              created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              pattern_digest TEXT,
+              json_canonical TEXT,
               tags TEXT,
               keywords TEXT,
-              search_index TEXT
+              search_index TEXT,
+              source_repo TEXT,
+              alias TEXT,
+              invalid INTEGER DEFAULT 0,
+              invalid_reason TEXT
             );
           \`);
           
           await repository.initialize();
           await repository.create({
             id: 'FIX:ERROR:GENERIC',
+            schema_version: '1.0',
+            pattern_version: '1.0',
             type: 'FAILURE',
             title: 'Generic Error Fix',
             summary: 'Fixes various errors',
             trust_score: 0.7,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            pattern_digest: 'test-digest',
+            json_canonical: JSON.stringify({}),
             tags: ['fix', 'error'],
             keywords: ['fix', 'error', 'generic'],
             search_index: 'fix error generic various'
