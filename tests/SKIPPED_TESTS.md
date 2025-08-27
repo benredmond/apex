@@ -15,6 +15,7 @@ The following test files have been skipped with `describe.skip`:
 - `tests/mcp/tools/reflect.integration.test.ts`
 - `tests/mcp/tools/explain.test.ts`
 - `tests/mcp/integration/tools-integration.test.ts`
+- `tests/search/discover-enhanced.test.ts`
 
 ## Root Cause
 The project uses ES modules (`"type": "module"` in package.json) which requires `jest.unstable_mockModule` for mocking. However, this experimental feature causes module linking conflicts when:
