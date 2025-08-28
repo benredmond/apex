@@ -426,13 +426,34 @@ export class AutoMigrator {
       CREATE INDEX IF NOT EXISTS idx_task_evidence_task ON task_evidence(task_id, created_at);
       CREATE INDEX IF NOT EXISTS idx_task_checkpoints_task ON task_checkpoints(task_id, created_at);
 
-      -- Full-text search
+      -- Full-text search with expanded fields from migration 004
       CREATE VIRTUAL TABLE IF NOT EXISTS patterns_fts USING fts5(
         id UNINDEXED,
         title,
         summary,
-        content=''
+        tags,
+        keywords,
+        search_index,
+        tokenize='unicode61'
       );
+      
+      -- FTS synchronization triggers (critical for search functionality)
+      CREATE TRIGGER IF NOT EXISTS patterns_ai AFTER INSERT ON patterns BEGIN
+        INSERT INTO patterns_fts (rowid, id, title, summary, tags, keywords, search_index)
+        VALUES (new.rowid, new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
+      END;
+      
+      CREATE TRIGGER IF NOT EXISTS patterns_ad AFTER DELETE ON patterns BEGIN
+        INSERT INTO patterns_fts (patterns_fts, rowid, id, title, summary, tags, keywords, search_index)
+        VALUES ('delete', old.rowid, old.id, old.title, old.summary, old.tags, old.keywords, old.search_index);
+      END;
+      
+      CREATE TRIGGER IF NOT EXISTS patterns_au AFTER UPDATE OF title, summary, tags, keywords, search_index ON patterns BEGIN
+        INSERT INTO patterns_fts (patterns_fts, rowid, id, title, summary, tags, keywords, search_index)
+        VALUES ('delete', old.rowid, old.id, old.title, old.summary, old.tags, old.keywords, old.search_index);
+        INSERT INTO patterns_fts (rowid, id, title, summary, tags, keywords, search_index)
+        VALUES (new.rowid, new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
+      END;
     `);
   }
 

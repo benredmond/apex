@@ -117,14 +117,20 @@ describe("Enhanced Pattern Discovery", () => {
               await repository.create(pattern);
             }
             
-            // Wait for FTS triggers to fire
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Verify patterns were inserted and FTS was populated
+            const testDb = new Database('${dbPath}');
+            const patternCheck = testDb.prepare('SELECT COUNT(*) as count FROM patterns').get();
+            const ftsCheck = testDb.prepare('SELECT COUNT(*) as count FROM patterns_fts').get();
             
-            // Verify FTS was populated by testing searchText
-            const searchResult = await repository.searchText('async', 10);
-            if (searchResult.length === 0) {
-              console.log('FTS not populated, patterns missing');
+            if (patternCheck.count === 0) {
+              console.log('FAIL: No patterns in database');
+              process.exit(1);
             }
+            if (ftsCheck.count === 0) {
+              console.log('FAIL: FTS not populated, triggers may not be working');
+              process.exit(1);
+            }
+            testDb.close();
             
             // Test the discovery
             const response = await discoverer.discover({
@@ -132,6 +138,17 @@ describe("Enhanced Pattern Discovery", () => {
               max_results: 10,
               min_score: 0.3
             });
+
+            // Debug: Try a direct search to see if it's a discovery issue
+            const directSearch = await repository.search({
+              task: "${query}",
+              k: 10
+            });
+            console.log(\`Direct search for "${query}" found \${directSearch.patterns.length} patterns\`);
+            
+            // Try searching with simpler terms
+            const simpleSearch = await repository.searchText("async", 10);
+            console.log(\`Simple text search for "async" found \${simpleSearch.length} patterns\`);
 
             if (response.patterns.length < ${expectedMinCount}) {
               console.log(\`FAIL: Expected at least ${expectedMinCount} patterns, got \${response.patterns.length}\`);

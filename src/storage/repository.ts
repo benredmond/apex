@@ -547,16 +547,28 @@ export class PatternRepository {
 
   private upsertPattern(pattern: Pattern): void {
     this.db.transaction(() => {
-      // Upsert main pattern
-      this.db.getStatement("upsertPattern").run({
-        ...pattern,
+      // Prepare the data for SQL binding - ensure all values are SQL-compatible types
+      const sqlData = {
+        id: pattern.id,
+        schema_version: pattern.schema_version,
+        pattern_version: pattern.pattern_version,
+        type: pattern.type,
+        title: pattern.title,
+        summary: pattern.summary,
+        trust_score: pattern.trust_score,
+        created_at: pattern.created_at,
+        updated_at: pattern.updated_at,
+        pattern_digest: pattern.pattern_digest,
+        json_canonical: pattern.json_canonical,
         source_repo: pattern.source_repo || null,
-        tags: JSON.stringify(pattern.tags), // [APE-63] Store tags as JSON
+        tags: JSON.stringify(pattern.tags || []), // [APE-63] Store tags as JSON
         invalid: pattern.invalid ? 1 : 0,
         invalid_reason: pattern.invalid_reason || null,
         alias: pattern.alias || null, // APE-44: Support for human-readable aliases
         // Enhanced metadata fields with defaults
-        keywords: pattern.keywords || null,
+        keywords: Array.isArray(pattern.keywords) 
+          ? pattern.keywords.join(',') 
+          : pattern.keywords || null,
         search_index: pattern.search_index || null,
         alpha: pattern.alpha || 1.0,
         beta: pattern.beta || 1.0,
@@ -564,8 +576,13 @@ export class PatternRepository {
         success_count: pattern.success_count || 0,
         key_insight: pattern.key_insight || null,
         when_to_use: pattern.when_to_use || null,
-        common_pitfalls: pattern.common_pitfalls || null,
-      });
+        common_pitfalls: Array.isArray(pattern.common_pitfalls)
+          ? JSON.stringify(pattern.common_pitfalls)
+          : pattern.common_pitfalls || null,
+      };
+      
+      // Upsert main pattern
+      this.db.getStatement("upsertPattern").run(sqlData);
 
       // Insert facet data
       this._insertFacets(pattern.id, pattern);
