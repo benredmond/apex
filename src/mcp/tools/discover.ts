@@ -259,8 +259,9 @@ export class PatternDiscoverer {
       // [PAT:SEARCH:FTS] ★★★★★ - Enhanced FTS5 search
       // Don't filter by tags if none exist in the database
       // This was causing empty results when signal extraction suggested tags
+      // DEBUG: Using raw query instead of processedQuery.ftsQuery to match repository.search() behavior
       const lookupResult = await this.repository.search({
-        task: processedQuery.ftsQuery, // Use processed FTS query
+        task: request.query, // Use raw query directly - processedQuery.ftsQuery was too restrictive
         type:
           searchTypes.length > 0
             ? (searchTypes as Pattern["type"][])
@@ -278,7 +279,7 @@ export class PatternDiscoverer {
           searchResults,
           request.query,
           {
-            threshold: 0.6,
+            threshold: 0.5, // Lowered from 0.6 to be more permissive
             maxResults: request.max_results * 2,
             fields: ["title", "summary", "tags"],
           },

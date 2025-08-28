@@ -190,6 +190,8 @@ export class PackBuilder {
             trust_score: dbPattern.trust_score,
             alpha: dbPattern.alpha,
             beta: dbPattern.beta,
+            usage_count: dbPattern.usage_count,  // Add usage_count from database
+            success_count: dbPattern.success_count,  // Add success_count from database
             created_at: dbPattern.created_at,
             updated_at: dbPattern.updated_at,
             snippets: (parsed.snippets || []).map((s: any) => ({
@@ -200,6 +202,10 @@ export class PackBuilder {
                 : "unknown",
             })),
             evidence: parsed.evidence || [],
+            // Extract enhanced metadata from json_canonical
+            key_insight: parsed.key_insight,
+            when_to_use: parsed.when_to_use,
+            common_pitfalls: parsed.common_pitfalls,
           } as Pattern;
         } catch (e) {
           // Fallback to basic pattern structure
@@ -386,16 +392,21 @@ export class PackBuilder {
       candidate.when_to_use = pattern.pattern.when_to_use;
     }
 
-    // Parse common_pitfalls from JSON string
+    // Handle common_pitfalls - could be array or JSON string
     if (pattern.pattern.common_pitfalls) {
-      try {
-        const pitfalls = JSON.parse(pattern.pattern.common_pitfalls);
-        if (Array.isArray(pitfalls)) {
-          candidate.common_pitfalls = pitfalls;
+      if (Array.isArray(pattern.pattern.common_pitfalls)) {
+        // Already an array from json_canonical parsing
+        candidate.common_pitfalls = pattern.pattern.common_pitfalls;
+      } else if (typeof pattern.pattern.common_pitfalls === 'string') {
+        try {
+          const pitfalls = JSON.parse(pattern.pattern.common_pitfalls);
+          if (Array.isArray(pitfalls)) {
+            candidate.common_pitfalls = pitfalls;
+          }
+        } catch {
+          // If not valid JSON, treat as single string
+          candidate.common_pitfalls = [pattern.pattern.common_pitfalls];
         }
-      } catch {
-        // If not valid JSON, treat as single string
-        candidate.common_pitfalls = [pattern.pattern.common_pitfalls];
       }
     }
 

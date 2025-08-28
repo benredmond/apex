@@ -342,11 +342,12 @@ export class PatternRepository {
     }
 
     // Build the SQL query using FTS5 MATCH
+    // Join on id instead of rowid to avoid issues with rowid mismatch
     let sql = `
       SELECT DISTINCT p.*, 
              rank * -1 as fts_rank
       FROM patterns p
-      JOIN patterns_fts pf ON p.rowid = pf.rowid
+      JOIN patterns_fts pf ON p.id = pf.id
       WHERE pf.patterns_fts MATCH ?
         AND p.invalid = 0
     `;

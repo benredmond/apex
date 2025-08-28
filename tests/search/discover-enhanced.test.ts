@@ -130,6 +130,15 @@ describe("Enhanced Pattern Discovery", () => {
               console.log('FAIL: FTS not populated, triggers may not be working');
               process.exit(1);
             }
+            
+            // Debug: Check what's actually in FTS
+            const ftsContent = testDb.prepare('SELECT id, search_index FROM patterns_fts LIMIT 3').all();
+            console.log('FTS content:', ftsContent);
+            
+            // Debug: Try a raw FTS query
+            const rawFtsQuery = testDb.prepare("SELECT id FROM patterns_fts WHERE patterns_fts MATCH ?").all("${query}");
+            console.log(\`Raw FTS query for "${query}" found \${rawFtsQuery.length} rows: \${rawFtsQuery.map(r => r.id).join(', ')}\`);
+            
             testDb.close();
             
             // Test the discovery
@@ -145,10 +154,17 @@ describe("Enhanced Pattern Discovery", () => {
               k: 10
             });
             console.log(\`Direct search for "${query}" found \${directSearch.patterns.length} patterns\`);
+            if (directSearch.patterns.length > 0) {
+              console.log(\`  Pattern IDs from search: \${directSearch.patterns.map(p => p.id).join(', ')}\`);
+            }
             
-            // Try searching with simpler terms
-            const simpleSearch = await repository.searchText("async", 10);
-            console.log(\`Simple text search for "async" found \${simpleSearch.length} patterns\`);
+            // Debug the discover response
+            console.log(\`Discover response for "${query}":\`);
+            console.log(\`  patterns.length: \${response.patterns.length}\`);
+            if (response.patterns.length > 0) {
+              console.log(\`  Pattern IDs: \${response.patterns.map(p => p.pattern.id).join(', ')}\`);
+              console.log(\`  Scores: \${response.patterns.map(p => p.score.toFixed(3)).join(', ')}\`);
+            }
 
             if (response.patterns.length < ${expectedMinCount}) {
               console.log(\`FAIL: Expected at least ${expectedMinCount} patterns, got \${response.patterns.length}\`);

@@ -180,8 +180,8 @@ export class FuzzyMatcher {
     maxSuggestions: number = 5,
   ): string[] {
     // [FIX:FUZZY:THRESHOLD] ★★★★☆ (34 uses, 85% success) - Adaptive threshold for word length
-    // Use adaptive threshold based on query length to handle both short and long words
-    const threshold = Math.max(3, Math.ceil(query.length * 0.4));
+    // Use more permissive threshold to catch partial matches like "authen" -> "authentication"
+    const threshold = Math.max(5, Math.ceil(query.length * 0.7));
 
     const suggestions = dictionary
       .map((word) => ({
