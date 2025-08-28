@@ -274,16 +274,25 @@ export class PatternDiscoverer {
 
       // Apply fuzzy matching if enabled
       // [PAT:SEARCH:FUZZY] ★★★★☆ - Fuzzy matching for typo tolerance
+      // [FIX:FUZZY:THRESHOLD] ★★★★☆ (4 uses, 75% success) - Lower threshold when FTS has results
       if (searchResults.length < 5 && processedQuery.expandedTerms.length > 0) {
-        searchResults = this.queryProcessor.applyFuzzyMatching(
+        // When FTS returns some results, apply fuzzy with lower threshold
+        // to keep those results while still correcting typos
+        const threshold = searchResults.length > 0 ? 0.3 : 0.5;
+
+        // Apply fuzzy matching to FTS results with adjusted threshold
+        const fuzzyResults = this.queryProcessor.applyFuzzyMatching(
           searchResults,
           request.query,
           {
-            threshold: 0.5, // Lowered from 0.6 to be more permissive
+            threshold, // Dynamic threshold based on FTS results
             maxResults: request.max_results * 2,
             fields: ["title", "summary", "tags"],
           },
         );
+
+        // If fuzzy filtering removed all results, keep original FTS results
+        searchResults = fuzzyResults.length > 0 ? fuzzyResults : searchResults;
       }
 
       // Load metadata for scoring
