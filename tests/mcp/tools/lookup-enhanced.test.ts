@@ -4,7 +4,7 @@ import fs from "fs-extra";
 import * as path from "path";
 import * as os from "os";
 import { fileURLToPath } from "url";
-import { runScript, getImportPath } from "../../helpers/subprocess-runner.js";
+import { runScript, getImportPath, generateDatabaseInit } from "../../helpers/subprocess-runner.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +12,7 @@ const __dirname = path.dirname(__filename);
 describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
   it("should return enhanced metadata fields in pattern pack", async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "apex-lookup-test-"));
+    const dbPath = path.join(tempDir, 'test.db');
     
     try {
       const script = `
@@ -19,99 +20,18 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
         import path from "path";
         import { PatternLookupService } from "${getImportPath("dist/mcp/tools/lookup.js")}";
         import { PatternRepository } from "${getImportPath("dist/storage/repository.js")}";
-        import { MigrationRunner } from "${getImportPath("dist/migrations/MigrationRunner.js")}";
-        import { MigrationLoader } from "${getImportPath("dist/migrations/MigrationLoader.js")}";
         
-        // Create in-memory database
-        const db = new Database(":memory:");
-        
-        // FIRST: Create base patterns table (BEFORE migrations)
-        db.exec(\`
-          CREATE TABLE IF NOT EXISTS patterns (
-            id                TEXT PRIMARY KEY,
-            schema_version    TEXT NOT NULL DEFAULT '1.0',
-            pattern_version   TEXT NOT NULL DEFAULT '1.0',
-            type              TEXT NOT NULL,
-            title             TEXT NOT NULL,
-            summary           TEXT NOT NULL,
-            trust_score       REAL NOT NULL DEFAULT 0.5,
-            created_at        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            pattern_digest    TEXT NOT NULL DEFAULT 'test',
-            json_canonical    TEXT NOT NULL DEFAULT '{}',
-            source_repo       TEXT,
-            alias             TEXT,
-            alpha             REAL DEFAULT 1.0,
-            beta              REAL DEFAULT 1.0,
-            usage_count       INTEGER DEFAULT 0,
-            success_count     INTEGER DEFAULT 0,
-            status            TEXT DEFAULT 'active',
-            tags              TEXT,
-            keywords          TEXT,
-            search_index      TEXT,
-            provenance        TEXT DEFAULT 'manual',
-            key_insight       TEXT,
-            when_to_use       TEXT,
-            common_pitfalls   TEXT
-          );
-        \`);
-        
-        // THEN: Run migrations (with problematic ones skipped)
-        const migrationRunner = new MigrationRunner(db);
-        const loader = new MigrationLoader(path.resolve('${getImportPath("dist/migrations")}'));
-        const migrations = await loader.loadMigrations();
-        
-        // Skip problematic migrations that expect existing data
-        const migrationsToRun = migrations.filter(m => 
-          !['011-migrate-pattern-tags-to-json', '012-rename-tags-csv-column', '014-populate-pattern-tags'].includes(m.id)
-        );
-        
-        await migrationRunner.runMigrations(migrationsToRun);
-        
-        // Create additional schema if needed
-        db.exec(\`
-          CREATE TABLE IF NOT EXISTS reflections (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            task_id TEXT NOT NULL,
-            brief_id TEXT,
-            outcome TEXT CHECK(outcome IN ('success','partial','failure')) NOT NULL,
-            json TEXT NOT NULL,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
-          
-          CREATE TABLE IF NOT EXISTS snippets (
-            snippet_id TEXT PRIMARY KEY,
-            pattern_id TEXT NOT NULL,
-            content TEXT NOT NULL,
-            language TEXT,
-            label TEXT,
-            file_ref TEXT,
-            line_count INTEGER,
-            bytes INTEGER,
-            FOREIGN KEY (pattern_id) REFERENCES patterns(id)
-          );
-          
-          CREATE VIRTUAL TABLE patterns_fts USING fts5(
-            id UNINDEXED,
-            title,
-            summary,
-            tags,
-            keywords,
-            search_index,
-            tokenize='porter'
-          );
-        \`);
+        // Initialize database with migrations using AutoMigrator
+        const dbPath = '${dbPath}';
+        ${generateDatabaseInit(dbPath)}
         
         // Initialize repository with in-memory database
         const repository = new PatternRepository({
-          dbPath: ":memory:",
+          dbPath: '${dbPath}',
         });
         
-        // Replace repository's database with our test database
-        const dbField = Object.getOwnPropertyDescriptor(repository, "db");
-        if (dbField && dbField.value) {
-          dbField.value.database = db;
-        }
+        // Get database for direct inserts
+        const db = new Database('${dbPath}');
         
         // Initialize lookup service
         const lookupService = new PatternLookupService(repository);
@@ -124,8 +44,8 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
             id, schema_version, pattern_version, type, title, summary, trust_score,
             created_at, updated_at, pattern_digest, json_canonical,
             alpha, beta, usage_count, success_count,
-            key_insight, when_to_use, common_pitfalls
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            key_insight, when_to_use, common_pitfalls, invalid, invalid_reason
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         \`).run(
           "PAT:TEST:MOCK",
           "1.0",
@@ -144,7 +64,9 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
           206,
           "Mock at axios level, not function level",
           "Integration tests with external deps",
-          pitfalls
+          pitfalls,
+          0,
+          null
         );
         
         // Add to FTS index
@@ -243,6 +165,7 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
 
   it("should calculate Wilson score from alpha/beta parameters", async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "apex-wilson-test-"));
+    const dbPath = path.join(tempDir, 'test.db');
     
     try {
       const script = `
@@ -252,7 +175,7 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
         import { PatternRepository } from "${getImportPath("dist/storage/repository.js")}";
         
         // Create in-memory database
-        const db = new Database(":memory:");
+        const db = new Database("${dbPath}");
         
         // Minimal schema
         db.exec(\`
@@ -278,7 +201,7 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
         \`);
         
         // Initialize repository
-        const repository = new PatternRepository({ dbPath: ":memory:" });
+        const repository = new PatternRepository({ dbPath: "${dbPath}" });
         const dbField = Object.getOwnPropertyDescriptor(repository, "db");
         if (dbField && dbField.value) {
           dbField.value.database = db;
@@ -355,6 +278,7 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
 
   it("should handle patterns without enhanced metadata gracefully", async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "apex-basic-test-"));
+    const dbPath = path.join(tempDir, 'test.db');
     
     try {
       const script = `
@@ -362,7 +286,7 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
         import { PatternLookupService } from "${getImportPath("dist/mcp/tools/lookup.js")}";
         import { PatternRepository } from "${getImportPath("dist/storage/repository.js")}";
         
-        const db = new Database(":memory:");
+        const db = new Database("${dbPath}");
         
         db.exec(\`
           CREATE TABLE IF NOT EXISTS patterns (
@@ -381,7 +305,7 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
           );
         \`);
         
-        const repository = new PatternRepository({ dbPath: ":memory:" });
+        const repository = new PatternRepository({ dbPath: "${dbPath}" });
         const dbField = Object.getOwnPropertyDescriptor(repository, "db");
         if (dbField && dbField.value) {
           dbField.value.database = db;
@@ -457,6 +381,7 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
 
   it("should parse common_pitfalls as JSON array", async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "apex-pitfalls-test-"));
+    const dbPath = path.join(tempDir, 'test.db');
     
     try {
       const script = `
@@ -464,7 +389,7 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
         import { PatternLookupService } from "${getImportPath("dist/mcp/tools/lookup.js")}";
         import { PatternRepository } from "${getImportPath("dist/storage/repository.js")}";
         
-        const db = new Database(":memory:");
+        const db = new Database("${dbPath}");
         
         db.exec(\`
           CREATE TABLE IF NOT EXISTS patterns (
@@ -484,7 +409,7 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
           );
         \`);
         
-        const repository = new PatternRepository({ dbPath: ":memory:" });
+        const repository = new PatternRepository({ dbPath: "${dbPath}" });
         const dbField = Object.getOwnPropertyDescriptor(repository, "db");
         if (dbField && dbField.value) {
           dbField.value.database = db;
@@ -572,6 +497,7 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
 
   it("should calculate success_rate from success_count and usage_count", async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "apex-success-test-"));
+    const dbPath = path.join(tempDir, 'test.db');
     
     try {
       const script = `
@@ -579,7 +505,7 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
         import { PatternLookupService } from "${getImportPath("dist/mcp/tools/lookup.js")}";
         import { PatternRepository } from "${getImportPath("dist/storage/repository.js")}";
         
-        const db = new Database(":memory:");
+        const db = new Database("${dbPath}");
         
         db.exec(\`
           CREATE TABLE IF NOT EXISTS patterns (
@@ -600,7 +526,7 @@ describe("Pattern Lookup with Enhanced Metadata (APE-65)", () => {
           );
         \`);
         
-        const repository = new PatternRepository({ dbPath: ":memory:" });
+        const repository = new PatternRepository({ dbPath: "${dbPath}" });
         const dbField = Object.getOwnPropertyDescriptor(repository, "db");
         if (dbField && dbField.value) {
           dbField.value.database = db;

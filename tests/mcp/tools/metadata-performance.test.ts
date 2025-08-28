@@ -4,7 +4,7 @@ import fs from "fs-extra";
 import * as path from "path";
 import * as os from "os";
 import { fileURLToPath } from "url";
-import { runScript, getImportPath } from "../../helpers/subprocess-runner.js";
+import { runScript, getImportPath, generateDatabaseInit } from "../../helpers/subprocess-runner.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +12,7 @@ const __dirname = path.dirname(__filename);
 describe("APE-65: Pattern Metadata Performance", () => {
   it("should extract pattern metadata within 500ms for 100 patterns", async () => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "apex-perf-test-"));
+    const dbPath = path.join(tempDir, 'test.db');
     
     try {
       const script = `
@@ -19,87 +20,16 @@ describe("APE-65: Pattern Metadata Performance", () => {
         import path from "path";
         import { PatternRepository } from "${getImportPath("dist/storage/repository.js")}";
         import { PatternLookupService } from "${getImportPath("dist/mcp/tools/lookup.js")}";
-        import { MigrationRunner } from "${getImportPath("dist/migrations/MigrationRunner.js")}";
-        import { MigrationLoader } from "${getImportPath("dist/migrations/MigrationLoader.js")}";
         
-        // Create in-memory database
-        const db = new Database(":memory:");
-        
-        // FIRST: Create base patterns table (BEFORE migrations)
-        db.exec(\`
-          CREATE TABLE IF NOT EXISTS patterns (
-            id                TEXT PRIMARY KEY,
-            schema_version    TEXT NOT NULL DEFAULT '1.0',
-            pattern_version   TEXT NOT NULL DEFAULT '1.0',
-            type              TEXT NOT NULL,
-            title             TEXT NOT NULL,
-            summary           TEXT NOT NULL,
-            trust_score       REAL NOT NULL DEFAULT 0.5,
-            created_at        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            pattern_digest    TEXT NOT NULL DEFAULT 'test',
-            json_canonical    TEXT NOT NULL DEFAULT '{}',
-            alpha             REAL DEFAULT 1.0,
-            beta              REAL DEFAULT 1.0,
-            usage_count       INTEGER DEFAULT 0,
-            success_count     INTEGER DEFAULT 0,
-            key_insight       TEXT,
-            when_to_use       TEXT,
-            common_pitfalls   TEXT,
-            tags              TEXT,
-            search_index      TEXT
-          );
-        \`);
-        
-        // THEN: Run migrations (with problematic ones skipped)
-        const migrationRunner = new MigrationRunner(db);
-        const loader = new MigrationLoader(path.resolve('${getImportPath("dist/migrations")}'));
-        const migrations = await loader.loadMigrations();
-        
-        // Skip problematic migrations that expect existing data
-        const migrationsToRun = migrations.filter(m => 
-          !['011-migrate-pattern-tags-to-json', '012-rename-tags-csv-column', '014-populate-pattern-tags'].includes(m.id)
-        );
-        
-        await migrationRunner.runMigrations(migrationsToRun);
-        
-        // Create additional schema if needed
-        db.exec(\`
-          CREATE TABLE IF NOT EXISTS reflections (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            task_id TEXT NOT NULL,
-            brief_id TEXT,
-            outcome TEXT CHECK(outcome IN ('success','partial','failure')) NOT NULL,
-            json TEXT NOT NULL,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
-          
-          CREATE INDEX idx_reflections_pattern_task 
-          ON reflections(json_extract(json, '$.claims.patterns_used[0].pattern_id'), created_at DESC);
-          
-          CREATE VIRTUAL TABLE patterns_fts USING fts5(
-            id UNINDEXED,
-            title,
-            summary,
-            tags,
-            search_index,
-            tokenize='porter'
-          );
-        \`);
+        // Initialize database with migrations using AutoMigrator
+        const dbPath = '${dbPath}';
+        ${generateDatabaseInit(dbPath)}
         
         // Initialize repository with test database
-        const repository = new PatternRepository({ dbPath: ":memory:" });
+        const repository = new PatternRepository({ dbPath: '${dbPath}' });
         
-        // Replace the internal database
-        const getDatabase = repository.getDatabase;
-        if (getDatabase && typeof getDatabase === 'function') {
-          const dbAccessor = getDatabase.call(repository);
-          if (dbAccessor) {
-            dbAccessor.close();
-          }
-        }
-        // Inject our test database
-        repository.db = { database: db };
+        // Get database for direct inserts
+        const db = new Database('${dbPath}');
         
         const lookupService = new PatternLookupService(repository);
         
@@ -109,8 +39,9 @@ describe("APE-65: Pattern Metadata Performance", () => {
             id, schema_version, pattern_version, type, title, summary, trust_score,
             created_at, updated_at, pattern_digest, json_canonical,
             alpha, beta, usage_count, success_count,
-            key_insight, when_to_use, common_pitfalls, tags, search_index
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            key_insight, when_to_use, common_pitfalls, tags, search_index,
+            invalid, invalid_reason
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         \`);
         
         const insertFts = db.prepare(\`
@@ -142,7 +73,9 @@ describe("APE-65: Pattern Metadata Performance", () => {
               \`Use when scenario \${i}\`,
               pitfalls,
               tags,
-              searchIndex
+              searchIndex,
+              0,
+              null
             );
             
             insertFts.run(id, title, summary, tags, searchIndex);

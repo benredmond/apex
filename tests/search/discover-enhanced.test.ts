@@ -5,7 +5,7 @@ import fs from "fs-extra";
 import * as path from "path";
 import * as os from "os";
 import { fileURLToPath } from "url";
-import { runScript, getImportPath } from "../helpers/subprocess-runner.js";
+import { runScript, getImportPath, generateDatabaseInit } from "../helpers/subprocess-runner.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,66 +37,18 @@ describe("Enhanced Pattern Discovery", () => {
         const dbPath = path.join(tempDir, "test.db");
         
         try {
-          const script = `
+          const dbPath = path.join(tempDir, 'test.db');
+        const script = `
             import Database from "${getImportPath("node_modules/better-sqlite3/lib/index.js")}";
             import { PatternRepository } from "${getImportPath("dist/storage/repository.js")}";
             import { PatternDiscoverer } from "${getImportPath("dist/mcp/tools/discover.js")}";
-            import { MigrationRunner } from "${getImportPath("dist/migrations/MigrationRunner.js")}";
-            import { MigrationLoader } from "${getImportPath("dist/migrations/MigrationLoader.js")}";
-            import path from 'path';
             
-            // Initialize repository and database
-            const repository = new PatternRepository({ dbPath: ':memory:' });
-            
-            // Get the internal database from the repository
-            const db = repository.getDatabase ? repository.getDatabase() : (repository.db?.database || repository.db);
-            
-            // FIRST: Create base patterns table (BEFORE migrations)
-            db.exec(\`
-              CREATE TABLE IF NOT EXISTS patterns (
-                id                TEXT PRIMARY KEY,
-                schema_version    TEXT NOT NULL DEFAULT '1.0',
-                pattern_version   TEXT NOT NULL DEFAULT '1.0',
-                type              TEXT NOT NULL,
-                title             TEXT,
-                summary           TEXT,
-                trust_score       REAL DEFAULT 0.5,
-                created_at        TEXT DEFAULT CURRENT_TIMESTAMP,
-                updated_at        TEXT DEFAULT CURRENT_TIMESTAMP,
-                pattern_digest    TEXT,
-                json_canonical    TEXT,
-                alpha             REAL DEFAULT 1.0,
-                beta              REAL DEFAULT 1.0,
-                usage_count       INTEGER DEFAULT 0,
-                success_count     INTEGER DEFAULT 0,
-                key_insight       TEXT,
-                when_to_use       TEXT,
-                common_pitfalls   TEXT,
-                tags              TEXT,
-                keywords          TEXT,
-                search_index      TEXT,
-                status            TEXT DEFAULT 'active',
-                source_repo       TEXT,
-                alias             TEXT,
-                invalid           INTEGER DEFAULT 0,
-                invalid_reason    TEXT
-              );
-            \`);
-            
-            // THEN: Run migrations (with problematic ones skipped)
-            const migrationRunner = new MigrationRunner(db);
-            const loader = new MigrationLoader(path.resolve('${getImportPath("dist/migrations")}'));
-            const migrations = await loader.loadMigrations();
-            
-            // Skip problematic migrations that expect existing data
-            const migrationsToRun = migrations.filter(m => 
-              !['011-migrate-pattern-tags-to-json', '012-rename-tags-csv-column', '014-populate-pattern-tags'].includes(m.id)
-            );
-            
-            // Run migrations silently
-            await migrationRunner.runMigrations(migrationsToRun);
+            // Initialize database with migrations using AutoMigrator
+            const dbPath = '${dbPath}';
+            ${generateDatabaseInit(dbPath)}
             
             // Initialize repository after migrations
+            const repository = new PatternRepository({ dbPath: '${dbPath}' });
             await repository.initialize();
             const discoverer = new PatternDiscoverer(repository);
 
@@ -117,6 +69,8 @@ describe("Enhanced Pattern Discovery", () => {
                 pattern_digest: 'test-digest-1',
                 json_canonical: JSON.stringify({}),
                 search_index: 'jwt token validation pattern secure authentication auth PAT AUTH JWT VALIDATION',
+                invalid: 0,
+                invalid_reason: null,
               },
               {
                 id: 'PAT:TEST:ASYNC_JEST',
@@ -133,6 +87,8 @@ describe("Enhanced Pattern Discovery", () => {
                 pattern_digest: 'test-digest-2',
                 json_canonical: JSON.stringify({}),
                 search_index: 'async jest testing pattern handle asynchronous operations tests errors PAT TEST ASYNC JEST',
+                invalid: 0,
+                invalid_reason: null,
               },
               {
                 id: 'FIX:TYPESCRIPT:MODULE_IMPORT',
@@ -149,6 +105,8 @@ describe("Enhanced Pattern Discovery", () => {
                 pattern_digest: 'test-digest-3',
                 json_canonical: JSON.stringify({}),
                 search_index: 'typescript module import error fix resolution errors FIX TYPESCRIPT MODULE IMPORT',
+                invalid: 0,
+                invalid_reason: null,
               },
             ];
 
@@ -345,39 +303,13 @@ describe("Enhanced Pattern Discovery", () => {
           import Database from "${getImportPath("node_modules/better-sqlite3/lib/index.js")}";
           import { PatternRepository } from "${getImportPath("dist/storage/repository.js")}";
           import { PatternDiscoverer } from "${getImportPath("dist/mcp/tools/discover.js")}";
-          import { MigrationRunner } from "${getImportPath("dist/migrations/MigrationRunner.js")}";
-          import { MigrationLoader } from "${getImportPath("dist/migrations/MigrationLoader.js")}";
-          import path from 'path';
+          
+          // Initialize database with migrations
+          const dbPath = '${dbPath}';
+          ${generateDatabaseInit(dbPath)}
           
           // Initialize repository
-          const repository = new PatternRepository({ dbPath: ':memory:' });
-          const db = repository.getDatabase ? repository.getDatabase() : (repository.db?.database || repository.db);
-          
-          // Setup database
-          db.exec(\`
-            CREATE TABLE IF NOT EXISTS patterns (
-              id TEXT PRIMARY KEY,
-              schema_version TEXT NOT NULL DEFAULT '1.0',
-              pattern_version TEXT NOT NULL DEFAULT '1.0',
-              type TEXT NOT NULL,
-              title TEXT,
-              summary TEXT,
-              trust_score REAL DEFAULT 0.5,
-              created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-              updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-              pattern_digest TEXT,
-              json_canonical TEXT,
-              tags TEXT,
-              keywords TEXT,
-              search_index TEXT,
-              status TEXT DEFAULT 'active',
-              source_repo TEXT,
-              alias TEXT,
-              invalid INTEGER DEFAULT 0,
-              invalid_reason TEXT
-            );
-          \`);
-          
+          const repository = new PatternRepository({ dbPath: '${dbPath}' });
           await repository.initialize();
           const discoverer = new PatternDiscoverer(repository);
           
@@ -428,6 +360,7 @@ describe("Enhanced Pattern Discovery", () => {
 
     test("should use cache for repeated queries", async () => {
       const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "apex-cache-test-"));
+      const dbPath = path.join(tempDir, "test.db");
       
       try {
         const script = `
@@ -435,21 +368,11 @@ describe("Enhanced Pattern Discovery", () => {
           import { PatternRepository } from "${getImportPath("dist/storage/repository.js")}";
           import { PatternDiscoverer } from "${getImportPath("dist/mcp/tools/discover.js")}";
           
-          const repository = new PatternRepository({ dbPath: ':memory:' });
-          const db = repository.getDatabase ? repository.getDatabase() : (repository.db?.database || repository.db);
+          // Initialize database with migrations
+          const dbPath = '${dbPath}';
+          ${generateDatabaseInit(dbPath)}
           
-          // Minimal schema
-          db.exec(\`
-            CREATE TABLE IF NOT EXISTS patterns (
-              id TEXT PRIMARY KEY,
-              type TEXT NOT NULL,
-              title TEXT,
-              summary TEXT,
-              trust_score REAL DEFAULT 0.5,
-              search_index TEXT
-            );
-          \`);
-          
+          const repository = new PatternRepository({ dbPath: '${dbPath}' });
           await repository.initialize();
           const discoverer = new PatternDiscoverer(repository);
           
@@ -575,6 +498,7 @@ describe("Enhanced Pattern Discovery", () => {
   describe("Zero-Result Query Handling", () => {
     test("should provide meaningful results even for vague queries", async () => {
       const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "apex-zero-test-"));
+      const dbPath = path.join(tempDir, "test.db");
       
       try {
         const script = `
@@ -582,33 +506,11 @@ describe("Enhanced Pattern Discovery", () => {
           import { PatternRepository } from "${getImportPath("dist/storage/repository.js")}";
           import { PatternDiscoverer } from "${getImportPath("dist/mcp/tools/discover.js")}";
           
-          const repository = new PatternRepository({ dbPath: ':memory:' });
-          const db = repository.getDatabase ? repository.getDatabase() : (repository.db?.database || repository.db);
+          // Initialize database with migrations
+          const dbPath = '${dbPath}';
+          ${generateDatabaseInit(dbPath)}
           
-          // Setup with a fix pattern
-          db.exec(\`
-            CREATE TABLE IF NOT EXISTS patterns (
-              id TEXT PRIMARY KEY,
-              schema_version TEXT NOT NULL DEFAULT '1.0',
-              pattern_version TEXT NOT NULL DEFAULT '1.0',
-              type TEXT NOT NULL,
-              title TEXT,
-              summary TEXT,
-              trust_score REAL DEFAULT 0.5,
-              created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-              updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-              pattern_digest TEXT,
-              json_canonical TEXT,
-              tags TEXT,
-              keywords TEXT,
-              search_index TEXT,
-              source_repo TEXT,
-              alias TEXT,
-              invalid INTEGER DEFAULT 0,
-              invalid_reason TEXT
-            );
-          \`);
-          
+          const repository = new PatternRepository({ dbPath: '${dbPath}' });
           await repository.initialize();
           await repository.create({
             id: 'FIX:ERROR:GENERIC',
@@ -624,7 +526,9 @@ describe("Enhanced Pattern Discovery", () => {
             json_canonical: JSON.stringify({}),
             tags: ['fix', 'error'],
             keywords: ['fix', 'error', 'generic'],
-            search_index: 'fix error generic various'
+            search_index: 'fix error generic various',
+            invalid: 0,
+            invalid_reason: null
           });
           
           const discoverer = new PatternDiscoverer(repository);
