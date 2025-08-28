@@ -180,8 +180,19 @@ export class FuzzyMatcher {
     maxSuggestions: number = 5,
   ): string[] {
     // [FIX:FUZZY:THRESHOLD] ★★★★☆ (34 uses, 85% success) - Adaptive threshold for word length
-    // Use more permissive threshold to catch partial matches like "authen" -> "authentication"
-    const threshold = Math.max(5, Math.ceil(query.length * 0.7));
+    // Check for prefix matches first (exact prefix should be prioritized)
+    const prefixMatches = dictionary.filter(word => 
+      word.toLowerCase().startsWith(query.toLowerCase())
+    );
+
+    // If we have prefix matches, prioritize them
+    if (prefixMatches.length > 0) {
+      return prefixMatches.slice(0, maxSuggestions);
+    }
+
+    // Fallback to Levenshtein distance for fuzzy matching
+    // Use more permissive threshold to catch partial matches
+    const threshold = Math.max(3, Math.ceil(query.length * 0.6));
 
     const suggestions = dictionary
       .map((word) => ({

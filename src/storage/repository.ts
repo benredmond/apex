@@ -342,12 +342,12 @@ export class PatternRepository {
     }
 
     // Build the SQL query using FTS5 MATCH
-    // Join on id instead of rowid to avoid issues with rowid mismatch
+    // Join on rowid for FTS5 virtual table (id is stored as UNINDEXED content)
     let sql = `
       SELECT DISTINCT p.*, 
              rank * -1 as fts_rank
       FROM patterns p
-      JOIN patterns_fts pf ON p.id = pf.id
+      JOIN patterns_fts pf ON p.rowid = pf.rowid
       WHERE pf.patterns_fts MATCH ?
         AND p.invalid = 0
     `;
@@ -567,8 +567,8 @@ export class PatternRepository {
         invalid_reason: pattern.invalid_reason || null,
         alias: pattern.alias || null, // APE-44: Support for human-readable aliases
         // Enhanced metadata fields with defaults
-        keywords: Array.isArray(pattern.keywords) 
-          ? pattern.keywords.join(',') 
+        keywords: Array.isArray(pattern.keywords)
+          ? pattern.keywords.join(",")
           : pattern.keywords || null,
         search_index: pattern.search_index || null,
         alpha: pattern.alpha || 1.0,
@@ -581,7 +581,7 @@ export class PatternRepository {
           ? JSON.stringify(pattern.common_pitfalls)
           : pattern.common_pitfalls || null,
       };
-      
+
       // Upsert main pattern
       this.db.getStatement("upsertPattern").run(sqlData);
 

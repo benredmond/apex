@@ -190,8 +190,8 @@ export class PackBuilder {
             trust_score: dbPattern.trust_score,
             alpha: dbPattern.alpha,
             beta: dbPattern.beta,
-            usage_count: dbPattern.usage_count,  // Add usage_count from database
-            success_count: dbPattern.success_count,  // Add success_count from database
+            usage_count: dbPattern.usage_count > 0 ? dbPattern.usage_count : undefined, // Treat 0 as undefined for enhanced metadata
+            success_count: dbPattern.success_count > 0 ? dbPattern.success_count : undefined, // Treat 0 as undefined for enhanced metadata
             created_at: dbPattern.created_at,
             updated_at: dbPattern.updated_at,
             snippets: (parsed.snippets || []).map((s: any) => ({
@@ -397,7 +397,7 @@ export class PackBuilder {
       if (Array.isArray(pattern.pattern.common_pitfalls)) {
         // Already an array from json_canonical parsing
         candidate.common_pitfalls = pattern.pattern.common_pitfalls;
-      } else if (typeof pattern.pattern.common_pitfalls === 'string') {
+      } else if (typeof pattern.pattern.common_pitfalls === "string") {
         try {
           const pitfalls = JSON.parse(pattern.pattern.common_pitfalls);
           if (Array.isArray(pitfalls)) {
