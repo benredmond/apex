@@ -31,58 +31,69 @@ describe("APE-65: Pattern Metadata Performance", () => {
         // Get database for direct inserts
         const db = new Database('${dbPath}');
         
+        // Create reflections table if it doesn't exist
+        db.exec(\`
+          CREATE TABLE IF NOT EXISTS reflections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id TEXT NOT NULL,
+            outcome TEXT NOT NULL,
+            json TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        \`);
+        
         const lookupService = new PatternLookupService(repository);
         
         // Insert 100 test patterns with full metadata
-        const insertStmt = db.prepare(\`
-          INSERT INTO patterns (
-            id, schema_version, pattern_version, type, title, summary, trust_score,
-            created_at, updated_at, pattern_digest, json_canonical,
-            alpha, beta, usage_count, success_count,
-            key_insight, when_to_use, common_pitfalls, tags, search_index,
-            invalid, invalid_reason
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        \`);
+        const timestamp = Date.now();
+        const patterns = [];
         
-        const insertFts = db.prepare(\`
-          INSERT INTO patterns_fts (id, title, summary, tags, search_index)
-          VALUES (?, ?, ?, ?, ?)
-        \`);
+        for (let i = 1; i <= 100; i++) {
+          // Use timestamp in ID to ensure uniqueness
+          const id = \`PAT:TEST:\${timestamp}_\${i.toString().padStart(3, '0')}\`;
+          const title = \`Test Pattern \${i}\`;
+          const summary = \`Summary for pattern \${i} with various keywords\`;
+          const tags = ['test', 'pattern', 'batch', \`perf\${i % 10}\`];
+          const pitfalls = [
+            \`Pitfall 1 for pattern \${i}\`,
+            \`Pitfall 2 for pattern \${i}\`
+          ];
+          
+          patterns.push({
+            id: id,
+            schema_version: "1.0",
+            pattern_version: "1.0",
+            type: "CODEBASE",
+            title: title,
+            summary: summary,
+            trust_score: 0.5 + (i / 200),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            pattern_digest: \`test-digest-\${i}\`,
+            json_canonical: JSON.stringify({
+              alpha: 10 + i,
+              beta: 5,
+              key_insight: \`Key insight for pattern \${i}\`,
+              when_to_use: \`Use when scenario \${i}\`,
+              common_pitfalls: pitfalls
+            }),
+            usage_count: 100 + i,
+            success_count: 80 + i,
+            tags: tags,
+            keywords: [],
+            search_index: \`\${title} \${summary} \${tags.join(' ')}\`,
+            invalid: 0,
+            invalid_reason: null
+          });
+        }
         
-        // Batch insert patterns
-        const insertBatch = db.transaction(() => {
-          for (let i = 1; i <= 100; i++) {
-            const id = \`PAT:TEST:\${i.toString().padStart(3, '0')}\`;
-            const title = \`Test Pattern \${i}\`;
-            const summary = \`Summary for pattern \${i} with various keywords\`;
-            const tags = \`test,pattern,batch,perf\${i % 10}\`;
-            const searchIndex = \`\${title} \${summary} \${tags}\`;
-            const pitfalls = JSON.stringify([
-              \`Pitfall 1 for pattern \${i}\`,
-              \`Pitfall 2 for pattern \${i}\`
-            ]);
-            
-            insertStmt.run(
-              id, "1.0", "1.0", "CODEBASE", title, summary, 0.5 + (i / 200),
-              new Date().toISOString(),
-              new Date().toISOString(),
-              \`test-digest-\${i}\`,
-              JSON.stringify({}),
-              10 + i, 5, 100 + i, 80 + i,
-              \`Key insight for pattern \${i}\`,
-              \`Use when scenario \${i}\`,
-              pitfalls,
-              tags,
-              searchIndex,
-              0,
-              null
-            );
-            
-            insertFts.run(id, title, summary, tags, searchIndex);
-          }
-        });
-        
-        insertBatch();
+        // Batch insert using repository
+        const startInsert = Date.now();
+        for (const pattern of patterns) {
+          await repository.create(pattern);
+        }
+        const insertTime = Date.now() - startInsert;
+        console.log(\`Inserted 100 patterns in \${insertTime}ms\`);
         
         // Insert some reflection data for last_used_task lookup
         const reflectionStmt = db.prepare(\`
@@ -91,7 +102,7 @@ describe("APE-65: Pattern Metadata Performance", () => {
         \`);
         
         for (let i = 1; i <= 20; i++) {
-          const patternId = \`PAT:TEST:\${i.toString().padStart(3, '0')}\`;
+          const patternId = \`PAT:TEST:\${timestamp}_\${i.toString().padStart(3, '0')}\`;
           const reflection = {
             claims: {
               patterns_used: [{ pattern_id: patternId }]
@@ -135,8 +146,8 @@ describe("APE-65: Pattern Metadata Performance", () => {
             console.log("FAIL: trust_score not defined");
             process.exit(1);
           }
-          if (!firstCandidate.usage_count) {
-            console.log("FAIL: usage_count not defined");
+          if (typeof firstCandidate.usage_count !== 'number') {
+            console.log(\`FAIL: usage_count not defined or not a number, got: \${firstCandidate.usage_count}\`);
             process.exit(1);
           }
           if (!firstCandidate.key_insight) {
