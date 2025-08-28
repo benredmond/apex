@@ -179,12 +179,16 @@ export class FuzzyMatcher {
     dictionary: string[],
     maxSuggestions: number = 5,
   ): string[] {
+    // [FIX:FUZZY:THRESHOLD] ★★★★☆ (34 uses, 85% success) - Adaptive threshold for word length
+    // Use adaptive threshold based on query length to handle both short and long words
+    const threshold = Math.max(3, Math.ceil(query.length * 0.4));
+
     const suggestions = dictionary
       .map((word) => ({
         word,
         distance: this.levenshteinDistance(query, word),
       }))
-      .filter((item) => item.distance > 0 && item.distance <= 3)
+      .filter((item) => item.distance > 0 && item.distance <= threshold)
       .sort((a, b) => a.distance - b.distance)
       .slice(0, maxSuggestions)
       .map((item) => item.word);

@@ -43,19 +43,20 @@ export class PatternDatabase {
     if (!path.isAbsolute(dbPath)) {
       // Check if we're in MCP context (which should always use absolute paths)
       // MCP is started with: apex mcp serve
-      const isMCP = process.argv.some(arg => arg.includes("mcp")) && 
-                    process.argv.some(arg => arg.includes("serve"));
+      const isMCP =
+        process.argv.some((arg) => arg.includes("mcp")) &&
+        process.argv.some((arg) => arg.includes("serve"));
       if (isMCP) {
         throw new Error(
           `PatternDatabase: MCP must use absolute database paths. Got relative path: ${dbPath}. ` +
-          `This would create a local database. Use PatternRepository.createWithProjectPaths() instead.`
+            `This would create a local database. Use PatternRepository.createWithProjectPaths() instead.`,
         );
       }
       // For non-MCP (CLI), warn but allow for backward compatibility
       if (!dbPath.includes(".apex")) {
         console.warn(
           `⚠️  WARNING: Using relative database path '${dbPath}' will create a local database. ` +
-          `Consider using absolute paths from ~/.apex for proper isolation.`
+            `Consider using absolute paths from ~/.apex for proper isolation.`,
         );
       }
     }
@@ -138,7 +139,16 @@ export class PatternDatabase {
         invalid_reason    TEXT,
         alias             TEXT UNIQUE,
         keywords          TEXT,
-        search_index      TEXT
+        search_index      TEXT,
+        -- Trust calculation parameters
+        alpha             REAL DEFAULT 1.0,
+        beta              REAL DEFAULT 1.0,
+        -- Enhanced metadata fields (APE-65)
+        usage_count       INTEGER DEFAULT 0,
+        success_count     INTEGER DEFAULT 0,
+        key_insight       TEXT,
+        when_to_use       TEXT,
+        common_pitfalls   TEXT  -- JSON array format
       );
     `;
 
@@ -316,11 +326,15 @@ export class PatternDatabase {
       INSERT INTO patterns (
         id, schema_version, pattern_version, type, title, summary,
         trust_score, created_at, updated_at, source_repo, tags,
-        pattern_digest, json_canonical, invalid, invalid_reason, alias
+        pattern_digest, json_canonical, invalid, invalid_reason, alias,
+        keywords, search_index, alpha, beta, usage_count, success_count,
+        key_insight, when_to_use, common_pitfalls
       ) VALUES (
         @id, @schema_version, @pattern_version, @type, @title, @summary,
         @trust_score, @created_at, @updated_at, @source_repo, @tags,
-        @pattern_digest, @json_canonical, @invalid, @invalid_reason, @alias
+        @pattern_digest, @json_canonical, @invalid, @invalid_reason, @alias,
+        @keywords, @search_index, @alpha, @beta, @usage_count, @success_count,
+        @key_insight, @when_to_use, @common_pitfalls
       )
       ON CONFLICT(id) DO UPDATE SET
         schema_version = excluded.schema_version,
@@ -336,7 +350,16 @@ export class PatternDatabase {
         json_canonical = excluded.json_canonical,
         invalid = excluded.invalid,
         invalid_reason = excluded.invalid_reason,
-        alias = excluded.alias
+        alias = excluded.alias,
+        keywords = excluded.keywords,
+        search_index = excluded.search_index,
+        alpha = excluded.alpha,
+        beta = excluded.beta,
+        usage_count = excluded.usage_count,
+        success_count = excluded.success_count,
+        key_insight = excluded.key_insight,
+        when_to_use = excluded.when_to_use,
+        common_pitfalls = excluded.common_pitfalls
     `),
     );
 
@@ -366,7 +389,7 @@ export class PatternDatabase {
     this.statements.set(
       "searchPatterns",
       this.db.prepare(`
-      SELECT p.id, p.title, p.summary, bm25(patterns_fts) AS rank
+      SELECT p.*, bm25(patterns_fts) AS rank
       FROM patterns_fts
       JOIN patterns p ON p.rowid = patterns_fts.rowid
       WHERE patterns_fts MATCH ?

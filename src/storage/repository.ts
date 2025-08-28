@@ -37,12 +37,13 @@ export class PatternRepository {
   ) {
     // DEFENSIVE: If running as MCP server, require absolute path
     // MCP is started with: apex mcp serve
-    const isMCP = process.argv.some(arg => arg.includes("mcp")) && 
-                  process.argv.some(arg => arg.includes("serve"));
+    const isMCP =
+      process.argv.some((arg) => arg.includes("mcp")) &&
+      process.argv.some((arg) => arg.includes("serve"));
     if (isMCP && options.dbPath && !path.isAbsolute(options.dbPath)) {
       throw new Error(
         `PatternRepository: MCP server must use absolute database paths. ` +
-        `Got: ${options.dbPath}. Use PatternRepository.createWithProjectPaths() instead.`
+          `Got: ${options.dbPath}. Use PatternRepository.createWithProjectPaths() instead.`,
       );
     }
 
@@ -554,6 +555,16 @@ export class PatternRepository {
         invalid: pattern.invalid ? 1 : 0,
         invalid_reason: pattern.invalid_reason || null,
         alias: pattern.alias || null, // APE-44: Support for human-readable aliases
+        // Enhanced metadata fields with defaults
+        keywords: pattern.keywords || null,
+        search_index: pattern.search_index || null,
+        alpha: pattern.alpha || 1.0,
+        beta: pattern.beta || 1.0,
+        usage_count: pattern.usage_count || 0,
+        success_count: pattern.success_count || 0,
+        key_insight: pattern.key_insight || null,
+        when_to_use: pattern.when_to_use || null,
+        common_pitfalls: pattern.common_pitfalls || null,
       });
 
       // Insert facet data
