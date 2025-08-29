@@ -15,6 +15,19 @@ export const migration: Migration = {
     db.transaction(() => {
       console.log("Fixing FTS population issue...");
 
+      // [FIX:VALIDATION:SCHEMA_AWARE] ★★★★☆ - Check for 'invalid' column existence
+      const columns = db.prepare("PRAGMA table_info(patterns)").all() as Array<{
+        name: string;
+      }>;
+      const hasInvalid = columns.some((col) => col.name === "invalid");
+
+      if (!hasInvalid) {
+        console.log("Adding missing 'invalid' column to patterns table...");
+        db.exec(
+          "ALTER TABLE patterns ADD COLUMN invalid INTEGER NOT NULL DEFAULT 0",
+        );
+      }
+
       // Clear and repopulate FTS table using the ORIGINAL rowid approach
       db.exec(`DELETE FROM patterns_fts;`);
 
@@ -43,9 +56,19 @@ export const migration: Migration = {
 
   validate: (db: Database.Database): boolean => {
     try {
+      // [FIX:VALIDATION:SCHEMA_AWARE] - Check for 'invalid' column in validation too
+      const columns = db.prepare("PRAGMA table_info(patterns)").all() as Array<{
+        name: string;
+      }>;
+      const hasInvalid = columns.some((col) => col.name === "invalid");
+
       // Check that FTS table has entries matching patterns table
       const patternCount = db
-        .prepare("SELECT COUNT(*) as count FROM patterns WHERE invalid = 0")
+        .prepare(
+          hasInvalid
+            ? "SELECT COUNT(*) as count FROM patterns WHERE invalid = 0"
+            : "SELECT COUNT(*) as count FROM patterns",
+        )
         .get() as { count: number };
       const ftsCount = db
         .prepare("SELECT COUNT(*) as count FROM patterns_fts")
