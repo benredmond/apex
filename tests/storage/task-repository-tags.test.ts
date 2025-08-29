@@ -265,11 +265,7 @@ describe('TaskRepository Tag Functionality', () => {
         tags: ['api', 'done']
       });
       
-      taskRepo.complete({
-        id: completedTask.id,
-        outcome: 'success',
-        key_learning: 'Test learning'
-      });
+      taskRepo.complete(completedTask.id, 'success', 'Test learning');
       
       // Find only active tasks with 'api' tag
       const activeTasks = taskRepo.find({ 
@@ -422,11 +418,7 @@ describe('TaskRepository Tag Functionality', () => {
       });
       
       // Complete
-      taskRepo.complete({
-        id: task.id,
-        outcome: 'success',
-        key_learning: 'Tags preserved'
-      });
+      taskRepo.complete(task.id, 'success', 'Tags preserved');
       
       // Verify tags still intact
       const final = taskRepo.findById(task.id);
