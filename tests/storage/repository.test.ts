@@ -112,11 +112,14 @@ describe("PatternRepository - Subprocess Isolated", () => {
           };
           
           await repository.create(pattern);
+          console.log("[DEBUG] Pattern created successfully");
           
+          console.log("[DEBUG] Attempting update operation...");
           const updated = await repository.update(pattern.id, {
             title: "Updated Title",
             trust_score: 0.9
           });
+          console.log("[DEBUG] Update operation completed");
           
           if (updated.title !== "Updated Title" || updated.trust_score !== 0.9 || updated.summary !== "Original summary") {
             throw new Error(\`Update failed: title=\${updated.title}, trust=\${updated.trust_score}, summary=\${updated.summary}\`);
@@ -125,13 +128,20 @@ describe("PatternRepository - Subprocess Isolated", () => {
           await repository.shutdown();
           console.log("SUCCESS");
         } catch (error) {
+          console.log("[DEBUG] Error details:", {
+            message: error.message,
+            code: error.code,
+            errno: error.errno,
+            name: error.name,
+            stack: error.stack
+          });
           console.log(\`FAIL: \${error.message}\`);
         }
       `;
       
       const scriptPath = path.join(tempDir, "test.mjs");
       await fs.writeFile(scriptPath, script);
-      const result = await runScript(scriptPath);
+      const result = await runScript(scriptPath, { debug: true });
       
       await fs.remove(tempDir);
       expect(result).toBe(true);
@@ -167,32 +177,44 @@ describe("PatternRepository - Subprocess Isolated", () => {
           };
           
           await repository.create(pattern);
+          console.log("[DEBUG] Pattern created successfully");
           
           // Verify it exists
           let retrieved = await repository.get(pattern.id);
           if (!retrieved) {
             throw new Error("Pattern was not created");
           }
+          console.log("[DEBUG] Pattern verified to exist");
           
           // Delete it
+          console.log("[DEBUG] Attempting delete operation...");
           await repository.delete(pattern.id);
+          console.log("[DEBUG] Delete operation completed");
           
           // Verify it's gone
           retrieved = await repository.get(pattern.id);
           if (retrieved !== null) {
             throw new Error("Pattern was not deleted");
           }
+          console.log("[DEBUG] Pattern verified to be deleted");
           
           await repository.shutdown();
           console.log("SUCCESS");
         } catch (error) {
+          console.log("[DEBUG] Error details:", {
+            message: error.message,
+            code: error.code,
+            errno: error.errno,
+            name: error.name,
+            stack: error.stack
+          });
           console.log(\`FAIL: \${error.message}\`);
         }
       `;
       
       const scriptPath = path.join(tempDir, "test.mjs");
       await fs.writeFile(scriptPath, script);
-      const result = await runScript(scriptPath);
+      const result = await runScript(scriptPath, { debug: true });
       
       await fs.remove(tempDir);
       expect(result).toBe(true);

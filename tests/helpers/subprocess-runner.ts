@@ -123,7 +123,7 @@ export function getImportPath(modulePath: string): string {
 }
 
 /**
- * Helper to generate database initialization code for scripts
+ * Helper to generate database initialization code for scripts with debug logging
  */
 export function generateDatabaseInit(dbPath: string): string {
   return `
@@ -136,5 +136,39 @@ export function generateDatabaseInit(dbPath: string): string {
       console.log("FAIL: Migration failed");
       process.exit(1);
     }
+
+    // Add debug logging for database state
+    console.log("[DEBUG] Database initialized at:", "${dbPath}");
+    
+    // Check and enable foreign keys pragma
+    const Database = (await import("${getImportPath('node_modules/better-sqlite3/lib/index.js')}")).default;
+    const debugDb = new Database("${dbPath}");
+    
+    const foreignKeysStatus = debugDb.pragma("foreign_keys");
+    console.log("[DEBUG] Foreign keys status (before):", foreignKeysStatus);
+    
+    // Explicitly enable foreign keys
+    debugDb.pragma("foreign_keys = ON");
+    
+    const foreignKeysAfter = debugDb.pragma("foreign_keys");  
+    console.log("[DEBUG] Foreign keys status (after):", foreignKeysAfter);
+    
+    // Check table existence for all facet tables
+    const facetTables = [
+      'patterns', 'pattern_languages', 'pattern_frameworks', 'pattern_tags',
+      'pattern_paths', 'pattern_repos', 'pattern_task_types', 'pattern_envs'
+    ];
+    
+    for (const table of facetTables) {
+      try {
+        const tableInfo = debugDb.pragma(\`table_info(\${table})\`);
+        console.log(\`[DEBUG] Table \${table} exists with \${tableInfo.length} columns\`);
+      } catch (error) {
+        console.log(\`[DEBUG] Table \${table} missing or error: \${error.message}\`);
+      }
+    }
+    
+    debugDb.close();
+    console.log("[DEBUG] Database diagnostics complete");
   `;
 }
