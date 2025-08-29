@@ -6,10 +6,10 @@ import {
   afterEach,
   jest,
 } from "@jest/globals";
-import { PackBuilder } from "../../src/ranking/pack-builder";
-import { PatternRepository } from "../../src/storage/repository";
-import { Pattern } from "../../src/schemas/pattern/base";
-import { RankedPattern } from "../../src/ranking/types";
+import { PackBuilder } from "../../src/ranking/pack-builder.ts";
+import { PatternRepository } from "../../src/storage/repository.ts";
+import { Pattern } from "../../src/schemas/pattern/base.ts";
+import { RankedPattern } from "../../src/ranking/types.ts";
 
 // Mock the repository
 jest.mock("../../src/storage/repository");

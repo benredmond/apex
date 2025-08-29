@@ -97,7 +97,7 @@ export const migration = {
       // Handle foreign key constraints by temporarily backing up pattern_metadata
       const metadataTableExists = db
         .prepare(
-          `SELECT name FROM sqlite_master WHERE type='table' AND name='pattern_metadata'`,
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='pattern_metadata'",
         )
         .get();
       
@@ -226,7 +226,7 @@ export const migration = {
       // Handle foreign key constraints by temporarily backing up pattern_metadata
       const metadataTableExists = db
         .prepare(
-          `SELECT name FROM sqlite_master WHERE type='table' AND name='pattern_metadata'`,
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='pattern_metadata'",
         )
         .get();
       

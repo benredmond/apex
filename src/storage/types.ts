@@ -35,7 +35,7 @@ export interface Pattern {
   key_insight?: string; // Core takeaway for the pattern
   when_to_use?: string; // Usage context/scenarios
   common_pitfalls?: string; // JSON array of gotchas to avoid
-  
+
   // Search-related fields (migration 004)
   keywords?: string; // Comma-separated keywords for search
   search_index?: string; // Full text search index content

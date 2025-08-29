@@ -191,7 +191,7 @@ export class MigrationLock {
   private isProcessRunning(pid: number): boolean {
     // Treat PID 0 as invalid (kernel process, should not hold app locks)
     if (pid === 0) return false;
-    
+
     try {
       // process.kill with signal 0 checks if process exists without killing it
       process.kill(pid, 0);

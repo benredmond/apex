@@ -78,12 +78,12 @@ export const migration: Migration = {
             FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
           )
         `);
-        
+
         // Create index for task_checkpoints
         db.exec(
           "CREATE INDEX IF NOT EXISTS idx_task_checkpoints_task ON task_checkpoints(task_id, created_at)",
         );
-        
+
         console.log("Created task_checkpoints table");
       }
 
@@ -95,7 +95,7 @@ export const migration: Migration = {
     db.transaction(() => {
       // Drop indexes first
       db.exec("DROP INDEX IF EXISTS idx_task_checkpoints_task");
-      
+
       // Drop tables
       db.exec("DROP TABLE IF EXISTS pattern_snippets");
       db.exec("DROP TABLE IF EXISTS snippets");
@@ -109,7 +109,7 @@ export const migration: Migration = {
     try {
       // Check all tables exist
       const tables = ["pattern_snippets", "snippets", "task_checkpoints"];
-      
+
       for (const tableName of tables) {
         const table = db
           .prepare(
@@ -129,7 +129,9 @@ export const migration: Migration = {
         )
         .get();
       if (!index) {
-        console.error("Validation failed: idx_task_checkpoints_task index not found");
+        console.error(
+          "Validation failed: idx_task_checkpoints_task index not found",
+        );
         return false;
       }
 

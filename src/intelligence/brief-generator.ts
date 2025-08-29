@@ -52,7 +52,7 @@ export class BriefGenerator {
     // Pattern repository MUST be provided by caller to ensure correct database path
     if (!options?.patternRepo) {
       throw new Error(
-        "PatternRepository must be provided to BriefGenerator to ensure correct database path"
+        "PatternRepository must be provided to BriefGenerator to ensure correct database path",
       );
     }
     this.patternRepo = options.patternRepo;

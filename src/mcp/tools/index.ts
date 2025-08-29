@@ -1018,7 +1018,8 @@ export function getToolsList(): Tool[] {
         properties: {
           task_id: {
             type: "string",
-            description: "Specific task ID to find (takes precedence over other filters)",
+            description:
+              "Specific task ID to find (takes precedence over other filters)",
           },
           tags: {
             type: "array",

@@ -72,7 +72,7 @@ export class ApexConfig {
   static getDbPath(): string {
     console.warn(
       "⚠️  ApexConfig.getDbPath() is deprecated and creates local databases. " +
-      "Use ApexConfig.getProjectDbPath() for proper ~/.apex isolation."
+        "Use ApexConfig.getProjectDbPath() for proper ~/.apex isolation.",
     );
     return path.join(ApexConfig.getProjectRoot(), ApexConfig.DB_PATH);
   }

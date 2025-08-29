@@ -190,8 +190,10 @@ export class PackBuilder {
             trust_score: dbPattern.trust_score,
             alpha: dbPattern.alpha,
             beta: dbPattern.beta,
-            usage_count: dbPattern.usage_count > 0 ? dbPattern.usage_count : undefined, // Treat 0 as undefined for enhanced metadata
-            success_count: dbPattern.success_count > 0 ? dbPattern.success_count : undefined, // Treat 0 as undefined for enhanced metadata
+            usage_count:
+              dbPattern.usage_count > 0 ? dbPattern.usage_count : undefined, // Treat 0 as undefined for enhanced metadata
+            success_count:
+              dbPattern.success_count > 0 ? dbPattern.success_count : undefined, // Treat 0 as undefined for enhanced metadata
             created_at: dbPattern.created_at,
             updated_at: dbPattern.updated_at,
             snippets: (parsed.snippets || []).map((s: any) => ({

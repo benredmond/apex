@@ -181,8 +181,8 @@ export class FuzzyMatcher {
   ): string[] {
     // [FIX:FUZZY:THRESHOLD] ★★★★☆ (34 uses, 85% success) - Adaptive threshold for word length
     // Check for prefix matches first (exact prefix should be prioritized)
-    const prefixMatches = dictionary.filter(word => 
-      word.toLowerCase().startsWith(query.toLowerCase())
+    const prefixMatches = dictionary.filter((word) =>
+      word.toLowerCase().startsWith(query.toLowerCase()),
     );
 
     // If we have prefix matches, prioritize them
