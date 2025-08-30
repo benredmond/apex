@@ -36,6 +36,11 @@ const platformKey = `${platform}-${arch}`;
 const binaryName = binaryMap[platformKey];
 
 async function executeBinary() {
+  // Skip binary execution if APEX_FORCE_JS environment variable is set
+  if (process.env.APEX_FORCE_JS === '1') {
+    return false;
+  }
+
   if (!binaryName) {
     return false;
   }

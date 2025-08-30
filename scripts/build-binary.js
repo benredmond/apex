@@ -25,14 +25,14 @@ async function buildPkgBinary(platform = process.platform, arch = process.arch) 
     console.log('🔗 Bundling CLI for pkg compatibility...');
     execSync('npm run bundle', { cwd: rootDir, stdio: 'inherit' });
 
-    // Step 3: Define target mapping (using node18 - latest supported by pkg)
+    // Step 3: Define target mapping (using node20 - supported by @yao-pkg/pkg)
     const targets = {
-      'darwin-x64': 'node18-macos-x64',
-      'darwin-arm64': 'node18-macos-arm64',
-      'linux-x64': 'node18-linux-x64',
-      'linux-arm64': 'node18-linux-arm64',
-      'win32-x64': 'node18-win-x64',
-      'win32-arm64': 'node18-win-arm64'
+      'darwin-x64': 'node20-macos-x64',
+      'darwin-arm64': 'node20-macos-arm64',
+      'linux-x64': 'node20-linux-x64',
+      'linux-arm64': 'node20-linux-arm64',
+      'win32-x64': 'node20-win-x64',
+      'win32-arm64': 'node20-win-arm64'
     };
 
     const binaryNames = {
@@ -58,12 +58,13 @@ async function buildPkgBinary(platform = process.platform, arch = process.arch) 
     const outputPath = path.join(rootDir, 'binaries', binaryName);
     await fs.ensureDir(path.dirname(outputPath));
 
-    // Use pkg to create the binary
+    // Use @yao-pkg/pkg to create the binary
     const pkgCommand = [
-      'npx pkg',
+      'npx @yao-pkg/pkg',
       '--target', target,
       '--output', `"${outputPath}"`,
       '--compress', 'GZip',
+      '--config', 'pkg.config.json',
       'dist/apex-bundled.cjs'
     ].join(' ');
 

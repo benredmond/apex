@@ -1,0 +1,11 @@
+{
+  "pkg": {
+    "assets": [
+      "src/migrations/migrations/**/*",
+      "dist/migrations/migrations/**/*"
+    ],
+    "scripts": [
+      "dist/**/*.js"
+    ]
+  }
+}
