@@ -6,6 +6,7 @@
 import { spawn } from "child_process";
 import crypto from "crypto";
 import fs from "fs";
+import os from "os";
 import path from "path";
 
 export class RepoIdentifier {
@@ -145,7 +146,6 @@ export class RepoIdentifier {
     primary: string;
     fallback: string;
   }> {
-    const os = await import("os");
     const homeDir = os.homedir();
     const identifier = await this.getIdentifier();
 
