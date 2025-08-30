@@ -21,7 +21,11 @@ async function buildPkgBinary(platform = process.platform, arch = process.arch) 
     console.log('📦 Building TypeScript...');
     execSync('npm run build', { cwd: rootDir, stdio: 'inherit' });
 
-    // Step 2: Define target mapping (using node18 - latest supported by pkg)
+    // Step 2: Bundle CLI for pkg compatibility
+    console.log('🔗 Bundling CLI for pkg compatibility...');
+    execSync('npm run bundle', { cwd: rootDir, stdio: 'inherit' });
+
+    // Step 3: Define target mapping (using node18 - latest supported by pkg)
     const targets = {
       'darwin-x64': 'node18-macos-x64',
       'darwin-arm64': 'node18-macos-arm64',
@@ -48,7 +52,7 @@ async function buildPkgBinary(platform = process.platform, arch = process.arch) 
       throw new Error(`Unsupported platform: ${platformKey}`);
     }
 
-    // Step 3: Create pkg binary
+    // Step 4: Create pkg binary
     console.log(`🏗️ Creating binary with pkg for ${target}...`);
     
     const outputPath = path.join(rootDir, 'binaries', binaryName);
@@ -60,14 +64,14 @@ async function buildPkgBinary(platform = process.platform, arch = process.arch) 
       '--target', target,
       '--output', `"${outputPath}"`,
       '--compress', 'GZip',
-      'bin/apex-cjs.cjs'
+      'dist/apex-bundled.cjs'
     ].join(' ');
 
     execSync(pkgCommand, { cwd: rootDir, stdio: 'inherit' });
 
     console.log(`✅ Binary created successfully: ${outputPath}`);
     
-    // Step 4: Test the binary
+    // Step 5: Test the binary
     console.log('🧪 Testing binary...');
     try {
       execSync(`"${outputPath}" --version`, { stdio: 'inherit', timeout: 10000 });

@@ -12,9 +12,9 @@ process.env.APEX_BINARY_MODE = 'true';
 const path = require('path');
 
 try {
-  // Use absolute path for pkg filesystem access
-  const cliPath = path.join(__dirname, '..', 'dist', 'cli', 'apex.js');
-  require(cliPath);
+  // Use bundled CommonJS file for pkg compatibility
+  const bundledPath = path.join(__dirname, '..', 'dist', 'apex-bundled.cjs');
+  require(bundledPath);
 } catch (error) {
   console.error('Failed to start APEX:', error.message);
   if (process.env.DEBUG) {
