@@ -4,11 +4,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import fs from "fs-extra";
 import path from "path";
-import { fileURLToPath } from "url";
 import { createPatternRepository } from "../../../dist/storage/index.js"; // [FIX:NODE:ESMODULE_IMPORTS] ★★★★★
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 /**
  * Create the doctor command for system health checks

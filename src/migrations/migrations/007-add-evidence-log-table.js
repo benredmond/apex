@@ -100,9 +100,9 @@ export const migration = {
          VALUES ('TEST_EVIDENCE_001', 'file', 'Test content', '{"test": true}')`,
       ).run();
       // Query test
-      const result = db
-        .prepare("SELECT * FROM task_evidence WHERE task_id = ?")
-        .all("TEST_EVIDENCE_001");
+      db.prepare("SELECT * FROM task_evidence WHERE task_id = ?").all(
+        "TEST_EVIDENCE_001",
+      );
       // Clean up test data
       db.prepare("DELETE FROM task_evidence WHERE task_id = ?").run(
         "TEST_EVIDENCE_001",

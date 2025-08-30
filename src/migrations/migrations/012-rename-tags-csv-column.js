@@ -290,9 +290,7 @@ export const migration = {
       }
 
       // Check that we can query the tags column
-      const testQuery = db
-        .prepare("SELECT id, tags FROM patterns LIMIT 1")
-        .get();
+      db.prepare("SELECT id, tags FROM patterns LIMIT 1").get();
 
       console.log("Migration 012 validation passed");
       return true;

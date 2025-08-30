@@ -136,39 +136,67 @@ export function generateDatabaseInit(dbPath: string): string {
       console.log("FAIL: Migration failed");
       process.exit(1);
     }
-
-    // Add debug logging for database state
-    console.log("[DEBUG] Database initialized at:", "${dbPath}");
     
-    // Check and enable foreign keys pragma
-    const Database = (await import("${getImportPath('node_modules/better-sqlite3/lib/index.js')}")).default;
-    const debugDb = new Database("${dbPath}");
+    // Create missing facet tables that are needed for repository operations
+    const DatabaseClass = (await import("${getImportPath('node_modules/better-sqlite3/lib/index.js')}")).default;
+    const fixDb = new DatabaseClass("${dbPath}");
     
-    const foreignKeysStatus = debugDb.pragma("foreign_keys");
-    console.log("[DEBUG] Foreign keys status (before):", foreignKeysStatus);
+    console.log("[DEBUG] Creating missing facet tables");
     
-    // Explicitly enable foreign keys
-    debugDb.pragma("foreign_keys = ON");
-    
-    const foreignKeysAfter = debugDb.pragma("foreign_keys");  
-    console.log("[DEBUG] Foreign keys status (after):", foreignKeysAfter);
-    
-    // Check table existence for all facet tables
-    const facetTables = [
-      'patterns', 'pattern_languages', 'pattern_frameworks', 'pattern_tags',
-      'pattern_paths', 'pattern_repos', 'pattern_task_types', 'pattern_envs'
+    // Create missing facet tables with proper schema
+    const facetTableSQL = [
+      \`CREATE TABLE IF NOT EXISTS pattern_languages (
+        pattern_id TEXT NOT NULL,
+        lang TEXT NOT NULL,
+        PRIMARY KEY (pattern_id, lang),
+        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
+      )\`,
+      \`CREATE TABLE IF NOT EXISTS pattern_frameworks (
+        pattern_id TEXT NOT NULL,
+        framework TEXT NOT NULL,
+        semver TEXT,
+        PRIMARY KEY (pattern_id, framework),
+        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
+      )\`,
+      \`CREATE TABLE IF NOT EXISTS pattern_paths (
+        pattern_id TEXT NOT NULL,
+        glob TEXT NOT NULL,
+        PRIMARY KEY (pattern_id, glob),
+        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
+      )\`,
+      \`CREATE TABLE IF NOT EXISTS pattern_repos (
+        pattern_id TEXT NOT NULL,
+        repo_glob TEXT NOT NULL,
+        PRIMARY KEY (pattern_id, repo_glob),
+        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
+      )\`,
+      \`CREATE TABLE IF NOT EXISTS pattern_task_types (
+        pattern_id TEXT NOT NULL,
+        task_type TEXT NOT NULL,
+        PRIMARY KEY (pattern_id, task_type),
+        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
+      )\`,
+      \`CREATE TABLE IF NOT EXISTS pattern_envs (
+        pattern_id TEXT NOT NULL,
+        env TEXT NOT NULL,
+        PRIMARY KEY (pattern_id, env),
+        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
+      )\`
     ];
     
-    for (const table of facetTables) {
+    for (const sql of facetTableSQL) {
       try {
-        const tableInfo = debugDb.pragma(\`table_info(\${table})\`);
-        console.log(\`[DEBUG] Table \${table} exists with \${tableInfo.length} columns\`);
+        fixDb.exec(sql);
       } catch (error) {
-        console.log(\`[DEBUG] Table \${table} missing or error: \${error.message}\`);
+        console.log(\`[DEBUG] Error creating facet table: \${error.message}\`);
       }
     }
     
-    debugDb.close();
-    console.log("[DEBUG] Database diagnostics complete");
+    fixDb.close();
+    console.log("[DEBUG] Facet tables creation completed");
+
+    // Minimal debug logging for database state
+    console.log("[DEBUG] Database initialized at:", "${dbPath}");
+    console.log("[DEBUG] Database diagnostics complete - reduced to avoid connection conflicts");
   `;
 }

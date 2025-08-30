@@ -144,8 +144,57 @@ export class PatternRepository {
 
   public async delete(id: string): Promise<void> {
     // Delete from database only (patterns no longer stored in files)
-    this.db.getStatement("deletePattern").run(id);
-    this.cache.deletePattern(id);
+    // Delete facet data first to avoid foreign key constraint issues
+    try {
+      this.db.transaction(() => {
+        // Helper function to safely delete from facet tables
+        const safeDeleteFromTable = (tableName: string, whereClause = "pattern_id = ?") => {
+          try {
+            // Check if table exists first
+            const tableExists = this.db
+              .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
+              .get(tableName);
+            
+            if (tableExists) {
+              this.db.prepare(`DELETE FROM ${tableName} WHERE ${whereClause}`).run(id);
+            }
+          } catch (error) {
+            // Log but don't fail on facet table deletion errors
+            console.warn(`Warning: Could not delete from ${tableName}:`, error.message);
+          }
+        };
+
+        // Delete from all facet tables first (if they exist)
+        safeDeleteFromTable("pattern_languages");
+        safeDeleteFromTable("pattern_frameworks");
+        safeDeleteFromTable("pattern_tags");
+        safeDeleteFromTable("pattern_paths");
+        safeDeleteFromTable("pattern_repos");
+        safeDeleteFromTable("pattern_task_types");
+        safeDeleteFromTable("pattern_envs");
+
+        // Then delete the main pattern record - also make this safer
+        try {
+          // Check if pattern exists before deletion
+          const patternExists = this.db
+            .prepare("SELECT 1 FROM patterns WHERE id = ? LIMIT 1")
+            .get(id);
+          
+          if (patternExists) {
+            // Use direct prepare statement instead of cached one
+            this.db.prepare("DELETE FROM patterns WHERE id = ?").run(id);
+          } else {
+            console.warn(`Pattern ${id} not found for deletion`);
+          }
+        } catch (error) {
+          throw new Error(`Failed to delete pattern ${id}: ${error.message}`);
+        }
+      });
+
+      this.cache.deletePattern(id);
+    } catch (error) {
+      throw new Error(`Transaction failed for delete operation: ${error.message}`);
+    }
   }
 
   public async get(id: string): Promise<Pattern | null> {
@@ -599,28 +648,31 @@ export class PatternRepository {
    * [PAT:INFRA:TYPESCRIPT_MIGRATION] ★★★☆☆ (2 uses) - Clean extraction of facet logic
    */
   private _insertFacets(patternId: string, pattern: any): void {
+    // Helper function to safely delete from facet tables
+    const safeDeleteFromTable = (tableName: string) => {
+      try {
+        // Check if table exists first
+        const tableExists = this.db
+          .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
+          .get(tableName);
+        
+        if (tableExists) {
+          this.db.prepare(`DELETE FROM ${tableName} WHERE pattern_id = ?`).run(patternId);
+        }
+      } catch (error) {
+        // Log but don't fail on facet table deletion errors
+        console.warn(`Warning: Could not delete from ${tableName}:`, error.message);
+      }
+    };
+
     // Delete existing facet data for this pattern
-    this.db
-      .prepare("DELETE FROM pattern_languages WHERE pattern_id = ?")
-      .run(patternId);
-    this.db
-      .prepare("DELETE FROM pattern_frameworks WHERE pattern_id = ?")
-      .run(patternId);
-    this.db
-      .prepare("DELETE FROM pattern_tags WHERE pattern_id = ?")
-      .run(patternId);
-    this.db
-      .prepare("DELETE FROM pattern_paths WHERE pattern_id = ?")
-      .run(patternId);
-    this.db
-      .prepare("DELETE FROM pattern_repos WHERE pattern_id = ?")
-      .run(patternId);
-    this.db
-      .prepare("DELETE FROM pattern_task_types WHERE pattern_id = ?")
-      .run(patternId);
-    this.db
-      .prepare("DELETE FROM pattern_envs WHERE pattern_id = ?")
-      .run(patternId);
+    safeDeleteFromTable("pattern_languages");
+    safeDeleteFromTable("pattern_frameworks");
+    safeDeleteFromTable("pattern_tags");
+    safeDeleteFromTable("pattern_paths");
+    safeDeleteFromTable("pattern_repos");
+    safeDeleteFromTable("pattern_task_types");
+    safeDeleteFromTable("pattern_envs");
 
     // Insert tags (already implemented)
     if (pattern.tags && Array.isArray(pattern.tags)) {

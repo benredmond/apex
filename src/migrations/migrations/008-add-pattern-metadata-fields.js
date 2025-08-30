@@ -54,7 +54,7 @@ export const migration008 = {
     }
   },
 
-  down: (db) => {
+  down: (_db) => {
     // Note: SQLite doesn't support DROP COLUMN directly
     // Would need to recreate table without these columns
     console.log("⚠ Rollback not implemented - would require table recreation");

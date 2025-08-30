@@ -278,15 +278,13 @@ export const migration = {
       }
 
       // Test querying with JSON tags (using tags_csv since column not renamed yet)
-      const testQuery = db
-        .prepare(
-          `
+      db.prepare(
+        `
         SELECT id FROM patterns 
         WHERE tags_csv LIKE ? 
         LIMIT 1
       `,
-        )
-        .get("%\"test\"%");
+      ).get("%\"test\"%");
 
       console.log("Migration 011 validation passed");
       return true;

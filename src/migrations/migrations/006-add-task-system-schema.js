@@ -215,9 +215,7 @@ export const migration = {
          VALUES ('TEST_001', 'Test Task', 'test', 'active', 'ARCHITECT')`,
       ).run();
       // Query test
-      const result = db
-        .prepare("SELECT * FROM tasks WHERE id = ?")
-        .get("TEST_001");
+      db.prepare("SELECT * FROM tasks WHERE id = ?").get("TEST_001");
       // Clean up test data
       db.prepare("DELETE FROM tasks WHERE id = ?").run("TEST_001");
       const duration = Date.now() - testStart;
