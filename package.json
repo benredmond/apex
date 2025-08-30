@@ -19,10 +19,12 @@
   "type": "module",
   "main": "src/index.js",
   "bin": {
-    "apex": "./src/cli/apex.js"
+    "apex": "./bin/apex-wrapper.js"
   },
   "files": [
     "src/",
+    "bin/",
+    "binaries/",
     "templates/",
     "README.md",
     "LICENSE"
@@ -40,7 +42,10 @@
     "release:minor": "npm test && npm run lint && npm run type-check && npm version minor && npm publish",
     "release:major": "npm test && npm run lint && npm run type-check && npm version major && npm publish",
     "pack:test": "npm pack --dry-run",
-    "mcp:server": "node src/mcp/index.js"
+    "mcp:server": "node src/mcp/index.js",
+    "build:binary": "node scripts/build-binary.js",
+    "build:binary:all": "node scripts/build-binary.js --all",
+    "prebuild:binary": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.6.1",
@@ -85,5 +90,22 @@
   "bugs": {
     "url": "https://github.com/benredmond/apex/issues"
   },
-  "homepage": "https://github.com/benredmond/apex#readme"
+  "homepage": "https://github.com/benredmond/apex#readme",
+  "pkg": {
+    "assets": [
+      "dist/**/*",
+      "templates/**/*",
+      "node_modules/better-sqlite3/build/Release/better_sqlite3.node"
+    ],
+    "scripts": [
+      "dist/**/*.js"
+    ],
+    "targets": [
+      "node18-macos-x64",
+      "node18-macos-arm64", 
+      "node18-linux-x64",
+      "node18-win-x64"
+    ],
+    "outputPath": "binaries"
+  }
 }
