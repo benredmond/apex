@@ -25,14 +25,16 @@ async function buildPkgBinary(platform = process.platform, arch = process.arch) 
     console.log('🔗 Bundling CLI for pkg compatibility...');
     execSync('npm run bundle', { cwd: rootDir, stdio: 'inherit' });
 
-    // Step 3: Define target mapping (using node20 - supported by @yao-pkg/pkg)
+    // Step 3: Define target mapping
+    // Note: @yao-pkg/pkg v6.6.0 supports up to node22
+    // Using node22 for better compatibility with current Node versions
     const targets = {
-      'darwin-x64': 'node20-macos-x64',
-      'darwin-arm64': 'node20-macos-arm64',
-      'linux-x64': 'node20-linux-x64',
-      'linux-arm64': 'node20-linux-arm64',
-      'win32-x64': 'node20-win-x64',
-      'win32-arm64': 'node20-win-arm64'
+      'darwin-x64': 'node22-macos-x64',
+      'darwin-arm64': 'node22-macos-arm64',
+      'linux-x64': 'node22-linux-x64',
+      'linux-arm64': 'node22-linux-arm64',
+      'win32-x64': 'node22-win-x64',
+      'win32-arm64': 'node22-win-arm64'
     };
 
     const binaryNames = {
