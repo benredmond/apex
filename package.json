@@ -45,8 +45,8 @@
     "pack:test": "npm pack --dry-run",
     "mcp:server": "node src/mcp/index.js",
     "bundle": "node scripts/bundle-cli.js",
-    "build:binary": "node scripts/build-binary.js",
-    "build:binary:all": "node scripts/build-binary.js --all",
+    "build:sea": "node scripts/build-sea.js",
+    "build:binary": "node scripts/build-sea.js",
     "prebuild:binary": "npm run build"
   },
   "dependencies": {
@@ -76,8 +76,8 @@
     "@types/jest": "^29.5.14",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.10.5",
-    "@yao-pkg/pkg": "^6.6.0",
     "esbuild": "^0.19.0",
+    "postject": "^1.0.0-alpha.6",
     "eslint": "^8.56.0",
     "jest": "^29.7.0",
     "prettier": "^3.1.1",
@@ -95,22 +95,16 @@
     "url": "https://github.com/benredmond/apex/issues"
   },
   "homepage": "https://github.com/benredmond/apex#readme",
-  "pkg": {
-    "assets": [
-      "dist/**/*",
-      "templates/**/*",
-      "node_modules/better-sqlite3/build/Release/**/*"
-    ],
-    "scripts": [
-      "dist/**/*.js",
-      "dist/**/*.cjs"
-    ],
+  "sea": {
+    "main": "dist/apex-bundled.cjs",
+    "output": "binaries",
     "targets": [
-      "node22-macos-x64",
-      "node22-macos-arm64",
-      "node22-linux-x64",
-      "node22-win-x64"
+      "darwin-x64",
+      "darwin-arm64",
+      "linux-x64",
+      "win32-x64"
     ],
-    "outputPath": "binaries"
+    "useSnapshot": false,
+    "useCodeCache": true
   }
 }

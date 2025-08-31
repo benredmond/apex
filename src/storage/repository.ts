@@ -1,6 +1,7 @@
 // [BUILD:MODULE:ESM] ★★★☆☆ (3 uses) - ES module with .js extensions
 import path from "path";
 import type Database from "better-sqlite3";
+import type { DatabaseAdapter } from "./database-adapter.js";
 import { PatternDatabase } from "./database.js";
 import { PatternCache } from "./cache.js";
 import { PatternLoader } from "./loader.js";
@@ -114,7 +115,7 @@ export class PatternRepository {
    * @internal
    */
   public getDatabase(): Database.Database {
-    return this.db.database;
+    return this.db.database.getInstance();
   }
 
   // Core CRUD operations
@@ -148,19 +149,29 @@ export class PatternRepository {
     try {
       this.db.transaction(() => {
         // Helper function to safely delete from facet tables
-        const safeDeleteFromTable = (tableName: string, whereClause = "pattern_id = ?") => {
+        const safeDeleteFromTable = (
+          tableName: string,
+          whereClause = "pattern_id = ?",
+        ) => {
           try {
             // Check if table exists first
             const tableExists = this.db
-              .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
+              .prepare(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+              )
               .get(tableName);
-            
+
             if (tableExists) {
-              this.db.prepare(`DELETE FROM ${tableName} WHERE ${whereClause}`).run(id);
+              this.db
+                .prepare(`DELETE FROM ${tableName} WHERE ${whereClause}`)
+                .run(id);
             }
           } catch (error) {
             // Log but don't fail on facet table deletion errors
-            console.warn(`Warning: Could not delete from ${tableName}:`, error.message);
+            console.warn(
+              `Warning: Could not delete from ${tableName}:`,
+              error.message,
+            );
           }
         };
 
@@ -179,7 +190,7 @@ export class PatternRepository {
           const patternExists = this.db
             .prepare("SELECT 1 FROM patterns WHERE id = ? LIMIT 1")
             .get(id);
-          
+
           if (patternExists) {
             // Use direct prepare statement instead of cached one
             this.db.prepare("DELETE FROM patterns WHERE id = ?").run(id);
@@ -193,7 +204,9 @@ export class PatternRepository {
 
       this.cache.deletePattern(id);
     } catch (error) {
-      throw new Error(`Transaction failed for delete operation: ${error.message}`);
+      throw new Error(
+        `Transaction failed for delete operation: ${error.message}`,
+      );
     }
   }
 
@@ -226,7 +239,7 @@ export class PatternRepository {
 
     // Query for last_used_task from reflections
     try {
-      const lastUsedRow = this.db.database
+      const lastUsedRow = this.db.database.getInstance()
         .prepare(
           `
         SELECT task_id, MAX(created_at) as last_used
@@ -587,7 +600,7 @@ export class PatternRepository {
     );
 
     const loader = new MigrationLoader();
-    const runner = new MigrationRunner(this.db.database);
+    const runner = new MigrationRunner(this.db.database.getInstance());
 
     const migrations = await loader.loadMigrations();
     await runner.runMigrations(migrations);
@@ -653,15 +666,22 @@ export class PatternRepository {
       try {
         // Check if table exists first
         const tableExists = this.db
-          .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
+          .prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+          )
           .get(tableName);
-        
+
         if (tableExists) {
-          this.db.prepare(`DELETE FROM ${tableName} WHERE pattern_id = ?`).run(patternId);
+          this.db
+            .prepare(`DELETE FROM ${tableName} WHERE pattern_id = ?`)
+            .run(patternId);
         }
       } catch (error) {
         // Log but don't fail on facet table deletion errors
-        console.warn(`Warning: Could not delete from ${tableName}:`, error.message);
+        console.warn(
+          `Warning: Could not delete from ${tableName}:`,
+          error.message,
+        );
       }
     };
 

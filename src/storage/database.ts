@@ -1,5 +1,7 @@
 // [BUILD:MODULE:ESM] ★★★☆☆ (3 uses) - ES module with .js extensions
 import Database from "better-sqlite3";
+import type { DatabaseAdapter, Statement } from "./database-adapter.js";
+import { DatabaseAdapterFactory } from "./database-adapter.js";
 import { fileURLToPath } from "url";
 import path from "path";
 import fs from "fs-extra";
@@ -12,18 +14,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export class PatternDatabase {
-  private db: Database.Database;
-  private fallbackDb?: Database.Database;
-  private statements: Map<string, Database.Statement> = new Map();
-  private fallbackStatements: Map<string, Database.Statement> = new Map();
+  private db: DatabaseAdapter;
+  private fallbackDb?: DatabaseAdapter;
+  private statements: Map<string, Statement> = new Map();
+  private fallbackStatements: Map<string, Statement> = new Map();
 
   // Getter for database instance (needed for migrations)
-  get database(): Database.Database {
+  get database(): DatabaseAdapter {
     return this.db;
   }
 
   // Getter for fallback database instance
-  get fallbackDatabase(): Database.Database | undefined {
+  get fallbackDatabase(): DatabaseAdapter | undefined {
     return this.fallbackDb;
   }
 
@@ -69,8 +71,8 @@ export class PatternDatabase {
     // Ensure directory exists
     fs.ensureDirSync(path.dirname(fullPath));
 
-    // Open database - SQLite handles locking internally with busy_timeout
-    this.db = new Database(fullPath);
+    // Open database using adapter factory for SEA/npm compatibility
+    this.db = DatabaseAdapterFactory.create(fullPath);
 
     // Initialize fallback database if path provided
     if (options?.fallbackPath && options?.enableFallback !== false) {
@@ -81,7 +83,7 @@ export class PatternDatabase {
 
         // Only use fallback if it exists (don't create it)
         if (fs.existsSync(fallbackFullPath)) {
-          this.fallbackDb = new Database(fallbackFullPath, { readonly: true });
+          this.fallbackDb = DatabaseAdapterFactory.create(fallbackFullPath);
           this.initializeFallbackDb();
         }
       } catch (error) {
@@ -429,7 +431,7 @@ export class PatternDatabase {
     return transaction();
   }
 
-  public getStatement(name: string): Database.Statement {
+  public getStatement(name: string): Statement {
     const stmt = this.statements.get(name);
     if (!stmt) {
       throw new Error(`Statement ${name} not found`);
@@ -437,7 +439,7 @@ export class PatternDatabase {
     return stmt;
   }
 
-  public prepare(sql: string): Database.Statement {
+  public prepare(sql: string): Statement {
     return this.db.prepare(sql);
   }
 
