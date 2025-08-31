@@ -24,7 +24,6 @@
   "files": [
     "src/",
     "bin/",
-    "binaries/",
     "templates/",
     "README.md",
     "LICENSE"
@@ -37,6 +36,7 @@
     "type-check": "tsc --noEmit",
     "type-check:watch": "tsc --noEmit --watch",
     "build": "rm -rf dist && npm run type-check && tsc -p tsconfig.build.json",
+    "postinstall": "node -e \"try { require('better-sqlite3') } catch(e) { console.log('Note: better-sqlite3 will be rebuilt on first use') }\" || true",
     "prepublishOnly": "npm test && npm run lint && npm run type-check",
     "release:patch": "npm test && npm run lint && npm run type-check && npm version patch && npm publish",
     "release:minor": "npm test && npm run lint && npm run type-check && npm version minor && npm publish",
