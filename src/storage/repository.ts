@@ -27,15 +27,41 @@ export class PatternRepository {
   // Watcher removed - patterns now in database
   private isInitialized: boolean = false;
 
-  constructor(
+  /**
+   * Static factory method to create PatternRepository instances
+   * Required due to async PatternDatabase initialization
+   */
+  static async create(
     options: {
       dbPath?: string;
       fallbackPath?: string;
       cacheSize?: number;
       watchDebounce?: number;
       enableFallback?: boolean;
-    } = {},
-  ) {
+    } = {}
+  ): Promise<PatternRepository> {
+    const instance = new PatternRepository();
+    await instance._initializeDatabase(options);
+    return instance;
+  }
+
+  /**
+   * Private constructor - use PatternRepository.create() instead
+   */
+  private constructor() {}
+
+  /**
+   * Initialize the repository instance (called by factory method)
+   */
+  private async _initializeDatabase(
+    options: {
+      dbPath?: string;
+      fallbackPath?: string;
+      cacheSize?: number;
+      watchDebounce?: number;
+      enableFallback?: boolean;
+    } = {}
+  ): Promise<void> {
     // DEFENSIVE: If running as MCP server, require absolute path
     // MCP is started with: apex mcp serve
     const isMCP =
@@ -48,7 +74,7 @@ export class PatternRepository {
       );
     }
 
-    this.db = new PatternDatabase(options.dbPath, {
+    this.db = await PatternDatabase.create(options.dbPath, {
       fallbackPath: options.fallbackPath,
       enableFallback: options.enableFallback,
     });
@@ -78,7 +104,7 @@ export class PatternRepository {
     }
 
     // Create repository with project-specific configuration
-    return new PatternRepository({
+    return PatternRepository.create({
       dbPath: projectDbPath,
       fallbackPath: options.enableFallback !== false ? globalDbPath : undefined,
       cacheSize: options.cacheSize,

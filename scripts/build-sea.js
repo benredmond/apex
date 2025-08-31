@@ -33,7 +33,10 @@ async function buildSEA() {
       external: [
         // External modules that should not be bundled
         'better-sqlite3', // Will not be used in SEA mode
-        'node:sqlite'     // Built into Node.js runtime
+        'node:sqlite',    // Built into Node.js runtime
+        'fsevents',       // macOS file watching (optional)
+        'chokidar',       // File watching (optional)
+        '@parcel/watcher' // Another file watcher (optional)
       ],
       banner: {
         js: '// APEX SEA Bundle - Generated with esbuild'

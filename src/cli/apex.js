@@ -640,7 +640,7 @@ program
         "../../dist/storage/repositories/task-repository.js"
       );
 
-      const database = new PatternDatabase();
+      const database = await PatternDatabase.create();
       const repo = new TaskRepository(database.database);
 
       switch (action) {
@@ -1049,3 +1049,6 @@ program.parse(process.argv);
 if (!process.argv.slice(2).length) {
   program.outputHelp();
 }
+
+// Export program for SEA entry point
+export { program };

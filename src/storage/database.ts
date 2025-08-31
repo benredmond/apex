@@ -19,6 +19,22 @@ export class PatternDatabase {
   private statements: Map<string, Statement> = new Map();
   private fallbackStatements: Map<string, Statement> = new Map();
 
+  /**
+   * Static factory method to create PatternDatabase instances
+   * Required due to async DatabaseAdapterFactory
+   */
+  static async create(
+    dbPath: string = ApexConfig.DB_PATH,
+    options?: {
+      fallbackPath?: string;
+      enableFallback?: boolean;
+    }
+  ): Promise<PatternDatabase> {
+    const instance = new PatternDatabase();
+    await instance.initialize(dbPath, options);
+    return instance;
+  }
+
   // Getter for database instance (needed for migrations)
   get database(): DatabaseAdapter {
     return this.db;
@@ -34,13 +50,21 @@ export class PatternDatabase {
     return this.fallbackDb !== undefined;
   }
 
-  constructor(
+  /**
+   * Private constructor - use PatternDatabase.create() instead
+   */
+  private constructor() {}
+
+  /**
+   * Initialize the database instance (called by factory method)
+   */
+  private async initialize(
     dbPath: string = ApexConfig.DB_PATH,
     options?: {
       fallbackPath?: string;
       enableFallback?: boolean;
-    },
-  ) {
+    }
+  ): Promise<void> {
     // DEFENSIVE: Warn if using relative path (should always use absolute paths from ~/.apex)
     if (!path.isAbsolute(dbPath)) {
       // Check if we're in MCP context (which should always use absolute paths)
@@ -72,7 +96,7 @@ export class PatternDatabase {
     fs.ensureDirSync(path.dirname(fullPath));
 
     // Open database using adapter factory for SEA/npm compatibility
-    this.db = DatabaseAdapterFactory.create(fullPath);
+    this.db = await DatabaseAdapterFactory.create(fullPath);
 
     // Initialize fallback database if path provided
     if (options?.fallbackPath && options?.enableFallback !== false) {
@@ -83,7 +107,7 @@ export class PatternDatabase {
 
         // Only use fallback if it exists (don't create it)
         if (fs.existsSync(fallbackFullPath)) {
-          this.fallbackDb = DatabaseAdapterFactory.create(fallbackFullPath);
+          this.fallbackDb = await DatabaseAdapterFactory.create(fallbackFullPath);
           this.initializeFallbackDb();
         }
       } catch (error) {

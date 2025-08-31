@@ -61,22 +61,22 @@ export interface DatabaseAdapter {
  * Factory for creating database adapters based on runtime environment
  */
 export class DatabaseAdapterFactory {
-  static create(dbPath: string): DatabaseAdapter {
+  static async create(dbPath: string): Promise<DatabaseAdapter> {
     // Runtime detection: SEA binaries use node:sqlite, npm uses better-sqlite3
     if (process.env.APEX_BINARY_MODE === 'true' || this.isSEAEnvironment()) {
       // For SEA binaries, use built-in node:sqlite to avoid native module issues
       try {
-        const { NodeSqliteAdapter } = require('./adapters/node-sqlite-impl.js');
+        const { NodeSqliteAdapter } = await import('./adapters/node-sqlite-impl.js');
         return new NodeSqliteAdapter(dbPath);
       } catch (error) {
         console.warn('Failed to load node:sqlite adapter, falling back to better-sqlite3:', error.message);
         // Fallback to better-sqlite3 if node:sqlite fails
-        const { BetterSqliteAdapter } = require('./adapters/better-sqlite-impl.js');
+        const { BetterSqliteAdapter } = await import('./adapters/better-sqlite-impl.js');
         return new BetterSqliteAdapter(dbPath);
       }
     } else {
       // For npm installations, use better-sqlite3 for optimal performance
-      const { BetterSqliteAdapter } = require('./adapters/better-sqlite-impl.js');
+      const { BetterSqliteAdapter } = await import('./adapters/better-sqlite-impl.js');
       return new BetterSqliteAdapter(dbPath);
     }
   }
