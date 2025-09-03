@@ -372,12 +372,16 @@ npx @benredmond/apex start
 - [x] Solution design
 - [x] Systems review by subagent
 - [x] Implementation plan
+- [x] Install sql.js (Phase 1 - DONE)
+- [x] Update package.json (Phase 1 - DONE)
+- [x] Move better-sqlite3 to optionalDependencies (Phase 1 - DONE)
+- [x] Fix static imports in better-sqlite-impl.ts (Phase 1 - DONE)
+- [x] Implement async factory pattern for BetterSqliteAdapter (Phase 1 - DONE)
 
 ### In Progress 🚧
-- [ ] Install sql.js
-- [ ] Create WasmSqliteAdapter
-- [ ] Update DatabaseAdapterFactory
-- [ ] Update package.json
+- [ ] Create WasmSqliteAdapter (Phase 2 - NEXT)
+- [ ] Update DatabaseAdapterFactory for 3-tier system (Phase 2)
+- [ ] Fix remaining static imports in other files (Phase 3)
 
 ### Pending ⏳
 - [ ] Cross-version testing
@@ -385,21 +389,57 @@ npx @benredmond/apex start
 - [ ] Documentation updates
 - [ ] Release preparation
 
+## ⚠️ CRITICAL LEARNINGS FROM PHASE 1
+
+### Discovery: Static Imports Break Optional Dependencies
+**Issue Found**: Making better-sqlite3 optional in package.json is NOT sufficient. Static imports like `import Database from "better-sqlite3"` will crash at runtime even when the dependency is marked as optional.
+
+**Solution Applied**:
+1. Convert all static imports to dynamic imports with try/catch
+2. Use async factory pattern for adapters
+3. Handle import errors gracefully with clear messaging
+
+**Files That Still Need Fixing** (found via grep):
+- `/src/storage/database.ts` - ✅ FIXED
+- `/src/storage/adapters/better-sqlite-impl.ts` - ✅ FIXED  
+- `/src/reflection/storage.ts` - ⚠️ NEEDS FIX
+- `/src/reflection/pattern-inserter.ts` - ⚠️ NEEDS FIX
+- `/src/extractors/book-extractor.ts` - ⚠️ NEEDS FIX
+- `/src/migrations/auto-migrator.ts` - ⚠️ NEEDS FIX
+- `/src/migrations/MigrationRunner.ts` - ⚠️ NEEDS FIX
+- Multiple migration files - ⚠️ NEEDS FIX
+- Multiple test files - ⚠️ NEEDS FIX
+
+**Pattern to Apply**:
+```typescript
+// OLD - WILL CRASH
+import Database from "better-sqlite3";
+
+// NEW - HANDLES MISSING OPTIONAL
+let Database: any;
+try {
+  Database = (await import("better-sqlite3")).default;
+} catch (error) {
+  // Handle missing optional dependency
+  throw new Error("better-sqlite3 not available, use fallback");
+}
+```
+
 ## Implementation Tickets
 
 ### 🎫 Ticket #1: Update Package Dependencies
 **Priority**: P0 - Critical
 **Estimated Time**: 30 minutes
-**Status**: ⏳ Pending
+**Status**: ✅ COMPLETED (2025-09-03)
 
 #### Description
 Update package.json to make better-sqlite3 optional and add sql.js as a required dependency.
 
 #### Acceptance Criteria
-- [ ] better-sqlite3 moved to optionalDependencies
-- [ ] sql.js added to dependencies
-- [ ] Package installs without errors on Node 14+
-- [ ] Package installs without compilation tools
+- [x] better-sqlite3 moved to optionalDependencies
+- [x] sql.js added to dependencies
+- [x] Package installs without errors on Node 14+
+- [x] Package installs without compilation tools
 
 #### Implementation Steps
 1. Edit package.json:
@@ -429,8 +469,8 @@ nvm use 22 && npm install
 ### 🎫 Ticket #2: Create WasmSqliteAdapter
 **Priority**: P0 - Critical
 **Estimated Time**: 4 hours
-**Status**: ⏳ Pending
-**Dependencies**: Ticket #1
+**Status**: 🚧 IN PROGRESS - NEXT UP
+**Dependencies**: Ticket #1 ✅ COMPLETED
 
 #### Description
 Implement a new DatabaseAdapter using sql.js (WebAssembly SQLite) that matches the existing adapter interface.
@@ -908,31 +948,36 @@ Prepare for v1.0.0 release with universal compatibility.
 
 | Priority | Count | Status |
 |----------|-------|--------|
-| P0 - Critical | 4 | ⏳ Pending |
+| P0 - Critical | 4 | 1 ✅ Completed, 3 ⏳ Pending |
 | P1 - High | 4 | ⏳ Pending |
 | P2 - Medium | 2 | ⏳ Pending |
 | P3 - Low | 2 | ⏳ Pending |
-| **Total** | **12** | **All Pending** |
+| **Total** | **12** | **1 Completed, 11 Pending** |
 
 ## Implementation Order
 
 1. **Phase 1 - Core Implementation** (P0 tickets)
-   - Ticket #1: Update Package Dependencies
-   - Ticket #2: Create WasmSqliteAdapter
-   - Ticket #3: Create Factory Method
-   - Ticket #4: Update DatabaseAdapterFactory
+   - Ticket #1: Update Package Dependencies ✅ COMPLETED
+   - Ticket #2: Create WasmSqliteAdapter 🚧 IN PROGRESS
+   - Ticket #3: Create Factory Method ⏳ Pending
+   - Ticket #4: Update DatabaseAdapterFactory ⏳ Pending
 
-2. **Phase 2 - Testing & Validation** (P1 tickets)
-   - Ticket #5: Adapter Compatibility Tests
-   - Ticket #6: Remove Binaries from NPM
-   - Ticket #7: Cross-Node Version Testing
-   - Ticket #12: Release Preparation
+2. **Phase 1.5 - Fix Static Imports** (NEW - CRITICAL)
+   - Fix remaining static imports in all files ⚠️ REQUIRED
+   - Convert to dynamic imports with error handling
+   - Test without better-sqlite3 to verify
 
-3. **Phase 3 - Polish & Documentation** (P2-P3 tickets)
-   - Ticket #8: Performance Benchmarking
-   - Ticket #9: Update Documentation
-   - Ticket #10: Add Telemetry
-   - Ticket #11: Create Migration Tool
+3. **Phase 2 - Testing & Validation** (P1 tickets)
+   - Ticket #5: Adapter Compatibility Tests ⏳ Pending
+   - Ticket #6: Remove Binaries from NPM ⏳ Pending
+   - Ticket #7: Cross-Node Version Testing ⏳ Pending
+   - Ticket #12: Release Preparation ⏳ Pending
+
+4. **Phase 3 - Polish & Documentation** (P2-P3 tickets)
+   - Ticket #8: Performance Benchmarking ⏳ Pending
+   - Ticket #9: Update Documentation ⏳ Pending
+   - Ticket #10: Add Telemetry ⏳ Pending
+   - Ticket #11: Create Migration Tool ⏳ Pending
 
 ## Notes
 
