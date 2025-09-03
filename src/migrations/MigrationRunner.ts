@@ -12,11 +12,44 @@ export class MigrationRunner {
   constructor(dbOrAdapter: any) {
     // [PAT:ADAPTER:DELEGATION] ★★★★☆ (12 uses, 92% success) - Support both patterns
     // Accept either a DatabaseAdapter or raw Database.Database for compatibility
-    if (dbOrAdapter.getInstance && typeof dbOrAdapter.getInstance === 'function') {
+    if (
+      dbOrAdapter.getInstance &&
+      typeof dbOrAdapter.getInstance === "function"
+    ) {
       // It's a DatabaseAdapter, get the underlying instance
-      this.db = dbOrAdapter.getInstance();
+      const rawDb = dbOrAdapter.getInstance();
+      
+      // [PAT:TRANSACTION:MANUAL] ★★★★☆ (8 uses, 85% success) - Compatibility wrapper
+      // Check if raw db lacks transaction() method (e.g., node:sqlite's DatabaseSync)
+      if (!rawDb.transaction || typeof rawDb.transaction !== "function") {
+        // Create compatibility wrapper that properly delegates all methods
+        // Note: Spread operator doesn't work with DatabaseSync, need explicit delegation
+        const wrapper = Object.create(rawDb);
+        wrapper.transaction = (fn: () => any) => {
+          // Delegate to adapter's transaction implementation
+          return dbOrAdapter.transaction(fn);
+        };
+        
+        // Ensure all methods are accessible
+        for (const prop in rawDb) {
+          if (!(prop in wrapper) && typeof rawDb[prop] === 'function') {
+            wrapper[prop] = rawDb[prop].bind(rawDb);
+          }
+        }
+        
+        // Special handling for methods that might not enumerate
+        if (rawDb.prepare) wrapper.prepare = rawDb.prepare.bind(rawDb);
+        if (rawDb.exec) wrapper.exec = rawDb.exec.bind(rawDb);
+        if (rawDb.pragma) wrapper.pragma = rawDb.pragma.bind(rawDb);
+        
+        this.db = wrapper;
+        console.log("Applied transaction compatibility wrapper for node:sqlite");
+      } else {
+        // Raw db already has transaction() method (e.g., better-sqlite3)
+        this.db = rawDb;
+      }
     } else {
-      // It's already a Database.Database instance
+      // It's already a Database.Database instance with transaction()
       this.db = dbOrAdapter;
     }
     this.initializeMigrationTable();
@@ -109,18 +142,38 @@ export class MigrationRunner {
       return;
     }
 
-    // Run migrations in order
-    for (const migration of toRun) {
-      await this.runSingleMigration(migration);
+    // Run migrations in order, wrapped in a transaction for savepoint support
+    // This ensures SAVEPOINTs work correctly for all adapters
+    const runAllMigrations = () => {
+      for (const migration of toRun) {
+        this.runSingleMigrationSync(migration);
+      }
+    };
+    
+    // Check if db has transaction method (from wrapper or native)
+    if (this.db.transaction && typeof this.db.transaction === 'function') {
+      // Use transaction wrapper for automatic BEGIN/COMMIT/ROLLBACK
+      const transactionFn = this.db.transaction(runAllMigrations);
+      transactionFn();
+    } else {
+      // Manual transaction management as fallback
+      this.db.exec('BEGIN');
+      try {
+        runAllMigrations();
+        this.db.exec('COMMIT');
+      } catch (error) {
+        this.db.exec('ROLLBACK');
+        throw error;
+      }
     }
 
     console.log(`✓ Applied ${toRun.length} migrations successfully`);
   }
 
   /**
-   * Run a single migration with savepoint protection
+   * Run a single migration synchronously (for use within transactions)
    */
-  private async runSingleMigration(migration: Migration): Promise<void> {
+  private runSingleMigrationSync(migration: Migration): void {
     const startTime = Date.now();
     const savepointName = `migration_${migration.version}`;
 
@@ -164,6 +217,14 @@ export class MigrationRunner {
       console.error(`✗ Migration ${migration.id} failed:`, error);
       throw error;
     }
+  }
+  
+  /**
+   * Run a single migration with savepoint protection (async wrapper for compatibility)
+   */
+  private async runSingleMigration(migration: Migration): Promise<void> {
+    // Simply delegate to sync version - migrations are synchronous anyway
+    return this.runSingleMigrationSync(migration);
   }
 
   /**
