@@ -1,5 +1,4 @@
 // [BUILD:MODULE:ESM] ★★★☆☆ (3 uses) - ES module with .js extensions
-import Database from "better-sqlite3";
 import type { DatabaseAdapter, Statement } from "./database-adapter.js";
 import { DatabaseAdapterFactory } from "./database-adapter.js";
 import { fileURLToPath } from "url";

@@ -1,7 +1,6 @@
 // better-sqlite3 Database Adapter Implementation
 // Wraps better-sqlite3 to conform to DatabaseAdapter interface
 
-import Database from "better-sqlite3";
 import type {
   DatabaseAdapter,
   Statement,
@@ -13,7 +12,7 @@ import type {
  * Statement wrapper for better-sqlite3
  */
 class BetterSqliteStatement implements Statement {
-  constructor(private stmt: Database.Statement) {}
+  constructor(private stmt: any) {}
 
   run(...params: any[]): StatementResult {
     const result = this.stmt.run(...params);
@@ -37,10 +36,34 @@ class BetterSqliteStatement implements Statement {
  * Maintains optimal performance characteristics for npm installations
  */
 export class BetterSqliteAdapter implements DatabaseAdapter {
-  private db: Database.Database;
+  private static Database: any = null;
+  private db: any;
 
-  constructor(dbPath: string) {
-    this.db = new Database(dbPath);
+  /**
+   * Create a new BetterSqliteAdapter instance
+   * Uses dynamic import to handle optional dependency
+   */
+  static async create(dbPath: string): Promise<BetterSqliteAdapter> {
+    // Load better-sqlite3 dynamically if not already loaded
+    if (!BetterSqliteAdapter.Database) {
+      try {
+        const module = await import("better-sqlite3");
+        BetterSqliteAdapter.Database = module.default || module;
+      } catch (error) {
+        throw new Error(
+          "better-sqlite3 is not available. It may have failed to compile. " +
+          "The system should fall back to an alternative SQLite implementation."
+        );
+      }
+    }
+    
+    const adapter = new BetterSqliteAdapter();
+    adapter.db = new BetterSqliteAdapter.Database(dbPath);
+    return adapter;
+  }
+
+  private constructor() {
+    // Private constructor to force use of create() method
   }
 
   prepare(sql: string): Statement {
@@ -69,7 +92,7 @@ export class BetterSqliteAdapter implements DatabaseAdapter {
     return false;
   }
 
-  getInstance(): Database.Database {
+  getInstance(): any {
     return this.db;
   }
 
@@ -77,7 +100,7 @@ export class BetterSqliteAdapter implements DatabaseAdapter {
    * Direct access to better-sqlite3 instance for advanced operations
    * Used by PatternDatabase for migration and compatibility
    */
-  get instance(): Database.Database {
+  get instance(): any {
     return this.db;
   }
 }

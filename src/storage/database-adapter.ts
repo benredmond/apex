@@ -72,12 +72,12 @@ export class DatabaseAdapterFactory {
         console.warn('Failed to load node:sqlite adapter, falling back to better-sqlite3:', error.message);
         // Fallback to better-sqlite3 if node:sqlite fails
         const { BetterSqliteAdapter } = await import('./adapters/better-sqlite-impl.js');
-        return new BetterSqliteAdapter(dbPath);
+        return await BetterSqliteAdapter.create(dbPath);
       }
     } else {
       // For npm installations, use better-sqlite3 for optimal performance
       const { BetterSqliteAdapter } = await import('./adapters/better-sqlite-impl.js');
-      return new BetterSqliteAdapter(dbPath);
+      return await BetterSqliteAdapter.create(dbPath);
     }
   }
 
