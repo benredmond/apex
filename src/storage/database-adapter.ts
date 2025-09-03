@@ -62,22 +62,78 @@ export interface DatabaseAdapter {
  */
 export class DatabaseAdapterFactory {
   static async create(dbPath: string): Promise<DatabaseAdapter> {
-    // Runtime detection: SEA binaries use node:sqlite, npm uses better-sqlite3
-    if (process.env.APEX_BINARY_MODE === 'true' || this.isSEAEnvironment()) {
-      // For SEA binaries, use built-in node:sqlite to avoid native module issues
+    const errors: string[] = [];
+    const startTime = Date.now();
+
+    // Log selection process if debugging
+    if (process.env.APEX_DEBUG) {
+      console.log("Selecting database adapter...");
+    }
+
+    // Tier 1: Try node:sqlite for Node.js 22+ (built-in, no compilation)
+    if (this.hasNodeSqlite()) {
       try {
-        const { NodeSqliteAdapter } = await import('./adapters/node-sqlite-impl.js');
+        const { NodeSqliteAdapter } = await import(
+          "./adapters/node-sqlite-impl.js"
+        );
+        console.log(
+          `Using node:sqlite (built-in, ${Date.now() - startTime}ms)`,
+        );
         return new NodeSqliteAdapter(dbPath);
       } catch (error) {
-        console.warn('Failed to load node:sqlite adapter, falling back to better-sqlite3:', error.message);
-        // Fallback to better-sqlite3 if node:sqlite fails
-        const { BetterSqliteAdapter } = await import('./adapters/better-sqlite-impl.js');
-        return await BetterSqliteAdapter.create(dbPath);
+        errors.push(`node:sqlite: ${error.message}`);
       }
-    } else {
-      // For npm installations, use better-sqlite3 for optimal performance
-      const { BetterSqliteAdapter } = await import('./adapters/better-sqlite-impl.js');
-      return await BetterSqliteAdapter.create(dbPath);
+    }
+
+    // Tier 2: Try better-sqlite3 if available (native module, best performance)
+    if (await this.hasBetterSqlite()) {
+      try {
+        const { BetterSqliteAdapter } = await import(
+          "./adapters/better-sqlite-impl.js"
+        );
+        console.log(
+          `Using better-sqlite3 (native, ${Date.now() - startTime}ms)`,
+        );
+        return await BetterSqliteAdapter.create(dbPath);
+      } catch (error) {
+        errors.push(`better-sqlite3: ${error.message}`);
+      }
+    }
+
+    // Tier 3: Universal WASM fallback (always works, slower performance)
+    try {
+      const { WasmSqliteAdapter } = await import(
+        "./adapters/wasm-sqlite-impl.js"
+      );
+      console.log(
+        `Using sql.js (WebAssembly) - universal compatibility mode (${Date.now() - startTime}ms)`,
+      );
+      return await WasmSqliteAdapter.create(dbPath);
+    } catch (error) {
+      // If all adapters fail, throw detailed error
+      throw new Error(
+        `All database adapters failed:\n${errors.join("\n")}\nWASM: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Check if node:sqlite is available (Node.js 22+)
+   */
+  private static hasNodeSqlite(): boolean {
+    const majorVersion = parseInt(process.versions.node.split(".")[0]);
+    return majorVersion >= 22;
+  }
+
+  /**
+   * Check if better-sqlite3 is available
+   */
+  private static async hasBetterSqlite(): Promise<boolean> {
+    try {
+      await import("better-sqlite3");
+      return true;
+    } catch {
+      return false;
     }
   }
 
