@@ -70,6 +70,54 @@ export class DatabaseAdapterFactory {
       console.log("Selecting database adapter...");
     }
 
+    // Environment variable override (for debugging/testing)
+    const forceAdapter = process.env.APEX_FORCE_ADAPTER;
+    if (forceAdapter) {
+      const validAdapters = ["node-sqlite", "better-sqlite3", "wasm"];
+      if (!validAdapters.includes(forceAdapter)) {
+        console.warn(
+          `Invalid APEX_FORCE_ADAPTER value: "${forceAdapter}". Valid options: ${validAdapters.join(", ")}`,
+        );
+        console.warn("Falling back to auto-detection...");
+      } else {
+        console.log(
+          `APEX_FORCE_ADAPTER override: Using ${forceAdapter} adapter`,
+        );
+        try {
+          switch (forceAdapter) {
+            case "node-sqlite":
+              const { NodeSqliteAdapter } = await import(
+                "./adapters/node-sqlite-impl.js"
+              );
+              console.log(
+                `Using node:sqlite (forced, ${Date.now() - startTime}ms)`,
+              );
+              return new NodeSqliteAdapter(dbPath);
+            case "better-sqlite3":
+              const { BetterSqliteAdapter } = await import(
+                "./adapters/better-sqlite-impl.js"
+              );
+              console.log(
+                `Using better-sqlite3 (forced, ${Date.now() - startTime}ms)`,
+              );
+              return await BetterSqliteAdapter.create(dbPath);
+            case "wasm":
+              const { WasmSqliteAdapter } = await import(
+                "./adapters/wasm-sqlite-impl.js"
+              );
+              console.log(`Using sql.js (forced, ${Date.now() - startTime}ms)`);
+              return await WasmSqliteAdapter.create(dbPath);
+          }
+        } catch (error) {
+          console.error(
+            `Failed to load forced adapter ${forceAdapter}: ${error.message}`,
+          );
+          console.log("Falling back to auto-detection...");
+          errors.push(`Forced ${forceAdapter}: ${error.message}`);
+        }
+      }
+    }
+
     // Tier 1: Try node:sqlite for Node.js 22+ (built-in, no compilation)
     if (this.hasNodeSqlite()) {
       try {
@@ -110,9 +158,13 @@ export class DatabaseAdapterFactory {
       );
       return await WasmSqliteAdapter.create(dbPath);
     } catch (error) {
-      // If all adapters fail, throw detailed error
+      // If all adapters fail, throw detailed error with debugging info
+      const nodeVersion = process.version;
+      const debugHint = !forceAdapter
+        ? "\nHint: You can force a specific adapter with APEX_FORCE_ADAPTER=wasm|better-sqlite3|node-sqlite"
+        : "";
       throw new Error(
-        `All database adapters failed:\n${errors.join("\n")}\nWASM: ${error.message}`,
+        `All database adapters failed (Node ${nodeVersion}):\n${errors.join("\n")}\nWASM: ${error.message}${debugHint}`,
       );
     }
   }
