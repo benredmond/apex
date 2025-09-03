@@ -65,3 +65,13 @@ tsconfig.tsbuildinfo
 # Log files
 *.jsonl
 failures.jsonl
+
+# Binary build artifacts
+*.blob
+*-binary
+test-sea-*
+test-sqlite-*
+simple-*
+!simple.js  # Allow legitimate simple.js source files
+sea-*.blob
+sea-prep.blob
