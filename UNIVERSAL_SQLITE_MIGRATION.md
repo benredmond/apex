@@ -377,11 +377,11 @@ npx @benredmond/apex start
 - [x] Move better-sqlite3 to optionalDependencies (Phase 1 - DONE)
 - [x] Fix static imports in better-sqlite-impl.ts (Phase 1 - DONE)
 - [x] Implement async factory pattern for BetterSqliteAdapter (Phase 1 - DONE)
+- [x] Create WasmSqliteAdapter (Phase 2 - DONE - 2025-09-03)
+- [x] Update DatabaseAdapterFactory for 3-tier system (Phase 2 - DONE - 2025-09-03)
 
 ### In Progress 🚧
-- [ ] Create WasmSqliteAdapter (Phase 2 - NEXT)
-- [ ] Update DatabaseAdapterFactory for 3-tier system (Phase 2)
-- [ ] Fix remaining static imports in other files (Phase 3)
+- [ ] Fix remaining static imports in other files (Ticket #2.5 - URGENT BLOCKING)
 
 ### Pending ⏳
 - [ ] Cross-version testing
@@ -469,7 +469,7 @@ nvm use 22 && npm install
 ### 🎫 Ticket #2: Create WasmSqliteAdapter
 **Priority**: P0 - Critical
 **Estimated Time**: 4 hours
-**Status**: 🚧 IN PROGRESS - NEXT UP
+**Status**: ✅ COMPLETED (2025-09-03)
 **Dependencies**: Ticket #1 ✅ COMPLETED
 
 #### Description
@@ -554,10 +554,72 @@ describe('WasmSqliteAdapter', () => {
 
 ---
 
+### 🎫 Ticket #2.5: Fix Static Imports of better-sqlite3
+**Priority**: P0 - Critical  
+**Estimated Time**: 3 hours
+**Status**: 🚧 URGENT - BLOCKING
+**Dependencies**: Ticket #2 ✅ COMPLETED
+
+#### Description
+Convert all static imports of better-sqlite3 to dynamic imports to enable optional dependency functionality. Currently 28 files directly import better-sqlite3, preventing the fallback system from working when better-sqlite3 is unavailable.
+
+#### Acceptance Criteria
+- [ ] All static imports converted to dynamic imports
+- [ ] Error handling for missing optional dependency
+- [ ] Tests pass without better-sqlite3 installed
+- [ ] No TypeScript errors from import changes
+
+#### Files Requiring Updates (28 total)
+```
+Core Files (Priority 1):
+- src/reflection/storage.ts
+- src/reflection/pattern-inserter.ts
+- src/extractors/book-extractor.ts
+- src/storage/repository.ts
+- src/storage/repositories/task-repository.ts
+- src/migrations/MigrationRunner.ts
+- src/migrations/auto-migrator.ts
+- src/cli/commands/migrate.ts
+
+MCP Tools (Priority 2):
+- src/mcp/tools/reflect.ts
+- src/mcp/tools/task.ts
+- src/mcp/tools/explain.ts
+- src/mcp/tools/index.ts
+
+Intelligence Layer (Priority 3):
+- src/intelligence/context-pack-service.ts
+- src/intelligence/brief-generator.ts
+- src/intelligence/task-search.ts
+
+Migration Files (Priority 4):
+- src/migrations/MigrationLoader.ts
+- src/migrations/MigrationValidator.ts
+- src/migrations/types.ts
+- src/migrations/*.ts (10 migration files)
+```
+
+#### Implementation Pattern
+```typescript
+// OLD - BREAKS WITH OPTIONAL
+import Database from "better-sqlite3";
+
+// NEW - HANDLES OPTIONAL
+let Database: any;
+try {
+  Database = (await import("better-sqlite3")).default;
+} catch (error) {
+  // Use adapter pattern instead
+  throw new Error("better-sqlite3 not available, use DatabaseAdapterFactory");
+}
+```
+
+---
+
 ### 🎫 Ticket #3: Create WasmSqliteAdapter Factory Method
 **Priority**: P0 - Critical  
 **Estimated Time**: 1 hour
-**Status**: ⏳ Pending
+**Status**: ✅ COMPLETED (part of Ticket #2)
 **Dependencies**: Ticket #2
 
 #### Description
