@@ -138,8 +138,10 @@ export function generateDatabaseInit(dbPath: string): string {
     }
     
     // Create missing facet tables that are needed for repository operations
-    const DatabaseClass = (await import("${getImportPath('node_modules/better-sqlite3/lib/index.js')}")).default;
-    const fixDb = new DatabaseClass("${dbPath}");
+    // [PAT:ADAPTER:DELEGATION] ★★★★☆ - Use DatabaseAdapterFactory for compatibility
+    const { DatabaseAdapterFactory } = await import("${getImportPath('dist/storage/database-adapter.js')}");
+    const adapter = await DatabaseAdapterFactory.create("${dbPath}");
+    const fixDb = adapter.getInstance();
     
     console.log("[DEBUG] Creating missing facet tables");
     
@@ -192,7 +194,7 @@ export function generateDatabaseInit(dbPath: string): string {
       }
     }
     
-    fixDb.close();
+    adapter.close();
     console.log("[DEBUG] Facet tables creation completed");
 
     // Minimal debug logging for database state

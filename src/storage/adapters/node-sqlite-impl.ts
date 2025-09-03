@@ -71,8 +71,19 @@ export class NodeSqliteAdapter implements DatabaseAdapter {
     // node:sqlite handles pragmas as regular SQL
     const stmt = this.db.prepare(`PRAGMA ${pragmaString}`);
     try {
-      const result = stmt.get();
-      return result;
+      // [FIX:API:COMPATIBILITY] ★★★★★ - Handle table_info and similar pragmas that return multiple rows
+      if (pragmaString.includes('table_info') || 
+          pragmaString.includes('table_list') ||
+          pragmaString.includes('foreign_key_list') ||
+          pragmaString.includes('index_list') ||
+          pragmaString.includes('index_info')) {
+        // These pragmas return arrays of rows, like better-sqlite3
+        return stmt.all();
+      } else {
+        // Single-value pragmas (like user_version, journal_mode)
+        const result = stmt.get();
+        return result;
+      }
     } catch (error) {
       // Some pragmas don't return results, just execute them
       stmt.run();

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import Database from 'better-sqlite3';
+// [PAT:ESM:DYNAMIC_IMPORT] ★★★★★ - Dynamic import for optional dependencies
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs';
@@ -23,7 +23,18 @@ if (!fs.existsSync(fullPath)) {
   process.exit(1);
 }
 
-const db = new Database(dbPath);
+// [PAT:ADAPTER:DELEGATION] ★★★★☆ - Use DatabaseAdapterFactory for compatibility
+let adapter, db;
+try {
+  const { DatabaseAdapterFactory } = await import('../dist/storage/database-adapter.js');
+  adapter = await DatabaseAdapterFactory.create(dbPath);
+  db = adapter.getInstance();
+} catch (error) {
+  console.error('\n❌ Failed to initialize database adapter:');
+  console.error('Make sure to run: npm run build');
+  console.error('Error:', error.message);
+  process.exit(1);
+}
 
 // Check patterns
 const patternCount = db.prepare('SELECT COUNT(*) as count FROM patterns WHERE invalid = 0').get();
@@ -77,7 +88,7 @@ for (const test of testQueries) {
   console.log(`  ${test.desc}: ${count.count} patterns`);
 }
 
-db.close();
+adapter.close();
 
 console.log('\n\n✅ Patterns are ready for MCP lookup!');
 console.log('\nTo use with MCP:');
