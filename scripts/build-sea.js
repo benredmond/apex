@@ -28,7 +28,7 @@ async function buildSEA() {
       bundle: true,
       platform: 'node',
       format: 'cjs',
-      target: 'node20', // Match Node.js runtime
+      target: 'node22', // Target newer Node version for broader compatibility
       outfile: path.join(rootDir, 'dist/apex-bundled.cjs'),
       external: [
         // External modules that should not be bundled
@@ -40,6 +40,10 @@ async function buildSEA() {
       ],
       banner: {
         js: '// APEX SEA Bundle - Generated with esbuild'
+      },
+      inject: [path.join(__dirname, 'import-meta-shim.js')],
+      define: {
+        'import.meta.url': 'importMetaUrl'
       },
       minify: true,
       sourcemap: false,

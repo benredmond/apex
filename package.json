@@ -46,7 +46,8 @@
     "mcp:server": "node src/mcp/index.js",
     "bundle": "node scripts/bundle-cli.js",
     "build:sea": "node scripts/build-sea.js",
-    "build:binary": "node scripts/build-sea.js",
+    "build:pkg": "node scripts/build-pkg.js",
+    "build:binary": "node scripts/build-pkg.js",
     "prebuild:binary": "npm run build"
   },
   "dependencies": {
@@ -76,10 +77,11 @@
     "@types/jest": "^29.5.14",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.10.5",
+    "@yao-pkg/pkg": "^6.6.0",
     "esbuild": "^0.19.0",
-    "postject": "^1.0.0-alpha.6",
     "eslint": "^8.56.0",
     "jest": "^29.7.0",
+    "postject": "^1.0.0-alpha.6",
     "prettier": "^3.1.1",
     "ts-jest": "^29.4.1",
     "typescript": "^5.3.3"
