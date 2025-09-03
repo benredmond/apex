@@ -3,14 +3,19 @@ import type Database from "better-sqlite3";
 import { mkdtemp, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-import BetterSqlite3 from "better-sqlite3";
+import { DatabaseAdapterFactory, type DatabaseAdapter } from "../storage/database-adapter.js";
 import type { Migration } from "./types.js";
 
 export class MigrationValidator {
-  private sourceDb: Database.Database;
+  private sourceDb: any; // Can be Database.Database or getInstance() result
 
-  constructor(db: Database.Database) {
-    this.sourceDb = db;
+  constructor(dbOrAdapter: any) {
+    // Accept either a DatabaseAdapter or raw Database.Database for compatibility
+    if (dbOrAdapter.getInstance && typeof dbOrAdapter.getInstance === 'function') {
+      this.sourceDb = dbOrAdapter.getInstance();
+    } else {
+      this.sourceDb = dbOrAdapter;
+    }
   }
 
   /**
@@ -25,7 +30,8 @@ export class MigrationValidator {
       console.log("Creating test database for validation...");
 
       // Create test database with same schema
-      testDb = new BetterSqlite3(testDbPath);
+      const testAdapter = await DatabaseAdapterFactory.create(testDbPath);
+      testDb = testAdapter.getInstance();
       await this.copySchema(this.sourceDb, testDb);
 
       // Test each migration's up and down functions
@@ -233,7 +239,8 @@ export class MigrationValidator {
     let testDb: Database.Database | null = null;
 
     try {
-      testDb = new BetterSqlite3(testDbPath);
+      const testAdapter = await DatabaseAdapterFactory.create(testDbPath);
+      testDb = testAdapter.getInstance();
       await this.copySchema(this.sourceDb, testDb);
 
       // Apply all migrations in order

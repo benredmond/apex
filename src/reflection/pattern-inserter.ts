@@ -5,7 +5,6 @@
 
 import * as crypto from "crypto";
 import { nanoid } from "nanoid";
-import Database from "better-sqlite3";
 import type { DatabaseAdapter } from "../storage/database-adapter.js";
 import { NewPattern, AntiPattern } from "./types.js";
 import { Pattern } from "../storage/types.js";

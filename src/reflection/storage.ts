@@ -3,7 +3,6 @@
  * Handles database persistence and queries
  */
 
-import Database from "better-sqlite3";
 import type { DatabaseAdapter } from "../storage/database-adapter.js";
 import { nanoid } from "nanoid";
 import {

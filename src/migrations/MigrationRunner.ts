@@ -1,13 +1,24 @@
 // [BUILD:MODULE:ESM] ★★★☆☆ - ES module with .js extensions
-import Database from "better-sqlite3";
 import type { Migration, MigrationVersion, MigrationOptions } from "./types.js";
+import type { DatabaseAdapter } from "../storage/database-adapter.js";
+
+// [PAT:ESM:DYNAMIC_IMPORT] ★★★★☆ (8 uses, 87.5% success) - Handle optional dependency
+let Database: any;
 
 export class MigrationRunner {
-  private db: Database.Database;
+  private db: any; // Can be Database.Database or adapter.getInstance() result
   private tableName = "migration_versions";
 
-  constructor(db: Database.Database) {
-    this.db = db;
+  constructor(dbOrAdapter: any) {
+    // [PAT:ADAPTER:DELEGATION] ★★★★☆ (12 uses, 92% success) - Support both patterns
+    // Accept either a DatabaseAdapter or raw Database.Database for compatibility
+    if (dbOrAdapter.getInstance && typeof dbOrAdapter.getInstance === 'function') {
+      // It's a DatabaseAdapter, get the underlying instance
+      this.db = dbOrAdapter.getInstance();
+    } else {
+      // It's already a Database.Database instance
+      this.db = dbOrAdapter;
+    }
     this.initializeMigrationTable();
   }
 

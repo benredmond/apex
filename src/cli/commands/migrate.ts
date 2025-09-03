@@ -2,7 +2,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import Database from "better-sqlite3";
+import { DatabaseAdapterFactory, type DatabaseAdapter } from "../../storage/database-adapter.js";
 import { PatternDatabase } from "../../storage/database.js";
 import {
   MigrationRunner,
@@ -25,9 +25,9 @@ export function createMigrateCommand(): Command {
 
       try {
         const dbPath = await ApexConfig.getProjectDbPath();
-        const db = new Database(dbPath);
+        const adapter = await DatabaseAdapterFactory.create(dbPath);
         const loader = new MigrationLoader();
-        const runner = new MigrationRunner(db);
+        const runner = new MigrationRunner(adapter);
 
         const migrations = await loader.loadMigrations();
         const status = runner.getStatus(migrations);
@@ -61,7 +61,7 @@ export function createMigrateCommand(): Command {
           });
         }
 
-        db.close();
+        adapter.close();
       } catch (error) {
         spinner.fail("Failed to get migration status");
         console.error(error);
@@ -84,16 +84,16 @@ export function createMigrateCommand(): Command {
 
       try {
         const dbPath = await ApexConfig.getProjectDbPath();
-        const db = new Database(dbPath);
+        const adapter = await DatabaseAdapterFactory.create(dbPath);
         const loader = new MigrationLoader();
-        const runner = new MigrationRunner(db);
+        const runner = new MigrationRunner(adapter);
 
         const migrations = await loader.loadMigrations();
         const status = runner.getStatus(migrations);
 
         if (status.pending.length === 0) {
           spinner.succeed("No pending migrations");
-          db.close();
+          adapter.close();
           return;
         }
 
@@ -113,7 +113,7 @@ export function createMigrateCommand(): Command {
             : "Migrations completed successfully",
         );
 
-        db.close();
+        adapter.close();
       } catch (error) {
         spinner.fail("Migration failed");
         console.error(error);
@@ -135,16 +135,16 @@ export function createMigrateCommand(): Command {
         }
 
         const dbPath = await ApexConfig.getProjectDbPath();
-        const db = new Database(dbPath);
+        const adapter = await DatabaseAdapterFactory.create(dbPath);
         const loader = new MigrationLoader();
-        const runner = new MigrationRunner(db);
+        const runner = new MigrationRunner(adapter);
 
         const migrations = await loader.loadMigrations();
         const status = runner.getStatus(migrations);
 
         if (status.applied.length === 0) {
           spinner.succeed("No migrations to rollback");
-          db.close();
+          adapter.close();
           return;
         }
 
@@ -167,7 +167,7 @@ export function createMigrateCommand(): Command {
             : "Rollback completed successfully",
         );
 
-        db.close();
+        adapter.close();
       } catch (error) {
         spinner.fail("Rollback failed");
         console.error(error);
@@ -201,9 +201,9 @@ export function createMigrateCommand(): Command {
 
       try {
         const dbPath = await ApexConfig.getProjectDbPath();
-        const db = new Database(dbPath);
+        const adapter = await DatabaseAdapterFactory.create(dbPath);
         const loader = new MigrationLoader();
-        const validator = new MigrationValidator(db);
+        const validator = new MigrationValidator(adapter.getInstance());
 
         const migrations = await loader.loadMigrations();
 
@@ -227,7 +227,7 @@ export function createMigrateCommand(): Command {
           process.exit(1);
         }
 
-        db.close();
+        adapter.close();
       } catch (error) {
         spinner.fail("Validation failed");
         console.error(error);

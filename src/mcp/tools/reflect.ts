@@ -5,7 +5,6 @@
 
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import Database from "better-sqlite3";
 import type { DatabaseAdapter } from "../../storage/database-adapter.js";
 import { PatternRepository } from "../../storage/repository.js";
 import { BetaBernoulliTrustModel } from "../../trust/beta-bernoulli.js";

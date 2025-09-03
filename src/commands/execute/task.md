@@ -1079,8 +1079,8 @@ Use gemini-orchestrator for collaborative review:
 
 ### Review Decision
 
-- **If approved**: Proceed to DOCUMENTER
-- **If rejected**: Return to BUILDER with specific requirements
+- **If approved**: Proceed to DOCUMENTER - make sure to inform user of any specific gaps in the final output
+- **If explicitly rejected OR important fixes request**: Return to BUILDER with specific requirements
 
 Transition:
 

@@ -3,7 +3,7 @@
  * Transparently applies migrations without user intervention
  */
 
-import Database from "better-sqlite3";
+import { DatabaseAdapterFactory, type DatabaseAdapter } from "../storage/database-adapter.js";
 import { MigrationRunner } from "./MigrationRunner.js";
 import { MigrationLoader } from "./MigrationLoader.js";
 import { MigrationLock } from "./migration-lock.js";
@@ -12,18 +12,31 @@ import chalk from "chalk";
 import ora from "ora";
 
 export class AutoMigrator {
-  private db: Database.Database;
+  private db: any; // The raw database instance from adapter.getInstance()
+  private adapter: DatabaseAdapter | null = null;
   private dbPath: string;
   private runner: MigrationRunner;
   private loader: MigrationLoader;
+  private initialized: boolean = false;
 
   constructor(dbPath?: string) {
     // Use provided path or fall back to legacy sync method
     this.dbPath = dbPath || ApexConfig.getDbPath();
-    const finalPath = this.dbPath;
-    this.db = new Database(finalPath);
-    this.runner = new MigrationRunner(this.db);
+    // Defer database initialization to allow async factory pattern
     this.loader = new MigrationLoader();
+  }
+
+  /**
+   * Initialize database connection if not already initialized
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized) return;
+    
+    // [PAT:ADAPTER:DELEGATION] ★★★★☆ (12 uses, 92% success) - Use factory for database creation
+    this.adapter = await DatabaseAdapterFactory.create(this.dbPath);
+    this.db = this.adapter.getInstance();
+    this.runner = new MigrationRunner(this.adapter);
+    this.initialized = true;
   }
 
   /**
@@ -31,6 +44,9 @@ export class AutoMigrator {
    * Silent unless there's an error
    */
   async autoMigrate(options: { silent?: boolean } = {}): Promise<boolean> {
+    // Ensure database is initialized
+    await this.ensureInitialized();
+    
     // Get database path for lock file
     const finalPath = this.dbPath;
     const lock = new MigrationLock(finalPath);
@@ -136,7 +152,9 @@ export class AutoMigrator {
     } finally {
       // Always release lock and close database
       lock.release();
-      this.db.close();
+      if (this.db && this.adapter) {
+        this.adapter.close();
+      }
     }
   }
 
@@ -564,6 +582,9 @@ export class AutoMigrator {
   static async needsMigration(dbPath?: string): Promise<boolean> {
     const migrator = new AutoMigrator(dbPath);
     try {
+      // Ensure database is initialized
+      await migrator.ensureInitialized();
+      
       migrator.ensureMigrationsTable();
       const migrations = await migrator.loader.loadMigrations();
 
@@ -575,7 +596,9 @@ export class AutoMigrator {
     } catch {
       return true; // Assume migration needed if check fails
     } finally {
-      migrator.db.close();
+      if (migrator.db) {
+        migrator.db.close();
+      }
     }
   }
 }

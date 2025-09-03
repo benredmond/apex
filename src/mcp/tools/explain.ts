@@ -23,7 +23,6 @@ import type {
   PatternTrigger,
   PatternVocab,
 } from "../../storage/types.js";
-import Database from "better-sqlite3";
 import type { DatabaseAdapter } from "../../storage/database-adapter.js";
 
 // Request validation schema
