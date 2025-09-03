@@ -7,6 +7,7 @@
  */
 
 import type Database from "better-sqlite3";
+import type { DatabaseAdapter, Statement } from "../storage/database-adapter.js";
 import { LRUCache } from "lru-cache";
 import type { Task, TaskSignals } from "../schemas/task/types.js";
 import type {
@@ -27,20 +28,20 @@ import { FailureCorpus } from "./failure-corpus.js";
 import { extractEnhancedSignals } from "./signal-extractor.js";
 
 export class BriefGenerator {
-  private db: Database.Database;
+  private db: DatabaseAdapter;
   private taskSearch: TaskSearchEngine;
   private taskRepo: TaskRepository;
   private patternRepo: PatternRepository;
   private failureCorpus: FailureCorpus;
   private briefCache: LRUCache<string, TaskBrief>;
   private statements: {
-    getCachedBrief: Database.Statement;
-    cacheBrief: Database.Statement;
-    getInFlightWork: Database.Statement;
+    getCachedBrief: Statement;
+    cacheBrief: Statement;
+    getInFlightWork: Statement;
   };
 
   constructor(
-    db: Database.Database,
+    db: DatabaseAdapter,
     options?: {
       patternRepo?: PatternRepository;
       taskRepo?: TaskRepository;

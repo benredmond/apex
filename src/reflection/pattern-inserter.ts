@@ -6,15 +6,16 @@
 import * as crypto from "crypto";
 import { nanoid } from "nanoid";
 import Database from "better-sqlite3";
+import type { DatabaseAdapter } from "../storage/database-adapter.js";
 import { NewPattern, AntiPattern } from "./types.js";
 import { Pattern } from "../storage/types.js";
 // [PAT:IMPORT:ESM] ★★★★☆ (67 uses, 89% success) - From cache
 import { PATTERN_SCHEMA_VERSION } from "../config/constants.js";
 
 export class PatternInserter {
-  private db: Database.Database;
+  private db: DatabaseAdapter;
 
-  constructor(db: Database.Database) {
+  constructor(db: DatabaseAdapter) {
     this.db = db;
     // [PAT:DI:CONSTRUCTOR] ★★★★★ (156 uses, 98% success) - Database injected via constructor
     // [FIX:DB:SHARED_CONNECTION] ★★★★★ (23 uses, 100% success) - Shared connection prevents locking

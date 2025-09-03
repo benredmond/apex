@@ -116,7 +116,7 @@ export class ApexMCPServer {
           "../migrations/MigrationLoader.js"
         );
 
-        const runner = new MigrationRunner(sharedDb);
+        const runner = new MigrationRunner(sharedDb.getInstance());
         const loader = new MigrationLoader();
         const migrations = await loader.loadMigrations();
 

@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import Database from "better-sqlite3";
+import type { DatabaseAdapter } from "../../storage/database-adapter.js";
 import { PatternRepository } from "../../storage/repository.js";
 import { BetaBernoulliTrustModel } from "../../trust/beta-bernoulli.js";
 import { JSONStorageAdapter } from "../../trust/storage-adapter.js";
@@ -345,11 +346,11 @@ export class ReflectionService {
   private miner: PatternMiner | null;
   private metrics: ReflectionMetrics;
   private patternInserter: PatternInserter;
-  private db: Database.Database; // [PAT:dA0w9N1I9-4m] ★★★★★ (7 uses, 100% success) - Single DB instance
+  private db: DatabaseAdapter; // [PAT:dA0w9N1I9-4m] ★★★★★ (7 uses, 100% success) - Single DB instance
 
   constructor(
     repository: PatternRepository,
-    db: Database.Database,
+    db: DatabaseAdapter,
     config?: {
       allowedRepoUrls?: string[];
       gitRepoPath?: string;

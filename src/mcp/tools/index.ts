@@ -18,6 +18,7 @@ import { TaskService } from "./task.js";
 import { TaskRepository } from "../../storage/repositories/task-repository.js";
 import { PatternDatabase } from "../../storage/database.js";
 import type Database from "better-sqlite3";
+import type { DatabaseAdapter } from "../../storage/database-adapter.js";
 import { ContextTool } from "./context.js";
 import { ContextPackService } from "../../intelligence/context-pack-service.js";
 
@@ -34,7 +35,7 @@ let contextTool: ContextTool | null = null;
  */
 export async function initializeTools(
   repo: PatternRepository,
-  sharedDb?: Database.Database,
+  sharedDb?: DatabaseAdapter,
 ): Promise<void> {
   repository = repo;
   lookupService = new PatternLookupService(repo);

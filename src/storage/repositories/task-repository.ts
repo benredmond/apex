@@ -18,23 +18,24 @@ import type {
 import type { TaskBrief as NewTaskBrief } from "../../schemas/task/brief-types.js";
 import { newToOldTaskBrief } from "../../schemas/task/brief-adapter.js";
 import type { TaskSearchEngine } from "../../intelligence/task-search.js";
+import type { DatabaseAdapter, Statement } from "../database-adapter.js";
 
 export class TaskRepository {
-  private db: Database.Database;
+  private db: DatabaseAdapter;
   private searchEngine?: TaskSearchEngine;
   private statements: {
-    create: Database.Statement;
-    findById: Database.Statement;
-    findByStatus: Database.Statement;
-    findActive: Database.Statement;
-    findSimilar: Database.Statement;
-    cacheSimilarity: Database.Statement;
-    updatePhase: Database.Statement;
-    updateConfidence: Database.Statement;
-    complete: Database.Statement;
+    create: Statement;
+    findById: Statement;
+    findByStatus: Statement;
+    findActive: Statement;
+    findSimilar: Statement;
+    cacheSimilarity: Statement;
+    updatePhase: Statement;
+    updateConfidence: Statement;
+    complete: Statement;
   };
 
-  constructor(db: Database.Database, searchEngine?: TaskSearchEngine) {
+  constructor(db: DatabaseAdapter, searchEngine?: TaskSearchEngine) {
     this.db = db;
     this.searchEngine = searchEngine;
     // [FIX:SQLITE:SYNC] ★★★★★ - Prepare statements synchronously for performance

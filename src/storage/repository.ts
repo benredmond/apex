@@ -140,8 +140,8 @@ export class PatternRepository {
    * Get the database instance for dependency injection
    * @internal
    */
-  public getDatabase(): Database.Database {
-    return this.db.database.getInstance();
+  public getDatabase(): DatabaseAdapter {
+    return this.db.database;
   }
 
   // Core CRUD operations

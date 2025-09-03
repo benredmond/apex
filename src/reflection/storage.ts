@@ -4,6 +4,7 @@
  */
 
 import Database from "better-sqlite3";
+import type { DatabaseAdapter } from "../storage/database-adapter.js";
 import { nanoid } from "nanoid";
 import {
   ReflectionRecord,
@@ -15,9 +16,9 @@ import {
 } from "./types.js";
 
 export class ReflectionStorage {
-  private db: Database.Database;
+  private db: DatabaseAdapter;
 
-  constructor(db: Database.Database) {
+  constructor(db: DatabaseAdapter) {
     this.db = db;
     // [PAT:DI:CONSTRUCTOR] ★★★★★ (156 uses, 98% success) - Database injected via constructor
     // [FIX:DB:SHARED_CONNECTION] ★★★★★ (23 uses, 100% success) - Shared connection prevents locking

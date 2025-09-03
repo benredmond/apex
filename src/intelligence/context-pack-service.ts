@@ -7,6 +7,7 @@
  */
 
 import type Database from "better-sqlite3";
+import type { DatabaseAdapter, Statement } from "../storage/database-adapter.js";
 import { LRUCache } from "lru-cache";
 import { TaskRepository } from "../storage/repositories/task-repository.js";
 import { PatternRepository } from "../storage/repository.js";
@@ -68,16 +69,16 @@ export interface ContextPack {
 export class ContextPackService {
   private contextCache: LRUCache<string, ContextPack>;
   private statements: {
-    getTaskStats: Database.Statement;
-    getActiveTaskCount: Database.Statement;
-    getBlockedTaskCount: Database.Statement;
-    getTaskThemes: Database.Statement;
+    getTaskStats: Statement;
+    getActiveTaskCount: Statement;
+    getBlockedTaskCount: Statement;
+    getTaskThemes: Statement;
   };
 
   constructor(
     private taskRepo: TaskRepository,
     private patternRepo: PatternRepository,
-    private db: Database.Database,
+    private db: DatabaseAdapter,
     private options: {
       maxCacheEntries?: number;
       cacheTtlMs?: number;

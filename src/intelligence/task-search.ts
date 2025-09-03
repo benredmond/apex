@@ -7,6 +7,7 @@
  */
 
 import type Database from "better-sqlite3";
+import type { DatabaseAdapter, Statement } from "../storage/database-adapter.js";
 import { LRUCache } from "lru-cache";
 import type { Task, SimilarTask, TaskSignals } from "../schemas/task/types.js";
 import { TaskRepository } from "../storage/repositories/task-repository.js";
@@ -15,19 +16,19 @@ import { TaskTagger } from "./task-tagger.js";
 import { extractEnhancedSignals } from "./signal-extractor.js";
 
 export class TaskSearchEngine {
-  private db: Database.Database;
+  private db: DatabaseAdapter;
   private repo: TaskRepository;
   private fuzzyMatcher: FuzzyMatcher;
   private tagger: TaskTagger;
   private cache: LRUCache<string, SimilarTask[]>;
   private statements: {
-    findSimilarCached: Database.Statement;
-    cacheSimilarity: Database.Statement;
-    getAllTasks: Database.Statement;
-    clearCache: Database.Statement;
+    findSimilarCached: Statement;
+    cacheSimilarity: Statement;
+    getAllTasks: Statement;
+    clearCache: Statement;
   };
 
-  constructor(db: Database.Database, taskRepo?: TaskRepository) {
+  constructor(db: DatabaseAdapter, taskRepo?: TaskRepository) {
     this.db = db;
     this.repo = taskRepo || new TaskRepository(db);
     this.fuzzyMatcher = new FuzzyMatcher();

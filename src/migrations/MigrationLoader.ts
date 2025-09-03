@@ -20,7 +20,7 @@ export class MigrationLoader {
     } else {
       // Check if we're running from a pkg bundle
       // @ts-ignore - pkg global is only available in bundled executables
-      if (typeof process.pkg !== 'undefined') {
+      if (typeof process.pkg !== "undefined") {
         // When bundled with pkg, use the migrations from dist
         // The migrations are bundled into the snapshot filesystem
         this.migrationsDir = join(__dirname, "migrations");
@@ -36,7 +36,7 @@ export class MigrationLoader {
    */
   async loadMigrations(): Promise<Migration[]> {
     // @ts-ignore - pkg global is only available in bundled executables
-    if (typeof process.pkg !== 'undefined') {
+    if (typeof process.pkg !== "undefined") {
       // When running from pkg binary, use static migrations
       const migrations: Migration[] = [];
       for (const [filename, migration] of Object.entries(staticMigrations)) {
@@ -95,9 +95,9 @@ export class MigrationLoader {
     try {
       const filePath = join(this.migrationsDir, filename);
       let module: any;
-      
+
       // @ts-ignore - pkg global is only available in bundled executables
-      if (typeof process.pkg !== 'undefined') {
+      if (typeof process.pkg !== "undefined") {
         // When bundled with pkg, use require instead of dynamic import
         // This works because migrations are bundled into the snapshot
         try {
@@ -105,7 +105,10 @@ export class MigrationLoader {
           module = require(filePath);
         } catch (e) {
           // If direct require fails, try to require from the bundled path
-          const bundledPath = filePath.replace(/^.*\/migrations\//, '/snapshot/apex/dist/migrations/migrations/');
+          const bundledPath = filePath.replace(
+            /^.*\/migrations\//,
+            "/snapshot/apex/dist/migrations/migrations/",
+          );
           // eslint-disable-next-line @typescript-eslint/no-var-requires
           module = require(bundledPath);
         }

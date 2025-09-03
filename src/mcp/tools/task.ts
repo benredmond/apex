@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import type Database from "better-sqlite3";
+import type { DatabaseAdapter } from "../../storage/database-adapter.js";
 import { TaskRepository } from "../../storage/repositories/task-repository.js";
 import { PatternRepository } from "../../storage/repository.js";
 import { BriefGenerator } from "../../intelligence/brief-generator.js";
@@ -56,7 +57,7 @@ export class TaskService {
 
   constructor(
     private repository: TaskRepository,
-    private db?: Database.Database,
+    private db?: DatabaseAdapter,
   ) {
     this.tagExpander = new TagExpander();
   }

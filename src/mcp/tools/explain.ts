@@ -24,6 +24,7 @@ import type {
   PatternVocab,
 } from "../../storage/types.js";
 import Database from "better-sqlite3";
+import type { DatabaseAdapter } from "../../storage/database-adapter.js";
 
 // Request validation schema
 const ExplainRequestSchema = z.object({
@@ -133,7 +134,7 @@ export class PatternExplainer {
   private repository: PatternRepository;
   private trustModel: BetaBernoulliTrustModel;
   private cache: ExplanationCache;
-  private db: Database.Database;
+  private db: DatabaseAdapter;
 
   constructor(repository: PatternRepository) {
     this.repository = repository;
