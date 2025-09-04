@@ -16,13 +16,23 @@
  * 4. Rebuild FTS index manually
  */
 
-import Database from "better-sqlite3";
+// [PAT:ESM:DYNAMIC_IMPORT] ★★★★★ - Dynamic import for optional dependencies
 
 // Database path
 const DB_PATH = "./patterns.db";
 
-// Open database
-const db = new Database(DB_PATH);
+// [PAT:ADAPTER:DELEGATION] ★★★★☆ - Use DatabaseAdapterFactory for compatibility
+let adapter, db;
+try {
+  const { DatabaseAdapterFactory } = await import('../dist/storage/database-adapter.js');
+  adapter = await DatabaseAdapterFactory.create(DB_PATH);
+  db = adapter.getInstance();
+} catch (error) {
+  console.error('\n❌ Failed to initialize database adapter:');
+  console.error('Make sure to run: npm run build');
+  console.error('Error:', error.message);
+  process.exit(1);
+}
 
 console.log("🏷️  APEX Pattern Tagging Script");
 console.log("================================\n");
@@ -288,6 +298,6 @@ try {
 }
 
 // Close database
-db.close();
+adapter.close();
 
 console.log("\n✨ Tagging complete!");

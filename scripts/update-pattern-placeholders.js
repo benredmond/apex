@@ -5,7 +5,7 @@
  * and add new high-value patterns from official documentation
  */
 
-import Database from 'better-sqlite3';
+// [PAT:ESM:DYNAMIC_IMPORT] ★★★★★ - Dynamic import for optional dependencies
 import crypto from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -14,7 +14,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Database connection
-const db = new Database(path.join(__dirname, '..', 'patterns.db'));
+// [PAT:ADAPTER:DELEGATION] ★★★★☆ - Use DatabaseAdapterFactory for compatibility
+let adapter, db;
+try {
+  const { DatabaseAdapterFactory } = await import('../dist/storage/database-adapter.js');
+  adapter = await DatabaseAdapterFactory.create(path.join(__dirname, '..', 'patterns.db'));
+  db = adapter.getInstance();
+} catch (error) {
+  console.error('\n❌ Failed to initialize database adapter:');
+  console.error('Make sure to run: npm run build');
+  console.error('Error:', error.message);
+  process.exit(1);
+}
 
 // Current git SHA for source references
 const CURRENT_SHA = 'd071b6745b91fb79c31aa31f318bb5c0c5519513';
@@ -2284,5 +2295,5 @@ try {
   console.error('❌ Error updating patterns:', error);
   process.exit(1);
 } finally {
-  db.close();
+  adapter.close();
 }

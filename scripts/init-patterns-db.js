@@ -1,20 +1,30 @@
 #!/usr/bin/env node
 
-import Database from 'better-sqlite3';
+// [PAT:ESM:DYNAMIC_IMPORT] ★★★★★ - Dynamic import for optional dependencies
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Initialize the database
-const db = new Database('patterns.db');
+// [PAT:ADAPTER:DELEGATION] ★★★★☆ - Use DatabaseAdapterFactory for compatibility
+let adapter, db;
+try {
+  const { DatabaseAdapterFactory } = await import('../dist/storage/database-adapter.js');
+  adapter = await DatabaseAdapterFactory.create('patterns.db');
+  db = adapter.getInstance();
+} catch (error) {
+  console.error('\n❌ Failed to initialize database adapter:');
+  console.error('Make sure to run: npm run build');
+  console.error('Error:', error.message);
+  process.exit(1);
+}
 
 console.log('Initializing patterns database...');
 
 // Enable WAL mode
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+adapter.pragma('journal_mode = WAL');
+adapter.pragma('foreign_keys = ON');
 
 // Create patterns table
 db.exec(`
@@ -119,4 +129,4 @@ const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").a
 console.log('\nCreated tables:');
 tables.forEach(t => console.log(`  - ${t.name}`));
 
-db.close();
+adapter.close();

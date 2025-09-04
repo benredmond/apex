@@ -11,7 +11,7 @@
  * [FIX:SQLITE:SYNC] ★★★★☆ - Synchronous transactions
  */
 
-import Database from 'better-sqlite3';
+// [PAT:ESM:DYNAMIC_IMPORT] ★★★★★ - Dynamic import for optional dependencies
 import { PatternInserter } from '../dist/reflection/pattern-inserter.js';
 import fs from 'fs';
 import path from 'path';
@@ -25,8 +25,18 @@ const __dirname = path.dirname(__filename);
 // Database path
 const dbPath = path.join(os.homedir(), '.apex', 'global', 'patterns.db');
 
-// Initialize database and PatternInserter
-const db = new Database(dbPath);
+// [PAT:ADAPTER:DELEGATION] ★★★★☆ - Use DatabaseAdapterFactory for compatibility
+let adapter, db;
+try {
+  const { DatabaseAdapterFactory } = await import('../dist/storage/database-adapter.js');
+  adapter = await DatabaseAdapterFactory.create(dbPath);
+  db = adapter.getInstance();
+} catch (error) {
+  console.error('\n❌ Failed to initialize database adapter:');
+  console.error('Make sure to run: npm run build');
+  console.error('Error:', error.message);
+  process.exit(1);
+}
 
 // [FIX:SQLITE:SYNC] - Create tables if they don't exist
 // Initialize schema before using PatternInserter
@@ -309,7 +319,7 @@ async function seedPatterns() {
   }
   
   // Clean up
-  db.close();
+  adapter.close();
   
   return finalCount.count > initialCount.count;
 }

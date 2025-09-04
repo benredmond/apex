@@ -1,17 +1,28 @@
 #!/usr/bin/env node
 
-import Database from 'better-sqlite3';
+// [PAT:ESM:DYNAMIC_IMPORT] ★★★★★ - Dynamic import for optional dependencies
 import crypto from 'crypto';
 
 console.log('🔄 Migrating pattern drafts to patterns table...\n');
 
-const db = new Database('patterns.db');
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+// [PAT:ADAPTER:DELEGATION] ★★★★☆ - Use DatabaseAdapterFactory for compatibility
+let adapter, db;
+try {
+  const { DatabaseAdapterFactory } = await import('../dist/storage/database-adapter.js');
+  adapter = await DatabaseAdapterFactory.create('patterns.db');
+  db = adapter.getInstance();
+} catch (error) {
+  console.error('\n❌ Failed to initialize database adapter:');
+  console.error('Make sure to run: npm run build');
+  console.error('Error:', error.message);
+  process.exit(1);
+}
+adapter.pragma('journal_mode = WAL');
+adapter.pragma('foreign_keys = ON');
 
 try {
   // First, ensure the patterns table has all required columns
-  const columns = db.pragma('table_info(patterns)').map(col => col.name);
+  const columns = adapter.pragma('table_info(patterns)').map(col => col.name);
   
   if (!columns.includes('alpha')) {
     console.log('Adding missing columns to patterns table...');
@@ -42,7 +53,7 @@ try {
 
   if (drafts.length === 0) {
     console.log('No drafts to migrate. Exiting.');
-    db.close();
+    adapter.close();
     process.exit(0);
   }
 
@@ -211,7 +222,7 @@ try {
   console.error('Migration failed:', error);
   process.exit(1);
 } finally {
-  db.close();
+  adapter.close();
 }
 
 console.log('\n✨ Migration complete! Patterns are now available for lookup.');

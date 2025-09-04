@@ -1,15 +1,26 @@
 #!/usr/bin/env node
 
-import Database from 'better-sqlite3';
+// [PAT:ESM:DYNAMIC_IMPORT] ★★★★★ - Dynamic import for optional dependencies
 import { PatternRepository } from '../dist/storage/repository.js';
 
 console.log('🔍 Debugging Pattern Lookup...\n');
 
-const db = new Database('patterns.db');
+// [PAT:ADAPTER:DELEGATION] ★★★★☆ - Use DatabaseAdapterFactory for compatibility
+let adapter, db;
+try {
+  const { DatabaseAdapterFactory } = await import('../dist/storage/database-adapter.js');
+  adapter = await DatabaseAdapterFactory.create('patterns.db');
+  db = adapter.getInstance();
+} catch (error) {
+  console.error('\n❌ Failed to initialize database adapter:');
+  console.error('Make sure to run: npm run build');
+  console.error('Error:', error.message);
+  process.exit(1);
+}
 
 // Check patterns table structure
 console.log('📊 Checking patterns table structure:');
-const columns = db.pragma('table_info(patterns)').map(col => col.name);
+const columns = adapter.pragma('table_info(patterns)').map(col => col.name);
 console.log('Columns:', columns.join(', '));
 
 // Get a sample pattern
@@ -50,5 +61,5 @@ try {
 }
 
 await repository.shutdown();
-db.close();
+adapter.close();
 console.log('\n✨ Debug complete!');

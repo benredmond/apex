@@ -1,9 +1,20 @@
 #!/usr/bin/env node
 
-import Database from 'better-sqlite3';
+// [PAT:ESM:DYNAMIC_IMPORT] ★★★★★ - Dynamic import for optional dependencies
 import crypto from 'crypto';
 
-const db = new Database('patterns.db');
+// [PAT:ADAPTER:DELEGATION] ★★★★☆ - Use DatabaseAdapterFactory for compatibility
+let adapter, db;
+try {
+  const { DatabaseAdapterFactory } = await import('../dist/storage/database-adapter.js');
+  adapter = await DatabaseAdapterFactory.create('patterns.db');
+  db = adapter.getInstance();
+} catch (error) {
+  console.error('\n❌ Failed to initialize database adapter:');
+  console.error('Make sure to run: npm run build');
+  console.error('Error:', error.message);
+  process.exit(1);
+}
 
 // First, check if we have any patterns
 const patternCount = db.prepare('SELECT COUNT(*) as count FROM patterns').get();
@@ -112,5 +123,5 @@ for (const { search, desc } of testQueries) {
   }
 }
 
-db.close();
+adapter.close();
 console.log('\n✨ Test complete');
