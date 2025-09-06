@@ -38,7 +38,7 @@ export class PatternRepository {
       cacheSize?: number;
       watchDebounce?: number;
       enableFallback?: boolean;
-    } = {}
+    } = {},
   ): Promise<PatternRepository> {
     const instance = new PatternRepository();
     await instance._initializeDatabase(options);
@@ -60,7 +60,7 @@ export class PatternRepository {
       cacheSize?: number;
       watchDebounce?: number;
       enableFallback?: boolean;
-    } = {}
+    } = {},
   ): Promise<void> {
     // DEFENSIVE: If running as MCP server, require absolute path
     // MCP is started with: apex mcp serve
@@ -265,7 +265,8 @@ export class PatternRepository {
 
     // Query for last_used_task from reflections
     try {
-      const lastUsedRow = this.db.database.getInstance()
+      const lastUsedRow = this.db.database
+        .getInstance()
         .prepare(
           `
         SELECT task_id, MAX(created_at) as last_used

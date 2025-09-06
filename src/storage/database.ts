@@ -27,7 +27,7 @@ export class PatternDatabase {
     options?: {
       fallbackPath?: string;
       enableFallback?: boolean;
-    }
+    },
   ): Promise<PatternDatabase> {
     const instance = new PatternDatabase();
     await instance.initialize(dbPath, options);
@@ -62,7 +62,7 @@ export class PatternDatabase {
     options?: {
       fallbackPath?: string;
       enableFallback?: boolean;
-    }
+    },
   ): Promise<void> {
     // DEFENSIVE: Warn if using relative path (should always use absolute paths from ~/.apex)
     if (!path.isAbsolute(dbPath)) {
@@ -106,7 +106,8 @@ export class PatternDatabase {
 
         // Only use fallback if it exists (don't create it)
         if (fs.existsSync(fallbackFullPath)) {
-          this.fallbackDb = await DatabaseAdapterFactory.create(fallbackFullPath);
+          this.fallbackDb =
+            await DatabaseAdapterFactory.create(fallbackFullPath);
           this.initializeFallbackDb();
         }
       } catch (error) {

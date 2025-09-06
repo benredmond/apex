@@ -2,7 +2,10 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import { DatabaseAdapterFactory, type DatabaseAdapter } from "../../storage/database-adapter.js";
+import {
+  DatabaseAdapterFactory,
+  type DatabaseAdapter,
+} from "../../storage/database-adapter.js";
 import { PatternDatabase } from "../../storage/database.js";
 import {
   MigrationRunner,

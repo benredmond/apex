@@ -52,11 +52,11 @@ export class BetterSqliteAdapter implements DatabaseAdapter {
       } catch (error) {
         throw new Error(
           "better-sqlite3 is not available. It may have failed to compile. " +
-          "The system should fall back to an alternative SQLite implementation."
+            "The system should fall back to an alternative SQLite implementation.",
         );
       }
     }
-    
+
     const adapter = new BetterSqliteAdapter();
     adapter.db = new BetterSqliteAdapter.Database(dbPath);
     return adapter;

@@ -3,7 +3,10 @@
  * Transparently applies migrations without user intervention
  */
 
-import { DatabaseAdapterFactory, type DatabaseAdapter } from "../storage/database-adapter.js";
+import {
+  DatabaseAdapterFactory,
+  type DatabaseAdapter,
+} from "../storage/database-adapter.js";
 import { MigrationRunner } from "./MigrationRunner.js";
 import { MigrationLoader } from "./MigrationLoader.js";
 import { MigrationLock } from "./migration-lock.js";
@@ -31,7 +34,7 @@ export class AutoMigrator {
    */
   private async ensureInitialized(): Promise<void> {
     if (this.initialized) return;
-    
+
     // [PAT:ADAPTER:DELEGATION] ★★★★☆ (12 uses, 92% success) - Use factory for database creation
     this.adapter = await DatabaseAdapterFactory.create(this.dbPath);
     this.db = this.adapter.getInstance();
@@ -46,7 +49,7 @@ export class AutoMigrator {
   async autoMigrate(options: { silent?: boolean } = {}): Promise<boolean> {
     // Ensure database is initialized
     await this.ensureInitialized();
-    
+
     // Get database path for lock file
     const finalPath = this.dbPath;
     const lock = new MigrationLock(finalPath);
@@ -584,7 +587,7 @@ export class AutoMigrator {
     try {
       // Ensure database is initialized
       await migrator.ensureInitialized();
-      
+
       migrator.ensureMigrationsTable();
       const migrations = await migrator.loader.loadMigrations();
 

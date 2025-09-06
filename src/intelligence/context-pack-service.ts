@@ -7,7 +7,10 @@
  */
 
 import type Database from "better-sqlite3";
-import type { DatabaseAdapter, Statement } from "../storage/database-adapter.js";
+import type {
+  DatabaseAdapter,
+  Statement,
+} from "../storage/database-adapter.js";
 import { LRUCache } from "lru-cache";
 import { TaskRepository } from "../storage/repositories/task-repository.js";
 import { PatternRepository } from "../storage/repository.js";
