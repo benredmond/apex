@@ -57,14 +57,9 @@ export class NodeSqliteAdapter implements DatabaseAdapter {
   }
 
   exec(sql: string): void {
-    // Handle multiple statements by splitting on semicolons
-    const statements = sql.split(";").filter((s) => s.trim());
-    for (const statement of statements) {
-      if (statement.trim()) {
-        const stmt = this.db.prepare(statement);
-        stmt.run();
-      }
-    }
+    // node:sqlite's DatabaseSync.exec() natively handles multiple SQL statements
+    // No need to split - it properly handles complex SQL with CHECK constraints, triggers, etc.
+    this.db.exec(sql);
   }
 
   pragma(pragmaString: string): any {
