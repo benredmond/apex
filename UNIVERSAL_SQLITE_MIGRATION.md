@@ -557,17 +557,17 @@ describe('WasmSqliteAdapter', () => {
 ### 🎫 Ticket #2.5: Fix Static Imports of better-sqlite3
 **Priority**: P0 - Critical  
 **Estimated Time**: 3 hours
-**Status**: 🚧 URGENT - BLOCKING
+**Status**: ✅ COMPLETED
 **Dependencies**: Ticket #2 ✅ COMPLETED
 
 #### Description
 Convert all static imports of better-sqlite3 to dynamic imports to enable optional dependency functionality. Currently 28 files directly import better-sqlite3, preventing the fallback system from working when better-sqlite3 is unavailable.
 
 #### Acceptance Criteria
-- [ ] All static imports converted to dynamic imports
-- [ ] Error handling for missing optional dependency
-- [ ] Tests pass without better-sqlite3 installed
-- [ ] No TypeScript errors from import changes
+- [x] All static imports converted to dynamic imports
+- [x] Error handling for missing optional dependency
+- [x] Tests pass without better-sqlite3 installed
+- [x] No TypeScript errors from import changes
 
 #### Files Requiring Updates (28 total)
 ```
@@ -616,6 +616,99 @@ try {
 
 ---
 
+### 🎫 Ticket #2.6: Fix Migration System for node:sqlite Compatibility
+**Priority**: P0 - Critical  
+**Estimated Time**: 2-3 hours
+**Status**: 🚨 BLOCKING - Node 22+ users
+**Dependencies**: None (can be done independently)
+**Discovered**: 2025-09-03 during Ticket #4 validation
+
+#### Description
+Migration system fails on Node.js 22+ when using the node:sqlite adapter (default for Node 22+) due to API incompatibility. The migration files directly call `db.transaction()` on the raw database instance, but node:sqlite's `DatabaseSync` object does not have a `transaction()` method, causing all migrations to fail.
+
+#### Root Cause
+- **better-sqlite3**: `getInstance()` returns object with `transaction()` method
+- **node:sqlite**: `getInstance()` returns `DatabaseSync` without `transaction()` method
+- **Migrations**: Expect better-sqlite3 API, call `db.transaction()` directly
+
+#### Acceptance Criteria
+- [ ] All migrations work with node:sqlite adapter (Node 22+)
+- [ ] All migrations work with better-sqlite3 adapter
+- [ ] All migrations work with WASM adapter
+- [ ] No direct database instance usage in migrations
+- [ ] Transaction support works across all adapters
+
+#### Error Example
+```javascript
+TypeError: db.transaction is not a function
+    at Object.up (migrations/001-consolidate-patterns.js:8:12)
+    at MigrationRunner.runSingleMigration
+```
+
+#### Implementation Options
+
+**Option A: Adapter-Aware Migrations** (Recommended)
+```typescript
+// In migration files - use adapter interface instead of raw instance
+export const up = async (adapter: DatabaseAdapter) => {
+  const transaction = adapter.transaction(() => {
+    // migration logic using adapter.prepare() etc.
+  });
+  transaction();
+};
+```
+
+**Option B: Unified Transaction API**
+```typescript
+// Add transaction wrapper to all adapters
+class NodeSqliteAdapter {
+  transaction(fn: () => void): () => void {
+    return () => {
+      this.db.exec('BEGIN');
+      try {
+        fn();
+        this.db.exec('COMMIT');
+      } catch (error) {
+        this.db.exec('ROLLBACK');
+        throw error;
+      }
+    };
+  }
+}
+```
+
+**Option C: Migration Runner Compatibility Layer**
+```typescript
+// MigrationRunner provides compatible db object
+const compatibleDb = {
+  ...db.getInstance(),
+  transaction: db.transaction ? db.transaction.bind(db) : 
+    (fn) => adapter.transaction(fn)
+};
+migration.up(compatibleDb);
+```
+
+#### Testing Requirements
+```bash
+# Must pass on all Node versions
+APEX_FORCE_ADAPTER=node-sqlite npm test -- migrations
+APEX_FORCE_ADAPTER=better-sqlite3 npm test -- migrations  
+APEX_FORCE_ADAPTER=wasm npm test -- migrations
+```
+
+#### Files to Update
+- `src/migrations/MigrationRunner.ts` - Main runner logic
+- `src/migrations/*.ts` - All 10+ migration files
+- `src/storage/adapters/node-sqlite-impl.ts` - May need transaction wrapper
+- `tests/migrations/*.test.ts` - Add adapter compatibility tests
+
+#### Impact if Not Fixed
+- **Node 22+ users cannot use APEX** - Database initialization fails
+- **Default experience broken** - node:sqlite is default for Node 22+
+- **No workaround** - Even APEX_FORCE_ADAPTER can't help if migrations fail
+
+---
+
 ### 🎫 Ticket #3: Create WasmSqliteAdapter Factory Method
 **Priority**: P0 - Critical  
 **Estimated Time**: 1 hour
@@ -650,19 +743,20 @@ export class WasmSqliteAdapter implements DatabaseAdapter {
 ### 🎫 Ticket #4: Update DatabaseAdapterFactory
 **Priority**: P0 - Critical
 **Estimated Time**: 2 hours
-**Status**: ⏳ Pending
+**Status**: ✅ COMPLETED (2025-09-03)
 **Dependencies**: Ticket #3
 
 #### Description
 Update the DatabaseAdapterFactory to implement the three-tier fallback system with improved detection logic.
 
 #### Acceptance Criteria
-- [ ] Checks for node:sqlite availability (Node 22+)
-- [ ] Checks for better-sqlite3 availability
-- [ ] Falls back to sql.js (always works)
-- [ ] Logs which adapter is being used
-- [ ] Handles all failure cases gracefully
-- [ ] Performance logging for adapter selection
+- [x] Checks for node:sqlite availability (Node 22+)
+- [x] Checks for better-sqlite3 availability
+- [x] Falls back to sql.js (always works)
+- [x] Logs which adapter is being used
+- [x] Handles all failure cases gracefully
+- [x] Performance logging for adapter selection
+- [x] APEX_FORCE_ADAPTER environment variable support
 
 #### Implementation Steps
 1. Update `src/storage/database-adapter.ts`
@@ -1010,24 +1104,23 @@ Prepare for v1.0.0 release with universal compatibility.
 
 | Priority | Count | Status |
 |----------|-------|--------|
-| P0 - Critical | 4 | 1 ✅ Completed, 3 ⏳ Pending |
+| P0 - Critical | 6 | 5 ✅ Completed, 1 🚨 Blocking |
 | P1 - High | 4 | ⏳ Pending |
 | P2 - Medium | 2 | ⏳ Pending |
 | P3 - Low | 2 | ⏳ Pending |
-| **Total** | **12** | **1 Completed, 11 Pending** |
+| **Total** | **14** | **5 Completed, 9 Pending** |
 
 ## Implementation Order
 
 1. **Phase 1 - Core Implementation** (P0 tickets)
    - Ticket #1: Update Package Dependencies ✅ COMPLETED
-   - Ticket #2: Create WasmSqliteAdapter 🚧 IN PROGRESS
-   - Ticket #3: Create Factory Method ⏳ Pending
-   - Ticket #4: Update DatabaseAdapterFactory ⏳ Pending
+   - Ticket #2: Create WasmSqliteAdapter ✅ COMPLETED (2025-09-03)
+   - Ticket #3: Create Factory Method ✅ COMPLETED (part of #2)
+   - Ticket #4: Update DatabaseAdapterFactory ✅ COMPLETED (2025-09-03)
 
-2. **Phase 1.5 - Fix Static Imports** (NEW - CRITICAL)
-   - Fix remaining static imports in all files ⚠️ REQUIRED
-   - Convert to dynamic imports with error handling
-   - Test without better-sqlite3 to verify
+2. **Phase 1.5 - Critical Fixes** (P0)
+   - Ticket #2.5: Fix Static Imports ✅ COMPLETED
+   - Ticket #2.6: Fix Migration System 🚨 BLOCKING (Node 22+ broken)
 
 3. **Phase 2 - Testing & Validation** (P1 tickets)
    - Ticket #5: Adapter Compatibility Tests ⏳ Pending
