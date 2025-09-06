@@ -1,6 +1,9 @@
 import fs from "fs/promises";
 import path from "path";
-import { DatabaseAdapterFactory, type DatabaseAdapter } from "../storage/database-adapter.js";
+import {
+  DatabaseAdapterFactory,
+  type DatabaseAdapter,
+} from "../storage/database-adapter.js";
 import { parsePdf } from "./pdf-parser-wrapper.js";
 import { LLMExtractor } from "./llm-extractor.js";
 import { PatternValidator } from "./pattern-validator.js";

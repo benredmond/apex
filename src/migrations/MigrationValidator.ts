@@ -3,7 +3,10 @@ import type Database from "better-sqlite3";
 import { mkdtemp, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-import { DatabaseAdapterFactory, type DatabaseAdapter } from "../storage/database-adapter.js";
+import {
+  DatabaseAdapterFactory,
+  type DatabaseAdapter,
+} from "../storage/database-adapter.js";
 import type { Migration } from "./types.js";
 
 export class MigrationValidator {
@@ -11,7 +14,10 @@ export class MigrationValidator {
 
   constructor(dbOrAdapter: any) {
     // Accept either a DatabaseAdapter or raw Database.Database for compatibility
-    if (dbOrAdapter.getInstance && typeof dbOrAdapter.getInstance === 'function') {
+    if (
+      dbOrAdapter.getInstance &&
+      typeof dbOrAdapter.getInstance === "function"
+    ) {
       this.sourceDb = dbOrAdapter.getInstance();
     } else {
       this.sourceDb = dbOrAdapter;

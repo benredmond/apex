@@ -18,7 +18,7 @@ export class MigrationRunner {
     ) {
       // It's a DatabaseAdapter, get the underlying instance
       const rawDb = dbOrAdapter.getInstance();
-      
+
       // [PAT:TRANSACTION:MANUAL] ★★★★☆ (8 uses, 85% success) - Compatibility wrapper
       // Check if raw db lacks transaction() method (e.g., node:sqlite's DatabaseSync)
       if (!rawDb.transaction || typeof rawDb.transaction !== "function") {
@@ -29,21 +29,23 @@ export class MigrationRunner {
           // Delegate to adapter's transaction implementation
           return dbOrAdapter.transaction(fn);
         };
-        
+
         // Ensure all methods are accessible
         for (const prop in rawDb) {
-          if (!(prop in wrapper) && typeof rawDb[prop] === 'function') {
+          if (!(prop in wrapper) && typeof rawDb[prop] === "function") {
             wrapper[prop] = rawDb[prop].bind(rawDb);
           }
         }
-        
+
         // Special handling for methods that might not enumerate
         if (rawDb.prepare) wrapper.prepare = rawDb.prepare.bind(rawDb);
         if (rawDb.exec) wrapper.exec = rawDb.exec.bind(rawDb);
         if (rawDb.pragma) wrapper.pragma = rawDb.pragma.bind(rawDb);
-        
+
         this.db = wrapper;
-        console.log("Applied transaction compatibility wrapper for node:sqlite");
+        console.log(
+          "Applied transaction compatibility wrapper for node:sqlite",
+        );
       } else {
         // Raw db already has transaction() method (e.g., better-sqlite3)
         this.db = rawDb;
@@ -149,20 +151,20 @@ export class MigrationRunner {
         this.runSingleMigrationSync(migration);
       }
     };
-    
+
     // Check if db has transaction method (from wrapper or native)
-    if (this.db.transaction && typeof this.db.transaction === 'function') {
+    if (this.db.transaction && typeof this.db.transaction === "function") {
       // Use transaction wrapper for automatic BEGIN/COMMIT/ROLLBACK
       const transactionFn = this.db.transaction(runAllMigrations);
       transactionFn();
     } else {
       // Manual transaction management as fallback
-      this.db.exec('BEGIN');
+      this.db.exec("BEGIN");
       try {
         runAllMigrations();
-        this.db.exec('COMMIT');
+        this.db.exec("COMMIT");
       } catch (error) {
-        this.db.exec('ROLLBACK');
+        this.db.exec("ROLLBACK");
         throw error;
       }
     }
@@ -218,7 +220,7 @@ export class MigrationRunner {
       throw error;
     }
   }
-  
+
   /**
    * Run a single migration with savepoint protection (async wrapper for compatibility)
    */
