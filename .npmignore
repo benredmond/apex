@@ -1,0 +1,6 @@
+# Exclude binaries from npm package (saves ~65MB)
+binaries/
+
+# Exclude build scripts not needed by users
+scripts/build-sea.js
+scripts/build-pkg.js

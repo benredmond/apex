@@ -23,9 +23,8 @@
   },
   "files": [
     "src/",
+    "dist/",
     "bin/",
-    "binaries/",
-    "templates/",
     "README.md",
     "LICENSE"
   ],
