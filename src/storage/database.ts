@@ -297,9 +297,12 @@ export class PatternDatabase {
     // Migrations table
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS migrations (
-        id         TEXT PRIMARY KEY,
-        sql        TEXT NOT NULL,
-        applied_at TEXT NOT NULL
+        version          INTEGER PRIMARY KEY,
+        id               TEXT NOT NULL,
+        name             TEXT NOT NULL,
+        checksum         TEXT,
+        applied_at       TEXT NOT NULL,
+        execution_time_ms INTEGER
       );
     `);
 
