@@ -30,24 +30,27 @@ describe("Database Initialization with Missing FTS Table", () => {
   
   it("should complete initialization even when FTS table doesn't exist", async () => {
     // Create a database with patterns table but no FTS table
+    // Use minimal required columns for patterns table
     const setupDb = new Database(tempDbPath);
     setupDb.exec(`
       CREATE TABLE patterns (
         id TEXT PRIMARY KEY,
-        title TEXT,
-        summary TEXT,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL,
         tags TEXT,
         keywords TEXT,
         search_index TEXT,
         type TEXT NOT NULL,
-        trust_score REAL,
-        created_at TEXT,
-        updated_at TEXT,
-        schema_version TEXT,
-        pattern_version TEXT,
-        pattern_digest TEXT,
-        json_canonical BLOB,
-        invalid INTEGER DEFAULT 0
+        trust_score REAL DEFAULT 0.0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        schema_version TEXT NOT NULL,
+        pattern_version TEXT NOT NULL DEFAULT '1.0.0',
+        pattern_digest TEXT NOT NULL,
+        json_canonical BLOB NOT NULL,
+        invalid INTEGER DEFAULT 0,
+        source_repo TEXT,
+        provenance TEXT NOT NULL DEFAULT 'manual'
       );
     `);
     setupDb.close();
@@ -86,24 +89,26 @@ describe("Database Initialization with Missing FTS Table", () => {
     // Create a database with a corrupted FTS table
     const setupDb = new Database(tempDbPath);
     
-    // Create patterns table
+    // Create patterns table with required columns
     setupDb.exec(`
       CREATE TABLE patterns (
         id TEXT PRIMARY KEY,
-        title TEXT,
-        summary TEXT,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL,
         type TEXT NOT NULL,
-        trust_score REAL,
-        created_at TEXT,
-        updated_at TEXT,
+        trust_score REAL DEFAULT 0.0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         tags TEXT,
         keywords TEXT,
         search_index TEXT,
-        schema_version TEXT,
-        pattern_version TEXT,
-        pattern_digest TEXT,
-        json_canonical BLOB,
-        invalid INTEGER DEFAULT 0
+        schema_version TEXT NOT NULL,
+        pattern_version TEXT NOT NULL DEFAULT '1.0.0',
+        pattern_digest TEXT NOT NULL,
+        json_canonical BLOB NOT NULL,
+        invalid INTEGER DEFAULT 0,
+        source_repo TEXT,
+        provenance TEXT NOT NULL DEFAULT 'manual'
       );
     `);
     

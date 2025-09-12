@@ -9,6 +9,7 @@ import type { Pattern, Migration } from "./types.js";
 import { DATABASE_SCHEMA_VERSION } from "../config/constants.js";
 import { ApexConfig } from "../config/apex-config.js";
 import { SCHEMA_SQL, FTS_SCHEMA_SQL, INDICES_SQL } from "./schema-constants.js";
+import { withRetry, transactionWithRetry, tableExists } from "./database-utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -141,11 +142,11 @@ export class PatternDatabase {
     this.db.pragma(`cache_size = ${cacheSize}`);
 
     // Initialize schema
-    this.initializeSchema();
+    await this.initializeSchema();
     this.prepareStatements();
   }
 
-  private initializeSchema(): void {
+  private async initializeSchema(): Promise<void> {
     // [PAT:CLEAN:SINGLE_SOURCE] - Use centralized schema from schema-constants.ts
     
     // Core pattern table
@@ -179,61 +180,60 @@ export class PatternDatabase {
         // Don't return here - we still need to initialize other tables!
         // Just skip the trigger check
       } else {
-      
-      const checkAndRecreateTriggers = () => {
-        const triggers = this.db.prepare(`
-          SELECT name, sql FROM sqlite_master 
-          WHERE type = 'trigger' 
-          AND name IN ('patterns_ai', 'patterns_ad', 'patterns_au')
-        `).all() as { name: string; sql: string }[];
-        
-        // Check if we have all 3 triggers and they reference correct columns
-        // Note: These columns (category, subcategory, etc.) were removed from patterns table
-        // but might exist in old triggers
-        const needsRecreation = triggers.length !== 3 || 
-          triggers.some(t => {
-            const sql = t.sql.toLowerCase();
-            // Check for columns that were removed from the patterns table
-            // and shouldn't be in FTS triggers
-            return (
-              sql.includes('.category') || 
-              sql.includes('.subcategory') || 
-              sql.includes('.problem') || 
-              sql.includes('.solution') ||
-              sql.includes('.implementation') ||
-              sql.includes('.examples') ||
-              // Check for wrong trigger names (old pattern)
-              sql.includes('patterns_fts_insert') ||
-              sql.includes('patterns_fts_update') ||
-              sql.includes('patterns_fts_delete')
-            );
-          });
-        
-        if (needsRecreation) {
-          console.log('Updating FTS triggers to match current schema...');
-          // Use transaction for atomic trigger recreation
-          const recreateTriggers = this.db.transaction(() => {
-            // Drop all FTS-related triggers (both old and new naming)
-            this.db.exec(`
-              DROP TRIGGER IF EXISTS patterns_ai;
-              DROP TRIGGER IF EXISTS patterns_ad;
-              DROP TRIGGER IF EXISTS patterns_au;
-              DROP TRIGGER IF EXISTS patterns_fts_insert;
-              DROP TRIGGER IF EXISTS patterns_fts_update;
-              DROP TRIGGER IF EXISTS patterns_fts_delete;
-            `);
-            
-            // Recreate with correct schema
-            this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.insert);
-            this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.update);
-            this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.delete);
-          });
+        // Only check and recreate triggers if FTS table exists
+        const checkAndRecreateTriggers = async () => {
+          const triggers = this.db.prepare(`
+            SELECT name, sql FROM sqlite_master 
+            WHERE type = 'trigger' 
+            AND name IN ('patterns_ai', 'patterns_ad', 'patterns_au')
+          `).all() as { name: string; sql: string }[];
           
-          recreateTriggers();
-        }
-      };
-      
-      checkAndRecreateTriggers();
+          // Check if we have all 3 triggers and they reference correct columns
+          // Note: These columns (category, subcategory, etc.) were removed from patterns table
+          // but might exist in old triggers
+          const needsRecreation = triggers.length !== 3 || 
+            triggers.some(t => {
+              const sql = t.sql.toLowerCase();
+              // Check for columns that were removed from the patterns table
+              // and shouldn't be in FTS triggers
+              return (
+                sql.includes('.category') || 
+                sql.includes('.subcategory') || 
+                sql.includes('.problem') || 
+                sql.includes('.solution') ||
+                sql.includes('.implementation') ||
+                sql.includes('.examples') ||
+                // Check for wrong trigger names (old pattern)
+                sql.includes('patterns_fts_insert') ||
+                sql.includes('patterns_fts_update') ||
+                sql.includes('patterns_fts_delete')
+              );
+            });
+          
+          if (needsRecreation) {
+            console.log('Updating FTS triggers to match current schema...');
+            // Use transaction with retry logic for atomic trigger recreation
+            await transactionWithRetry(this.db, () => {
+              // Drop all FTS-related triggers (both old and new naming)
+              this.db.exec(`
+                DROP TRIGGER IF EXISTS patterns_ai;
+                DROP TRIGGER IF EXISTS patterns_ad;
+                DROP TRIGGER IF EXISTS patterns_au;
+                DROP TRIGGER IF EXISTS patterns_fts_insert;
+                DROP TRIGGER IF EXISTS patterns_fts_update;
+                DROP TRIGGER IF EXISTS patterns_fts_delete;
+              `);
+              
+              // Recreate with correct schema
+              this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.insert);
+              this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.update);
+              this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.delete);
+            }, { maxRetries: 3, retryDelay: 100 });
+          }
+        };
+        
+        // Call the function only within the else block
+        await checkAndRecreateTriggers();
       } // End of else block for ftsExists check
     } catch (error) {
       // Log error but don't fail initialization
