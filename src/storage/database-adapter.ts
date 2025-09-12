@@ -178,13 +178,20 @@ export class DatabaseAdapterFactory {
   }
 
   /**
-   * Check if better-sqlite3 is available
+   * Check if better-sqlite3 is available and working
    */
   private static async hasBetterSqlite(): Promise<boolean> {
     try {
-      await import("better-sqlite3");
+      // Not only import, but also try to instantiate to catch NODE_MODULE_VERSION errors
+      const module = await import("better-sqlite3");
+      const Database = module.default || module;
+      // Try to create an in-memory database to verify it actually works
+      // @ts-ignore - We're just testing if it works, type doesn't matter
+      const testDb = new (Database as any)(":memory:");
+      testDb.close();
       return true;
     } catch {
+      // Either import failed or instantiation failed (e.g., NODE_MODULE_VERSION mismatch)
       return false;
     }
   }

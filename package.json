@@ -19,12 +19,11 @@
   "type": "module",
   "main": "src/index.js",
   "bin": {
-    "apex": "./bin/apex-wrapper.js"
+    "apex": "./src/cli/apex.js"
   },
   "files": [
     "src/",
     "dist/",
-    "bin/",
     "README.md",
     "LICENSE"
   ],
@@ -42,11 +41,7 @@
     "release:major": "npm test && npm run lint && npm run type-check && npm version major && npm publish",
     "pack:test": "npm pack --dry-run",
     "mcp:server": "node src/mcp/index.js",
-    "bundle": "node scripts/bundle-cli.js",
-    "build:sea": "node scripts/build-sea.js",
-    "build:pkg": "node scripts/build-pkg.js",
-    "build:binary": "node scripts/build-pkg.js",
-    "prebuild:binary": "npm run build"
+    "apex": "node src/cli/apex.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.6.1",

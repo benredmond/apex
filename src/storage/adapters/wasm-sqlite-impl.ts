@@ -305,7 +305,29 @@ export class WasmSqliteAdapter implements DatabaseAdapter {
   }
 
   getInstance(): any {
-    return this.db;
+    // Return a compatibility wrapper that provides the expected API
+    // for MigrationRunner and other components expecting better-sqlite3-like interface
+    const adapter = this;
+    
+    return {
+      // Delegate to adapter's prepare method which returns proper Statement
+      prepare: (sql: string) => adapter.prepare(sql),
+      
+      // Delegate exec directly
+      exec: (sql: string) => adapter.exec(sql),
+      
+      // Delegate pragma
+      pragma: (pragma: string) => adapter.pragma(pragma),
+      
+      // Delegate transaction
+      transaction: (fn: () => any) => adapter.transaction(fn),
+      
+      // Expose the raw db for any direct access needs
+      _rawDb: this.db,
+      
+      // Add close method
+      close: () => adapter.close()
+    };
   }
 
   /**
