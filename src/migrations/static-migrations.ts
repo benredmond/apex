@@ -18,6 +18,7 @@ import { migration as migration014 } from "./014-populate-pattern-tags.js";
 import { migration as migration015 } from "./015-project-isolation.js";
 import { migration as migration016 } from "./016-add-missing-schema-tables.js";
 import { migration as migration017 } from "./017-fix-fts-rowid-join.js";
+import { migration018FixFtsTriggerSchema as migration018 } from "./018-fix-fts-trigger-schema.js";
 
 export const staticMigrations = {
   "001-consolidate-patterns.js": migration001,
@@ -37,4 +38,5 @@ export const staticMigrations = {
   "015-project-isolation.js": migration015,
   "016-add-missing-schema-tables.js": migration016,
   "017-fix-fts-rowid-join.js": migration017,
+  "018-fix-fts-trigger-schema.js": migration018,
 };

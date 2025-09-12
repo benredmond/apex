@@ -271,23 +271,19 @@ export const FTS_SCHEMA_SQL = {
     insert: `
       CREATE TRIGGER IF NOT EXISTS patterns_fts_insert AFTER INSERT ON patterns
       BEGIN
-        INSERT INTO patterns_fts(id, type, category, subcategory, title, summary, problem, solution, implementation, examples)
-        VALUES (new.id, new.type, new.category, new.subcategory, new.title, new.summary, new.problem, new.solution, new.implementation, new.examples);
+        INSERT INTO patterns_fts(id, title, summary, tags, keywords, search_index)
+        VALUES (new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
       END`,
 
     update: `
       CREATE TRIGGER IF NOT EXISTS patterns_fts_update AFTER UPDATE ON patterns
       BEGIN
         UPDATE patterns_fts 
-        SET type = new.type,
-            category = new.category,
-            subcategory = new.subcategory,
-            title = new.title,
+        SET title = new.title,
             summary = new.summary,
-            problem = new.problem,
-            solution = new.solution,
-            implementation = new.implementation,
-            examples = new.examples
+            tags = new.tags,
+            keywords = new.keywords,
+            search_index = new.search_index
         WHERE id = new.id;
       END`,
 

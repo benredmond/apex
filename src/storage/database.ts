@@ -163,6 +163,14 @@ export class PatternDatabase {
     this.db.exec(SCHEMA_SQL.snippets);
 
     // Full-text search tables and triggers
+    // DEFENSIVE: Drop and recreate FTS triggers to prevent schema mismatches
+    // This handles cases where triggers exist but reference old column names
+    this.db.exec(`
+      DROP TRIGGER IF EXISTS patterns_fts_insert;
+      DROP TRIGGER IF EXISTS patterns_fts_update;
+      DROP TRIGGER IF EXISTS patterns_fts_delete;
+    `);
+    
     this.db.exec(FTS_SCHEMA_SQL.patterns_fts);
     this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.insert);
     this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.update);
