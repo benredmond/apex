@@ -252,18 +252,12 @@ export const FTS_SCHEMA_SQL = {
   patterns_fts: `
     CREATE VIRTUAL TABLE IF NOT EXISTS patterns_fts USING fts5(
       id UNINDEXED,
-      type,
-      category,
-      subcategory,
       title,
       summary,
-      problem,
-      solution,
-      implementation,
-      examples,
-      content=patterns,
-      content_rowid=rowid,
-      tokenize='porter'
+      tags,
+      keywords,
+      search_index,
+      tokenize='unicode61'
     )`,
 
   // FTS triggers - using consistent naming: patterns_ai, patterns_ad, patterns_au
