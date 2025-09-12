@@ -163,18 +163,55 @@ export class PatternDatabase {
     this.db.exec(SCHEMA_SQL.snippets);
 
     // Full-text search tables and triggers
-    // DEFENSIVE: Drop and recreate FTS triggers to prevent schema mismatches
-    // This handles cases where triggers exist but reference old column names
-    this.db.exec(`
-      DROP TRIGGER IF EXISTS patterns_fts_insert;
-      DROP TRIGGER IF EXISTS patterns_fts_update;
-      DROP TRIGGER IF EXISTS patterns_fts_delete;
-    `);
-    
     this.db.exec(FTS_SCHEMA_SQL.patterns_fts);
-    this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.insert);
-    this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.update);
-    this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.delete);
+    
+    // DEFENSIVE: Check if triggers need updating (conditional recreation)
+    // Only drop and recreate if they don't exist or have wrong schema
+    const checkAndRecreateTriggers = () => {
+      const triggers = this.db.prepare(`
+        SELECT name, sql FROM sqlite_master 
+        WHERE type = 'trigger' 
+        AND name IN ('patterns_ai', 'patterns_ad', 'patterns_au')
+      `).all() as { name: string; sql: string }[];
+      
+      // Check if we have all 3 triggers and they reference correct columns
+      const needsRecreation = triggers.length !== 3 || 
+        triggers.some(t => 
+          // Check for old column references that shouldn't exist
+          t.sql.includes('category') || 
+          t.sql.includes('subcategory') || 
+          t.sql.includes('problem') || 
+          t.sql.includes('solution') ||
+          t.sql.includes('implementation') ||
+          t.sql.includes('examples') ||
+          // Check for wrong trigger names (old pattern)
+          t.sql.includes('patterns_fts_insert') ||
+          t.sql.includes('patterns_fts_update') ||
+          t.sql.includes('patterns_fts_delete')
+        );
+      
+      if (needsRecreation) {
+        // Use transaction for atomic trigger recreation
+        this.db.transaction(() => {
+          // Drop all FTS-related triggers (both old and new naming)
+          this.db.exec(`
+            DROP TRIGGER IF EXISTS patterns_ai;
+            DROP TRIGGER IF EXISTS patterns_ad;
+            DROP TRIGGER IF EXISTS patterns_au;
+            DROP TRIGGER IF EXISTS patterns_fts_insert;
+            DROP TRIGGER IF EXISTS patterns_fts_update;
+            DROP TRIGGER IF EXISTS patterns_fts_delete;
+          `);
+          
+          // Recreate with correct schema
+          this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.insert);
+          this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.update);
+          this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.delete);
+        })();
+      }
+    };
+    
+    checkAndRecreateTriggers();
 
     // Schema versioning
     this.db.exec(`

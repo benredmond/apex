@@ -266,31 +266,30 @@ export const FTS_SCHEMA_SQL = {
       tokenize='porter'
     )`,
 
-  // FTS triggers
+  // FTS triggers - using consistent naming: patterns_ai, patterns_ad, patterns_au
   patterns_fts_triggers: {
     insert: `
-      CREATE TRIGGER IF NOT EXISTS patterns_fts_insert AFTER INSERT ON patterns
+      CREATE TRIGGER patterns_ai AFTER INSERT ON patterns
       BEGIN
-        INSERT INTO patterns_fts(id, title, summary, tags, keywords, search_index)
-        VALUES (new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
+        INSERT INTO patterns_fts(rowid, id, title, summary, tags, keywords, search_index)
+        VALUES (new.rowid, new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
       END`,
 
     update: `
-      CREATE TRIGGER IF NOT EXISTS patterns_fts_update AFTER UPDATE ON patterns
+      CREATE TRIGGER patterns_au AFTER UPDATE OF title, summary, tags, keywords, search_index ON patterns
       BEGIN
-        UPDATE patterns_fts 
-        SET title = new.title,
-            summary = new.summary,
-            tags = new.tags,
-            keywords = new.keywords,
-            search_index = new.search_index
-        WHERE id = new.id;
+        -- FTS5 doesn't support UPDATE, must delete and re-insert
+        INSERT INTO patterns_fts(patterns_fts, rowid, id, title, summary, tags, keywords, search_index)
+        VALUES ('delete', old.rowid, old.id, old.title, old.summary, old.tags, old.keywords, old.search_index);
+        INSERT INTO patterns_fts(rowid, id, title, summary, tags, keywords, search_index)
+        VALUES (new.rowid, new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
       END`,
 
     delete: `
-      CREATE TRIGGER IF NOT EXISTS patterns_fts_delete AFTER DELETE ON patterns
+      CREATE TRIGGER patterns_ad AFTER DELETE ON patterns
       BEGIN
-        DELETE FROM patterns_fts WHERE id = old.id;
+        INSERT INTO patterns_fts(patterns_fts, rowid, id, title, summary, tags, keywords, search_index)
+        VALUES ('delete', old.rowid, old.id, old.title, old.summary, old.tags, old.keywords, old.search_index);
       END`,
   },
 };

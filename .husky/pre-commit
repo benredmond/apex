@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Schema validation before commit
+echo "🔍 Validating schema consistency..."
+npm run validate:schema || {
+  echo "❌ Schema validation failed. Please fix errors before committing."
+  exit 1
+}
+
+# Run other pre-commit checks
+npm run lint
+npm run type-check

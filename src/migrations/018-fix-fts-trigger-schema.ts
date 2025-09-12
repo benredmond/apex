@@ -17,16 +17,18 @@ export const migration018FixFtsTriggerSchema: Migration = {
   name: "fix-fts-trigger-schema",
   
   up: async (db: Database.Database): Promise<void> => {
-    // Drop all existing FTS-related triggers
-    // These might reference old columns that no longer exist
-    db.exec(`
-      DROP TRIGGER IF EXISTS patterns_fts_insert;
-      DROP TRIGGER IF EXISTS patterns_fts_update;
-      DROP TRIGGER IF EXISTS patterns_fts_delete;
-      DROP TRIGGER IF EXISTS patterns_ai;
-      DROP TRIGGER IF EXISTS patterns_ad;
-      DROP TRIGGER IF EXISTS patterns_au;
-    `);
+    // Transaction wrapper for atomic migration
+    db.transaction(() => {
+      // Drop all existing FTS-related triggers (both naming conventions)
+      // These might reference old columns that no longer exist
+      db.exec(`
+        DROP TRIGGER IF EXISTS patterns_fts_insert;
+        DROP TRIGGER IF EXISTS patterns_fts_update;
+        DROP TRIGGER IF EXISTS patterns_fts_delete;
+        DROP TRIGGER IF EXISTS patterns_ai;
+        DROP TRIGGER IF EXISTS patterns_ad;
+        DROP TRIGGER IF EXISTS patterns_au;
+      `);
     
     // Recreate triggers with correct column mappings
     // These match the current FTS table schema: (id, title, summary, tags, keywords, search_index)
@@ -52,18 +54,19 @@ export const migration018FixFtsTriggerSchema: Migration = {
         VALUES (new.rowid, new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
       END;
     `);
-    
-    // Verify triggers were created
-    const triggers = db.prepare(`
-      SELECT name FROM sqlite_master 
-      WHERE type='trigger' 
-      AND tbl_name='patterns' 
-      AND name IN ('patterns_ai', 'patterns_ad', 'patterns_au')
-    `).all() as { name: string }[];
-    
-    if (triggers.length !== 3) {
-      throw new Error(`Expected 3 FTS triggers, found ${triggers.length}`);
-    }
+      
+      // Verify triggers were created
+      const triggers = db.prepare(`
+        SELECT name FROM sqlite_master 
+        WHERE type='trigger' 
+        AND tbl_name='patterns' 
+        AND name IN ('patterns_ai', 'patterns_ad', 'patterns_au')
+      `).all() as { name: string }[];
+      
+      if (triggers.length !== 3) {
+        throw new Error(`Expected 3 FTS triggers, found ${triggers.length}`);
+      }
+    })(); // End transaction
   },
   
   down: async (db: Database.Database): Promise<void> => {
