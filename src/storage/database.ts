@@ -176,8 +176,9 @@ export class PatternDatabase {
       
       if (!ftsExists) {
         console.warn('FTS table does not exist, skipping trigger check');
-        return;
-      }
+        // Don't return here - we still need to initialize other tables!
+        // Just skip the trigger check
+      } else {
       
       const checkAndRecreateTriggers = () => {
         const triggers = this.db.prepare(`
@@ -233,6 +234,7 @@ export class PatternDatabase {
       };
       
       checkAndRecreateTriggers();
+      } // End of else block for ftsExists check
     } catch (error) {
       // Log error but don't fail initialization
       // Triggers can be fixed by migrations

@@ -8,7 +8,7 @@
  * - Corrupted or inconsistent states
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+// Using Jest which is configured for this project
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";

@@ -18,7 +18,7 @@ export const migration018FixFtsTriggerSchema: Migration = {
   
   up: async (db: Database.Database): Promise<void> => {
     // Transaction wrapper for atomic migration
-    db.transaction(() => {
+    const runMigration = db.transaction(() => {
       // Drop all existing FTS-related triggers (both naming conventions)
       // These might reference old columns that no longer exist
       db.exec(`
@@ -66,7 +66,10 @@ export const migration018FixFtsTriggerSchema: Migration = {
       if (triggers.length !== 3) {
         throw new Error(`Expected 3 FTS triggers, found ${triggers.length}`);
       }
-    })(); // End transaction
+    });
+    
+    // Execute the transaction
+    runMigration();
   },
   
   down: async (db: Database.Database): Promise<void> => {

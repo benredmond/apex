@@ -5,7 +5,7 @@
  * what's actually possible in the database.
  */
 
-import { describe, it, expect } from "vitest";
+// Using Jest which is configured for this project
 import Database from "better-sqlite3";
 import { FTS_SCHEMA_SQL } from "../src/storage/schema-constants.js";
 
