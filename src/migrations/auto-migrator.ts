@@ -11,6 +11,7 @@ import { MigrationRunner } from "./MigrationRunner.js";
 import { MigrationLoader } from "./MigrationLoader.js";
 import { MigrationLock } from "./migration-lock.js";
 import { ApexConfig } from "../config/apex-config.js";
+import { getAllSchemaSql, INDICES_SQL } from "../storage/schema-constants.js";
 import chalk from "chalk";
 import ora from "ora";
 
@@ -230,254 +231,30 @@ export class AutoMigrator {
   /**
    * Create the full current schema for fresh installs
    * This avoids running all migrations sequentially
+   * [PAT:CLEAN:SINGLE_SOURCE] - Use centralized schema definitions
    */
   private createFullSchema(): void {
     // Create migrations table first
     this.ensureMigrationsTable();
 
-    // Create the complete current schema as of the latest migration
-    // This is the final schema after all migrations have been applied
-    this.db.exec(`
-      -- Core patterns table with all columns
-      CREATE TABLE IF NOT EXISTS patterns (
-        id                TEXT PRIMARY KEY,
-        schema_version    TEXT NOT NULL,
-        pattern_version   TEXT NOT NULL,
-        type              TEXT NOT NULL CHECK (type IN ('CODEBASE','LANG','ANTI','FAILURE','POLICY','TEST','MIGRATION')),
-        title             TEXT NOT NULL,
-        summary           TEXT NOT NULL,
-        trust_score       REAL NOT NULL CHECK (trust_score >= 0.0 AND trust_score <= 1.0),
-        created_at        TEXT NOT NULL,
-        updated_at        TEXT NOT NULL,
-        source_repo       TEXT,
-        tags              TEXT,
-        pattern_digest    TEXT NOT NULL,
-        json_canonical    BLOB NOT NULL,
-        invalid           INTEGER NOT NULL DEFAULT 0,
-        invalid_reason    TEXT,
-        alias             TEXT UNIQUE,
-        keywords          TEXT,
-        search_index      TEXT,
-        alpha             REAL DEFAULT 1.0,
-        beta              REAL DEFAULT 1.0,
-        usage_count       INTEGER DEFAULT 0,
-        success_count     INTEGER DEFAULT 0,
-        status            TEXT DEFAULT 'active',
-        provenance        TEXT NOT NULL DEFAULT 'manual',
-        key_insight       TEXT,
-        when_to_use       TEXT,
-        common_pitfalls   TEXT,
-        last_activity_at  TEXT,
-        quality_score_cached REAL,
-        cache_timestamp   TEXT,
-        semver_constraints TEXT,
-        quarantine_reason TEXT,
-        quarantine_date   TEXT
-      );
+    // Get all schema SQL statements from centralized source
+    const schemaSql = getAllSchemaSql();
 
-      -- Facet tables
-      CREATE TABLE IF NOT EXISTS pattern_languages (
-        pattern_id  TEXT NOT NULL,
-        lang        TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, lang),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
+    // Execute each schema statement
+    for (const statement of schemaSql) {
+      this.db.exec(statement);
+    }
 
-      CREATE TABLE IF NOT EXISTS pattern_frameworks (
-        pattern_id  TEXT NOT NULL,
-        framework   TEXT NOT NULL,
-        semver      TEXT,
-        PRIMARY KEY (pattern_id, framework),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
+    // Create all indices
+    for (const indexSql of INDICES_SQL.patterns_indices) {
+      this.db.exec(indexSql);
+    }
 
-      CREATE TABLE IF NOT EXISTS pattern_paths (
-        pattern_id  TEXT NOT NULL,
-        glob        TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, glob),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
+    for (const indexSql of INDICES_SQL.task_indices) {
+      this.db.exec(indexSql);
+    }
 
-      CREATE TABLE IF NOT EXISTS pattern_repos (
-        pattern_id  TEXT NOT NULL,
-        repo_glob   TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, repo_glob),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS pattern_task_types (
-        pattern_id  TEXT NOT NULL,
-        task_type   TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, task_type),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS pattern_snippets (
-        pattern_id  TEXT NOT NULL,
-        snippet_id  TEXT NOT NULL,
-        content     TEXT NOT NULL,
-        language    TEXT,
-        PRIMARY KEY (pattern_id, snippet_id),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS pattern_envs (
-        pattern_id  TEXT NOT NULL,
-        env         TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, env),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS pattern_tags (
-        pattern_id  TEXT NOT NULL,
-        tag         TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, tag),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS snippets (
-        snippet_id    TEXT PRIMARY KEY,
-        pattern_id    TEXT NOT NULL,
-        label         TEXT,
-        language      TEXT,
-        file_ref      TEXT,
-        line_count    INTEGER,
-        bytes         INTEGER,
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      -- Pattern metadata tables
-      CREATE TABLE IF NOT EXISTS pattern_metadata (
-        pattern_id            TEXT PRIMARY KEY,
-        implementation_guide  TEXT,
-        testing_notes         TEXT,
-        performance_impact    TEXT,
-        security_notes        TEXT,
-        migration_path        TEXT,
-        deprecation_notice    TEXT,
-        related_patterns      TEXT,
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS pattern_triggers (
-        trigger_id    TEXT PRIMARY KEY,
-        pattern_id    TEXT NOT NULL,
-        trigger_type  TEXT NOT NULL CHECK (trigger_type IN ('error', 'context', 'file', 'task')),
-        trigger_value TEXT NOT NULL,
-        confidence    REAL DEFAULT 0.5,
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS pattern_vocab (
-        pattern_id  TEXT NOT NULL,
-        term        TEXT NOT NULL,
-        term_type   TEXT NOT NULL CHECK (term_type IN ('concept', 'technology', 'action', 'entity')),
-        importance  REAL DEFAULT 0.5,
-        PRIMARY KEY (pattern_id, term),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      -- Task system tables
-      CREATE TABLE IF NOT EXISTS tasks (
-        id            TEXT PRIMARY KEY,
-        identifier    TEXT,
-        title         TEXT NOT NULL,
-        status        TEXT NOT NULL DEFAULT 'active',
-        type          TEXT,
-        brief         TEXT,
-        context       TEXT,
-        phase         TEXT DEFAULT 'ARCHITECT',
-        outcome       TEXT,
-        created_at    TEXT NOT NULL,
-        updated_at    TEXT NOT NULL,
-        completed_at  TEXT,
-        tags          TEXT
-      );
-
-      CREATE TABLE IF NOT EXISTS task_files (
-        task_id       TEXT NOT NULL,
-        file_path     TEXT NOT NULL,
-        operation     TEXT NOT NULL,
-        PRIMARY KEY (task_id, file_path),
-        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS task_similarity (
-        task_id       TEXT NOT NULL,
-        similar_id    TEXT NOT NULL,
-        similarity    REAL NOT NULL,
-        PRIMARY KEY (task_id, similar_id),
-        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS task_evidence (
-        id            TEXT PRIMARY KEY,
-        task_id       TEXT NOT NULL,
-        type          TEXT NOT NULL,
-        content       TEXT NOT NULL,
-        metadata      TEXT,
-        created_at    TEXT NOT NULL,
-        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS task_checkpoints (
-        id            TEXT PRIMARY KEY,
-        task_id       TEXT NOT NULL,
-        phase         TEXT NOT NULL,
-        message       TEXT NOT NULL,
-        confidence    REAL DEFAULT 0.5,
-        metadata      TEXT,
-        created_at    TEXT NOT NULL,
-        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-      );
-
-      -- Create all indexes
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_pattern_alias ON patterns(alias);
-      CREATE INDEX IF NOT EXISTS idx_pattern_type ON patterns(type);
-      CREATE INDEX IF NOT EXISTS idx_pattern_trust ON patterns(trust_score);
-      CREATE INDEX IF NOT EXISTS idx_pattern_status ON patterns(status);
-      CREATE INDEX IF NOT EXISTS idx_pattern_provenance ON patterns(provenance);
-      CREATE INDEX IF NOT EXISTS idx_pattern_quality ON patterns(quality_score_cached, last_activity_at);
-      CREATE INDEX IF NOT EXISTS idx_pattern_quarantine ON patterns(quarantine_date) WHERE quarantine_date IS NOT NULL;
-      CREATE INDEX IF NOT EXISTS idx_pattern_metadata_trigger ON pattern_triggers(trigger_type, trigger_value);
-      CREATE INDEX IF NOT EXISTS idx_pattern_vocab_term ON pattern_vocab(term);
-      CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status, updated_at);
-      CREATE INDEX IF NOT EXISTS idx_tasks_type ON tasks(type);
-      CREATE INDEX IF NOT EXISTS idx_tasks_identifier ON tasks(identifier);
-      CREATE INDEX IF NOT EXISTS idx_tasks_phase ON tasks(phase);
-      CREATE INDEX IF NOT EXISTS idx_tasks_tags ON tasks(tags);
-      CREATE INDEX IF NOT EXISTS idx_task_evidence_task ON task_evidence(task_id, created_at);
-      CREATE INDEX IF NOT EXISTS idx_task_checkpoints_task ON task_checkpoints(task_id, created_at);
-
-      -- Full-text search with expanded fields from migration 004
-      CREATE VIRTUAL TABLE IF NOT EXISTS patterns_fts USING fts5(
-        id UNINDEXED,
-        title,
-        summary,
-        tags,
-        keywords,
-        search_index,
-        tokenize='unicode61'
-      );
-      
-      -- FTS synchronization triggers (critical for search functionality)
-      CREATE TRIGGER IF NOT EXISTS patterns_ai AFTER INSERT ON patterns BEGIN
-        INSERT INTO patterns_fts (rowid, id, title, summary, tags, keywords, search_index)
-        VALUES (new.rowid, new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
-      END;
-      
-      CREATE TRIGGER IF NOT EXISTS patterns_ad AFTER DELETE ON patterns BEGIN
-        INSERT INTO patterns_fts (patterns_fts, rowid, id, title, summary, tags, keywords, search_index)
-        VALUES ('delete', old.rowid, old.id, old.title, old.summary, old.tags, old.keywords, old.search_index);
-      END;
-      
-      CREATE TRIGGER IF NOT EXISTS patterns_au AFTER UPDATE OF title, summary, tags, keywords, search_index ON patterns BEGIN
-        INSERT INTO patterns_fts (patterns_fts, rowid, id, title, summary, tags, keywords, search_index)
-        VALUES ('delete', old.rowid, old.id, old.title, old.summary, old.tags, old.keywords, old.search_index);
-        INSERT INTO patterns_fts (rowid, id, title, summary, tags, keywords, search_index)
-        VALUES (new.rowid, new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
-      END;
-    `);
+    console.log("Full schema created from centralized definitions");
   }
 
   /**

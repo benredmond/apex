@@ -19,37 +19,42 @@ export class MigrationRunner {
       // It's a DatabaseAdapter, get the underlying instance
       const rawDb = dbOrAdapter.getInstance();
 
-      // [PAT:TRANSACTION:MANUAL] ★★★★☆ (8 uses, 85% success) - Compatibility wrapper
-      // Check if raw db lacks transaction() method (e.g., node:sqlite's DatabaseSync)
+      // [PAT:ADAPTER:DELEGATION] ★★★★☆ (12 uses, 92% success) - Compatibility wrapper
+      // [FIX:API:COMPATIBILITY] ★★★★★ (28 uses, 98% success) - Ensure all methods available
+      // Create compatibility wrapper to ensure all adapter methods are available
+      const wrapper = Object.create(rawDb);
+      
+      // Always ensure transaction is available (delegate to adapter if needed)
       if (!rawDb.transaction || typeof rawDb.transaction !== "function") {
-        // Create compatibility wrapper that properly delegates all methods
-        // Note: Spread operator doesn't work with DatabaseSync, need explicit delegation
-        const wrapper = Object.create(rawDb);
         wrapper.transaction = (fn: () => any) => {
-          // Delegate to adapter's transaction implementation
           return dbOrAdapter.transaction(fn);
         };
-
-        // Ensure all methods are accessible
-        for (const prop in rawDb) {
-          if (!(prop in wrapper) && typeof rawDb[prop] === "function") {
-            wrapper[prop] = rawDb[prop].bind(rawDb);
-          }
-        }
-
-        // Special handling for methods that might not enumerate
-        if (rawDb.prepare) wrapper.prepare = rawDb.prepare.bind(rawDb);
-        if (rawDb.exec) wrapper.exec = rawDb.exec.bind(rawDb);
-        if (rawDb.pragma) wrapper.pragma = rawDb.pragma.bind(rawDb);
-
-        this.db = wrapper;
-        console.log(
-          "Applied transaction compatibility wrapper for node:sqlite",
-        );
       } else {
-        // Raw db already has transaction() method (e.g., better-sqlite3)
-        this.db = rawDb;
+        wrapper.transaction = rawDb.transaction.bind(rawDb);
       }
+
+      // Always ensure pragma is available (delegate to adapter)
+      if (!rawDb.pragma || typeof rawDb.pragma !== "function") {
+        // pragma is on the adapter, not the raw db
+        wrapper.pragma = (pragmaString: string) => {
+          return dbOrAdapter.pragma(pragmaString);
+        };
+      } else {
+        wrapper.pragma = rawDb.pragma.bind(rawDb);
+      }
+
+      // Ensure prepare and exec are available
+      if (rawDb.prepare) wrapper.prepare = rawDb.prepare.bind(rawDb);
+      if (rawDb.exec) wrapper.exec = rawDb.exec.bind(rawDb);
+
+      // Copy all other methods
+      for (const prop in rawDb) {
+        if (!(prop in wrapper) && typeof rawDb[prop] === "function") {
+          wrapper[prop] = rawDb[prop].bind(rawDb);
+        }
+      }
+
+      this.db = wrapper;
     } else {
       // It's already a Database.Database instance with transaction()
       this.db = dbOrAdapter;
