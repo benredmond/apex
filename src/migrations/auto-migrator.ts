@@ -11,7 +11,7 @@ import { MigrationRunner } from "./MigrationRunner.js";
 import { MigrationLoader } from "./MigrationLoader.js";
 import { MigrationLock } from "./migration-lock.js";
 import { ApexConfig } from "../config/apex-config.js";
-import { getAllSchemaSql, INDICES_SQL } from "../storage/schema-constants.js";
+import { getAllSchemaSql, INDICES_SQL, SCHEMA_SQL } from "../storage/schema-constants.js";
 import chalk from "chalk";
 import ora from "ora";
 
@@ -183,37 +183,12 @@ export class AutoMigrator {
    * This allows migrations to add columns incrementally
    */
   private ensurePatternsTable(): void {
-    // Create patterns table with minimal required columns
-    // Migrations will add additional columns as needed
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS patterns (
-        id                TEXT PRIMARY KEY,
-        schema_version    TEXT NOT NULL,
-        pattern_version   TEXT NOT NULL,
-        type              TEXT NOT NULL CHECK (type IN ('CODEBASE','LANG','ANTI','FAILURE','POLICY','TEST','MIGRATION')),
-        title             TEXT NOT NULL,
-        summary           TEXT NOT NULL,
-        trust_score       REAL NOT NULL CHECK (trust_score >= 0.0 AND trust_score <= 1.0),
-        created_at        TEXT NOT NULL,
-        updated_at        TEXT NOT NULL,
-        source_repo       TEXT,
-        tags              TEXT,
-        pattern_digest    TEXT NOT NULL,
-        json_canonical    BLOB NOT NULL,
-        invalid           INTEGER NOT NULL DEFAULT 0,
-        invalid_reason    TEXT
-      )
-    `);
-
-    // Also create pattern_tags table needed by migration 014
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS pattern_tags (
-        pattern_id  TEXT NOT NULL,
-        tag         TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, tag),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      )
-    `);
+    // [PAT:CLEAN:SINGLE_SOURCE] - Use centralized schema from schema-constants.ts
+    // This ensures consistency between fresh installs and migrations
+    this.db.exec(SCHEMA_SQL.patterns);
+    
+    // Also create pattern_tags table
+    this.db.exec(SCHEMA_SQL.pattern_tags);
   }
 
   /**
@@ -337,8 +312,18 @@ export class AutoMigrator {
       },
       {
         version: 15,
-        id: "015-add-task-checkpoint-table",
-        name: "Add task checkpoint tracking table",
+        id: "015-project-isolation",
+        name: "Add project isolation support",
+      },
+      {
+        version: 16,
+        id: "016-add-missing-schema-tables",
+        name: "Add missing schema tables",
+      },
+      {
+        version: 17,
+        id: "017-fix-fts-rowid-join",
+        name: "Fix FTS join from rowid to id",
       },
     ];
 

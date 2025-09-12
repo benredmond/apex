@@ -24,10 +24,11 @@ describe("Concurrent Database Access", () => {
   });
 
   describe("Multiple Database Instances", () => {
-    it("should handle multiple PatternDatabase instances on same file", () => {
+    it("should handle multiple PatternDatabase instances on same file", async () => {
       // This simulates what was happening in our bug
-      const db1 = new PatternDatabase(dbPath);
-      const db2 = new PatternDatabase(dbPath);
+      // Use async factory pattern
+      const db1 = await PatternDatabase.create(dbPath);
+      const db2 = await PatternDatabase.create(dbPath);
 
       // Both should be able to read
       expect(() => {
@@ -308,8 +309,8 @@ describe("Concurrent Database Access", () => {
 
       // This simulates what apex start was doing (the bug)
       const badInit = async () => {
-        // Creating PatternDatabase first
-        const pdb = new PatternDatabase(testDbPath);
+        // Creating PatternDatabase first using async factory
+        const pdb = await PatternDatabase.create(testDbPath);
         // Then another database connection with same file
         const db2 = new Database(testDbPath);
         

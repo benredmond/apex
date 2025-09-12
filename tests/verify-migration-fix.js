@@ -22,13 +22,13 @@ async function test() {
     // Test 1: AutoMigrator initialization
     console.log('Test 1: AutoMigrator initialization');
     const migrator = new AutoMigrator(dbPath);
-    const result = await migrator.autoMigrate({ silent: true });
+    const result = await migrator.autoMigrate({ silent: false });
     
     if (!result) {
       throw new Error('AutoMigrator.migrate() returned false');
     }
     
-    // Get adapter to verify
+    // Get adapter to verify - AutoMigrator closed its connection so we need a new one
     const adapter1 = await DatabaseAdapterFactory.create(dbPath);
     
     // Verify migrations table has correct schema
@@ -65,8 +65,7 @@ async function test() {
     // Test 2: PatternDatabase initialization
     console.log('Test 2: PatternDatabase initialization');
     const dbPath2 = path.join(tempDir, 'test2.db');
-    const db = new PatternDatabase(dbPath2);
-    await db.init();
+    const db = await PatternDatabase.create(dbPath2);
     
     const adapter2 = db.getAdapter();
     const schema2 = adapter2.prepare(`
@@ -119,9 +118,8 @@ async function test() {
     console.log('Test 4: End-to-end initialization');
     const dbPath3 = path.join(tempDir, 'test3.db');
     
-    // Simulate what apex start does
-    const db2 = new PatternDatabase(dbPath3);
-    await db2.init();
+    // Simulate what apex start does using async factory
+    const db2 = await PatternDatabase.create(dbPath3);
     
     // Should be able to do basic operations
     const patterns = db2.searchPatterns('test');

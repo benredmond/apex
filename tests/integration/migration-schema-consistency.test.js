@@ -115,9 +115,8 @@ describe('Migration System Schema Consistency', () => {
   });
 
   test('PatternDatabase migration table matches AutoMigrator schema', async () => {
-    // Test with PatternDatabase initialization
-    const db = new PatternDatabase(dbPath);
-    await db.init();
+    // Test with PatternDatabase initialization using async factory
+    const db = await PatternDatabase.create(dbPath);
     
     // Get the adapter from PatternDatabase
     const dbAdapter = db.getAdapter();
@@ -143,11 +142,8 @@ describe('Migration System Schema Consistency', () => {
   });
 
   test('Database can be initialized and migrated without errors', async () => {
-    // This simulates the actual startup flow
-    const db = new PatternDatabase(dbPath);
-    
-    // Should not throw
-    await expect(db.init()).resolves.not.toThrow();
+    // This simulates the actual startup flow using async factory
+    const db = await PatternDatabase.create(dbPath);
     
     // Verify database is functional
     const patterns = db.searchPatterns('test');

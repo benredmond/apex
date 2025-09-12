@@ -23,8 +23,8 @@ describe("PatternInserter", () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "apex-test-"));
     const dbPath = path.join(tempDir, "test.db");
     
-    // Initialize database with schema using PatternDatabase
-    const patternDb = new PatternDatabase(dbPath);
+    // Initialize database with schema using PatternDatabase async factory
+    const patternDb = await PatternDatabase.create(dbPath);
     
     // Get the raw database connection
     db = patternDb.database;

@@ -8,6 +8,7 @@ import type { Pattern, Migration } from "./types.js";
 // [PAT:IMPORT:ESM] ★★★★☆ (67 uses, 89% success) - From cache
 import { DATABASE_SCHEMA_VERSION } from "../config/constants.js";
 import { ApexConfig } from "../config/apex-config.js";
+import { SCHEMA_SQL, FTS_SCHEMA_SQL, INDICES_SQL } from "./schema-constants.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -145,144 +146,27 @@ export class PatternDatabase {
   }
 
   private initializeSchema(): void {
-    // Core pattern table with enhanced search fields
-    const createTableSQL = `
-      CREATE TABLE IF NOT EXISTS patterns (
-        id                TEXT PRIMARY KEY,
-        schema_version    TEXT NOT NULL,
-        pattern_version   TEXT NOT NULL,
-        type              TEXT NOT NULL CHECK (type IN ('CODEBASE','LANG','ANTI','FAILURE','POLICY','TEST','MIGRATION')),
-        title             TEXT NOT NULL,
-        summary           TEXT NOT NULL,
-        trust_score       REAL NOT NULL CHECK (trust_score >= 0.0 AND trust_score <= 1.0),
-        created_at        TEXT NOT NULL,
-        updated_at        TEXT NOT NULL,
-        source_repo       TEXT,
-        tags              TEXT, -- [APE-63] JSON array format
-        pattern_digest    TEXT NOT NULL,
-        json_canonical    BLOB NOT NULL,
-        invalid           INTEGER NOT NULL DEFAULT 0,
-        invalid_reason    TEXT,
-        alias             TEXT UNIQUE,
-        keywords          TEXT,
-        search_index      TEXT,
-        -- Trust calculation parameters
-        alpha             REAL DEFAULT 1.0,
-        beta              REAL DEFAULT 1.0,
-        -- Enhanced metadata fields (APE-65)
-        usage_count       INTEGER DEFAULT 0,
-        success_count     INTEGER DEFAULT 0,
-        key_insight       TEXT,
-        when_to_use       TEXT,
-        common_pitfalls   TEXT  -- JSON array format
-      );
-    `;
-
-    // Execute the CREATE TABLE statement
-    this.db.exec(createTableSQL);
+    // [PAT:CLEAN:SINGLE_SOURCE] - Use centralized schema from schema-constants.ts
+    
+    // Core pattern table
+    this.db.exec(SCHEMA_SQL.patterns);
 
     // Facet tables
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS pattern_languages (
-        pattern_id  TEXT NOT NULL,
-        lang        TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, lang),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
+    this.db.exec(SCHEMA_SQL.pattern_languages);
+    this.db.exec(SCHEMA_SQL.pattern_frameworks);
+    this.db.exec(SCHEMA_SQL.pattern_paths);
+    this.db.exec(SCHEMA_SQL.pattern_repos);
+    this.db.exec(SCHEMA_SQL.pattern_task_types);
+    this.db.exec(SCHEMA_SQL.pattern_snippets);
+    this.db.exec(SCHEMA_SQL.pattern_envs);
+    this.db.exec(SCHEMA_SQL.pattern_tags);
+    this.db.exec(SCHEMA_SQL.snippets);
 
-      CREATE TABLE IF NOT EXISTS pattern_frameworks (
-        pattern_id  TEXT NOT NULL,
-        framework   TEXT NOT NULL,
-        semver      TEXT,
-        PRIMARY KEY (pattern_id, framework),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS pattern_paths (
-        pattern_id  TEXT NOT NULL,
-        glob        TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, glob),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS pattern_repos (
-        pattern_id  TEXT NOT NULL,
-        repo_glob   TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, repo_glob),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS pattern_task_types (
-        pattern_id  TEXT NOT NULL,
-        task_type   TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, task_type),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS pattern_snippets (
-        pattern_id  TEXT NOT NULL,
-        snippet_id  TEXT NOT NULL,
-        content     TEXT NOT NULL,
-        language    TEXT,
-        PRIMARY KEY (pattern_id, snippet_id),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS pattern_envs (
-        pattern_id  TEXT NOT NULL,
-        env         TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, env),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS pattern_tags (
-        pattern_id  TEXT NOT NULL,
-        tag         TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, tag),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS snippets (
-        snippet_id    TEXT PRIMARY KEY,
-        pattern_id    TEXT NOT NULL,
-        label         TEXT,
-        language      TEXT,
-        file_ref      TEXT,
-        line_count    INTEGER,
-        bytes         INTEGER,
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      );
-    `);
-
-    // Full-text search
-    this.db.exec(`
-      CREATE VIRTUAL TABLE IF NOT EXISTS patterns_fts USING fts5(
-        id UNINDEXED,
-        title,
-        summary,
-        content=''
-      );
-    `);
-
-    // FTS triggers
-    this.db.exec(`
-      CREATE TRIGGER IF NOT EXISTS patterns_ai AFTER INSERT ON patterns BEGIN
-        INSERT INTO patterns_fts (rowid, id, title, summary)
-        VALUES (new.rowid, new.id, new.title, new.summary);
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS patterns_ad AFTER DELETE ON patterns BEGIN
-        INSERT INTO patterns_fts (patterns_fts, rowid, id, title, summary)
-        VALUES ('delete', old.rowid, old.id, old.title, old.summary);
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS patterns_au AFTER UPDATE OF title, summary ON patterns BEGIN
-        INSERT INTO patterns_fts (patterns_fts, rowid, id, title, summary)
-        VALUES ('delete', old.rowid, old.id, old.title, old.summary);
-        INSERT INTO patterns_fts (rowid, id, title, summary)
-        VALUES (new.rowid, new.id, new.title, new.summary);
-      END;
-    `);
+    // Full-text search tables and triggers
+    this.db.exec(FTS_SCHEMA_SQL.patterns_fts);
+    this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.insert);
+    this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.update);
+    this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.delete);
 
     // Schema versioning
     this.db.exec(`
@@ -295,16 +179,7 @@ export class PatternDatabase {
     `);
 
     // Migrations table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS migrations (
-        version          INTEGER PRIMARY KEY,
-        id               TEXT NOT NULL,
-        name             TEXT NOT NULL,
-        checksum         TEXT,
-        applied_at       TEXT NOT NULL,
-        execution_time_ms INTEGER
-      );
-    `);
+    this.db.exec(SCHEMA_SQL.migrations);
 
     // Create indices
     this.createIndices();

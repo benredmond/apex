@@ -30,10 +30,9 @@ describe('Database Initialization Flow', () => {
   });
 
   test('Fresh database initialization completes without errors', async () => {
-    const db = new PatternDatabase(dbPath);
+    const db = await PatternDatabase.create(dbPath);
     
-    // Should initialize without throwing
-    await expect(db.init()).resolves.not.toThrow();
+    // Database is already initialized by create()
     
     // Verify all core tables exist
     const adapter = db.getAdapter();
@@ -56,8 +55,7 @@ describe('Database Initialization Flow', () => {
 
   test('Database initialization is idempotent', async () => {
     // First initialization
-    const db1 = new PatternDatabase(dbPath);
-    await db1.init();
+    const db1 = await PatternDatabase.create(dbPath);
     
     // Add a test pattern
     const testPattern = {
@@ -79,8 +77,7 @@ describe('Database Initialization Flow', () => {
     db1.close();
     
     // Second initialization on same database
-    const db2 = new PatternDatabase(dbPath);
-    await expect(db2.init()).resolves.not.toThrow();
+    const db2 = await PatternDatabase.create(dbPath);
     
     // Verify data is preserved
     const adapter2 = db2.getAdapter();
@@ -95,8 +92,7 @@ describe('Database Initialization Flow', () => {
 
   test('Migration table schema is consistent between AutoMigrator and PatternDatabase', async () => {
     // Initialize via PatternDatabase
-    const db = new PatternDatabase(dbPath);
-    await db.init();
+    const db = await PatternDatabase.create(dbPath);
     const dbAdapter = db.getAdapter();
     
     // Get schema created by PatternDatabase
@@ -143,8 +139,7 @@ describe('Database Initialization Flow', () => {
   });
 
   test('Database operations work after initialization', async () => {
-    const db = new PatternDatabase(dbPath);
-    await db.init();
+    const db = await PatternDatabase.create(dbPath);
     
     // Test search (should not throw)
     const searchResults = db.searchPatterns('test');
@@ -172,8 +167,7 @@ describe('Database Initialization Flow', () => {
     
     for (let i = 0; i < 3; i++) {
       const promise = (async () => {
-        const db = new PatternDatabase(dbPath);
-        await db.init();
+        const db = await PatternDatabase.create(dbPath);
         return db;
       })();
       promises.push(promise);

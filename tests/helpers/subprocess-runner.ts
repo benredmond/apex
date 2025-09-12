@@ -137,65 +137,9 @@ export function generateDatabaseInit(dbPath: string): string {
       process.exit(1);
     }
     
-    // Create missing facet tables that are needed for repository operations
-    // [PAT:ADAPTER:DELEGATION] ★★★★☆ - Use DatabaseAdapterFactory for compatibility
-    const { DatabaseAdapterFactory } = await import("${getImportPath('dist/storage/database-adapter.js')}");
-    const adapter = await DatabaseAdapterFactory.create("${dbPath}");
-    const fixDb = adapter.getInstance();
-    
-    console.log("[DEBUG] Creating missing facet tables");
-    
-    // Create missing facet tables with proper schema
-    const facetTableSQL = [
-      \`CREATE TABLE IF NOT EXISTS pattern_languages (
-        pattern_id TEXT NOT NULL,
-        lang TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, lang),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      )\`,
-      \`CREATE TABLE IF NOT EXISTS pattern_frameworks (
-        pattern_id TEXT NOT NULL,
-        framework TEXT NOT NULL,
-        semver TEXT,
-        PRIMARY KEY (pattern_id, framework),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      )\`,
-      \`CREATE TABLE IF NOT EXISTS pattern_paths (
-        pattern_id TEXT NOT NULL,
-        glob TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, glob),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      )\`,
-      \`CREATE TABLE IF NOT EXISTS pattern_repos (
-        pattern_id TEXT NOT NULL,
-        repo_glob TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, repo_glob),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      )\`,
-      \`CREATE TABLE IF NOT EXISTS pattern_task_types (
-        pattern_id TEXT NOT NULL,
-        task_type TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, task_type),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      )\`,
-      \`CREATE TABLE IF NOT EXISTS pattern_envs (
-        pattern_id TEXT NOT NULL,
-        env TEXT NOT NULL,
-        PRIMARY KEY (pattern_id, env),
-        FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
-      )\`
-    ];
-    
-    for (const sql of facetTableSQL) {
-      try {
-        fixDb.exec(sql);
-      } catch (error) {
-        console.log(\`[DEBUG] Error creating facet table: \${error.message}\`);
-      }
-    }
-    
-    adapter.close();
-    console.log("[DEBUG] Facet tables creation completed");
+    // The AutoMigrator now creates all tables using centralized schema from schema-constants.ts
+    // No need to manually create facet tables as they're included in the migration process
+    console.log("[DEBUG] All tables created via AutoMigrator using centralized schema");
 
     // Minimal debug logging for database state
     console.log("[DEBUG] Database initialized at:", "${dbPath}");

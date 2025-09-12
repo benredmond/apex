@@ -67,11 +67,13 @@ export class NodeSqliteAdapter implements DatabaseAdapter {
     const stmt = this.db.prepare(`PRAGMA ${pragmaString}`);
     try {
       // [FIX:API:COMPATIBILITY] ★★★★★ - Handle table_info and similar pragmas that return multiple rows
-      if (pragmaString.includes('table_info') || 
-          pragmaString.includes('table_list') ||
-          pragmaString.includes('foreign_key_list') ||
-          pragmaString.includes('index_list') ||
-          pragmaString.includes('index_info')) {
+      if (
+        pragmaString.includes("table_info") ||
+        pragmaString.includes("table_list") ||
+        pragmaString.includes("foreign_key_list") ||
+        pragmaString.includes("index_list") ||
+        pragmaString.includes("index_info")
+      ) {
         // These pragmas return arrays of rows, like better-sqlite3
         return stmt.all();
       } else {
