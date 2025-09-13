@@ -9,7 +9,12 @@ import type { Pattern, Migration } from "./types.js";
 import { DATABASE_SCHEMA_VERSION } from "../config/constants.js";
 import { ApexConfig } from "../config/apex-config.js";
 import { SCHEMA_SQL, FTS_SCHEMA_SQL, INDICES_SQL } from "./schema-constants.js";
-import { withRetry, transactionWithRetry, tableExists } from "./database-utils.js";
+import {
+  withRetry,
+  transactionWithRetry,
+  tableExists,
+  setPragma,
+} from "./database-utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -114,32 +119,36 @@ export class PatternDatabase {
         }
       } catch (error) {
         // Fallback database is optional, so we can continue without it
-        console.error(
-          "Warning: Could not initialize fallback database:",
-          error,
-        );
+        try {
+          console.error(
+            "Warning: Could not initialize fallback database:",
+            error,
+          );
+        } catch {
+          // Ignore console errors
+        }
       }
     }
 
     // Enable WAL mode for better concurrency
-    this.db.pragma("journal_mode = WAL");
-    this.db.pragma("synchronous = NORMAL");
-    this.db.pragma("temp_store = MEMORY");
+    setPragma(this.db, "journal_mode", "WAL");
+    setPragma(this.db, "synchronous", "NORMAL");
+    setPragma(this.db, "temp_store", "MEMORY");
 
     // Optimize for concurrent reads and multiple processes
-    this.db.pragma("read_uncommitted = 1");
-    this.db.pragma("busy_timeout = 30000"); // Increase to 30 seconds for heavy concurrent access
-    this.db.pragma("wal_autocheckpoint = 1000"); // Auto-checkpoint every 1000 pages
+    setPragma(this.db, "read_uncommitted", 1);
+    setPragma(this.db, "busy_timeout", 30000); // Increase to 30 seconds for heavy concurrent access
+    setPragma(this.db, "wal_autocheckpoint", 1000); // Auto-checkpoint every 1000 pages
 
     // Don't truncate WAL on startup - it can cause disk I/O errors with concurrent access
     // Instead, just do a passive checkpoint
-    this.db.pragma("wal_checkpoint(PASSIVE)");
+    setPragma(this.db, "wal_checkpoint", "PASSIVE");
 
     // Increase cache size for better performance with large codebases
     const cacheSize = process.env.APEX_DB_CACHE_SIZE
       ? parseInt(process.env.APEX_DB_CACHE_SIZE)
       : 10000;
-    this.db.pragma(`cache_size = ${cacheSize}`);
+    setPragma(this.db, "cache_size", cacheSize);
 
     // Initialize schema
     await this.initializeSchema();
@@ -148,7 +157,7 @@ export class PatternDatabase {
 
   private async initializeSchema(): Promise<void> {
     // [PAT:CLEAN:SINGLE_SOURCE] - Use centralized schema from schema-constants.ts
-    
+
     // Core pattern table
     this.db.exec(SCHEMA_SQL.patterns);
 
@@ -165,57 +174,68 @@ export class PatternDatabase {
 
     // Full-text search tables and triggers
     this.db.exec(FTS_SCHEMA_SQL.patterns_fts);
-    
+
     // DEFENSIVE: Check if triggers need updating (conditional recreation)
     // Only drop and recreate if they don't exist or have wrong schema
     try {
       // First check if FTS table exists
-      const ftsExists = this.db.prepare(`
+      const ftsExists = this.db
+        .prepare(
+          `
         SELECT name FROM sqlite_master 
         WHERE type = 'table' AND name = 'patterns_fts'
-      `).get();
-      
+      `,
+        )
+        .get();
+
       if (!ftsExists) {
-        console.warn('FTS table does not exist, skipping trigger check');
+        console.warn("FTS table does not exist, skipping trigger check");
         // Don't return here - we still need to initialize other tables!
         // Just skip the trigger check
       } else {
         // Only check and recreate triggers if FTS table exists
         const checkAndRecreateTriggers = async () => {
-          const triggers = this.db.prepare(`
+          const triggers = this.db
+            .prepare(
+              `
             SELECT name, sql FROM sqlite_master 
             WHERE type = 'trigger' 
             AND name IN ('patterns_ai', 'patterns_ad', 'patterns_au')
-          `).all() as { name: string; sql: string }[];
-          
+          `,
+            )
+            .all() as { name: string; sql: string }[];
+
           // Check if we have all 3 triggers and they reference correct columns
           // Note: These columns (category, subcategory, etc.) were removed from patterns table
           // but might exist in old triggers
-          const needsRecreation = triggers.length !== 3 || 
-            triggers.some(t => {
+          const needsRecreation =
+            triggers.length !== 3 ||
+            triggers.some((t) => {
               const sql = t.sql.toLowerCase();
               // Check for columns that were removed from the patterns table
               // and shouldn't be in FTS triggers
               return (
-                sql.includes('.category') || 
-                sql.includes('.subcategory') || 
-                sql.includes('.problem') || 
-                sql.includes('.solution') ||
-                sql.includes('.implementation') ||
-                sql.includes('.examples') ||
+                sql.includes(".category") ||
+                sql.includes(".subcategory") ||
+                sql.includes(".problem") ||
+                sql.includes(".solution") ||
+                sql.includes(".implementation") ||
+                sql.includes(".examples") ||
                 // Check for wrong trigger names (old pattern)
-                sql.includes('patterns_fts_insert') ||
-                sql.includes('patterns_fts_update') ||
-                sql.includes('patterns_fts_delete')
+                sql.includes("patterns_fts_insert") ||
+                sql.includes("patterns_fts_update") ||
+                sql.includes("patterns_fts_delete")
               );
             });
-          
+
           if (needsRecreation) {
-            console.log('Updating FTS triggers to match current schema...');
+            console.log("Updating FTS triggers to match current schema...");
             // Use transaction with retry logic for atomic trigger recreation
-            await transactionWithRetry(this.db, () => {
-              // Drop all FTS-related triggers (both old and new naming)
-              this.db.exec(`
+            await transactionWithRetry(
+              this.db,
+              () => {
+                // Drop all FTS-related triggers (both old and new naming)
+                this.db.exec(`
                 DROP TRIGGER IF EXISTS patterns_ai;
                 DROP TRIGGER IF EXISTS patterns_ad;
                 DROP TRIGGER IF EXISTS patterns_au;
@@ -223,23 +243,29 @@ export class PatternDatabase {
                 DROP TRIGGER IF EXISTS patterns_fts_update;
                 DROP TRIGGER IF EXISTS patterns_fts_delete;
               `);
-              
-              // Recreate with correct schema
-              this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.insert);
-              this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.update);
-              this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.delete);
-            }, { maxRetries: 3, retryDelay: 100 });
+
+                // Recreate with correct schema
+                this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.insert);
+                this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.update);
+                this.db.exec(FTS_SCHEMA_SQL.patterns_fts_triggers.delete);
+              },
+              { maxRetries: 3, retryDelay: 100 },
+            );
           }
         };
-        
+
         // Call the function only within the else block
         await checkAndRecreateTriggers();
       } // End of else block for ftsExists check
     } catch (error) {
       // Log error but don't fail initialization
       // Triggers can be fixed by migrations
-      console.error('Warning: Failed to check/update FTS triggers:', error);
-      console.error('Triggers will be fixed by migration system if needed');
+      try {
+        console.error("Warning: Failed to check/update FTS triggers:", error);
+        console.error("Triggers will be fixed by migration system if needed");
+      } catch {
+        // Ignore console errors
+      }
     }
 
     // Schema versioning
@@ -263,11 +289,11 @@ export class PatternDatabase {
     if (!this.fallbackDb) return;
 
     // Set read-only pragmas for performance
-    this.fallbackDb.pragma("journal_mode = WAL");
-    this.fallbackDb.pragma("synchronous = NORMAL");
-    this.fallbackDb.pragma("temp_store = MEMORY");
-    this.fallbackDb.pragma("read_uncommitted = 1");
-    this.fallbackDb.pragma("busy_timeout = 30000"); // Match main DB timeout
+    setPragma(this.fallbackDb, "journal_mode", "WAL");
+    setPragma(this.fallbackDb, "synchronous", "NORMAL");
+    setPragma(this.fallbackDb, "temp_store", "MEMORY");
+    setPragma(this.fallbackDb, "read_uncommitted", 1);
+    setPragma(this.fallbackDb, "busy_timeout", 30000); // Match main DB timeout
 
     // Prepare fallback statements (we'll add these as needed)
   }
@@ -459,7 +485,11 @@ export class PatternDatabase {
       return [...primaryResults, ...uniqueFallbackResults];
     } catch (error) {
       // If fallback query fails (e.g., schema mismatch), return primary only
-      console.error("Fallback query failed:", error);
+      try {
+        console.error("Fallback query failed:", error);
+      } catch {
+        // Ignore console errors
+      }
       return primaryResults;
     }
   }

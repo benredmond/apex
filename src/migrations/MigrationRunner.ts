@@ -1,6 +1,7 @@
 // [BUILD:MODULE:ESM] ★★★☆☆ - ES module with .js extensions
 import type { Migration, MigrationVersion, MigrationOptions } from "./types.js";
 import type { DatabaseAdapter } from "../storage/database-adapter.js";
+import { escapeIdentifier } from "../storage/database-utils.js";
 
 // [PAT:ESM:DYNAMIC_IMPORT] ★★★★☆ (8 uses, 87.5% success) - Handle optional dependency
 let Database: any;
@@ -23,7 +24,7 @@ export class MigrationRunner {
       // [FIX:API:COMPATIBILITY] ★★★★★ (28 uses, 98% success) - Ensure all methods available
       // Create compatibility wrapper to ensure all adapter methods are available
       const wrapper = Object.create(rawDb);
-      
+
       // Always ensure transaction is available (delegate to adapter if needed)
       if (!rawDb.transaction || typeof rawDb.transaction !== "function") {
         wrapper.transaction = (fn: () => any) => {
@@ -188,7 +189,7 @@ export class MigrationRunner {
 
     try {
       // [PAT:dA0w9N1I9-4m] - Use savepoints for rollback capability
-      this.db.prepare(`SAVEPOINT ${savepointName}`).run();
+      this.db.prepare(`SAVEPOINT ${escapeIdentifier(savepointName)}`).run();
 
       // Run the migration
       migration.up(this.db);
@@ -291,7 +292,7 @@ export class MigrationRunner {
 
     try {
       // [PAT:dA0w9N1I9-4m] - Use savepoints for rollback capability
-      this.db.prepare(`SAVEPOINT ${savepointName}`).run();
+      this.db.prepare(`SAVEPOINT ${escapeIdentifier(savepointName)}`).run();
 
       // Run rollback
       migration.down(this.db);

@@ -7,6 +7,7 @@ import {
   DatabaseAdapterFactory,
   type DatabaseAdapter,
 } from "../storage/database-adapter.js";
+import { escapeIdentifier } from "../storage/database-utils.js";
 import type { Migration } from "./types.js";
 
 export class MigrationValidator {
@@ -123,7 +124,7 @@ export class MigrationValidator {
 
     try {
       // [PAT:dA0w9N1I9-4m] - Use savepoint for test isolation
-      db.prepare(`SAVEPOINT ${savepointName}`).run();
+      db.prepare(`SAVEPOINT ${escapeIdentifier(savepointName)}`).run();
 
       // Run migration
       if (direction === "up") {
@@ -165,7 +166,7 @@ export class MigrationValidator {
 
     try {
       // Capture state before migration
-      db.prepare(`SAVEPOINT ${savepointName}`).run();
+      db.prepare(`SAVEPOINT ${escapeIdentifier(savepointName)}`).run();
       const stateBefore = await this.captureDbState(db);
 
       // Run up then down

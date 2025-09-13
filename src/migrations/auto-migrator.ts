@@ -11,7 +11,11 @@ import { MigrationRunner } from "./MigrationRunner.js";
 import { MigrationLoader } from "./MigrationLoader.js";
 import { MigrationLock } from "./migration-lock.js";
 import { ApexConfig } from "../config/apex-config.js";
-import { getAllSchemaSql, INDICES_SQL, SCHEMA_SQL } from "../storage/schema-constants.js";
+import {
+  getAllSchemaSql,
+  INDICES_SQL,
+  SCHEMA_SQL,
+} from "../storage/schema-constants.js";
 import chalk from "chalk";
 import ora from "ora";
 
@@ -186,7 +190,7 @@ export class AutoMigrator {
     // [PAT:CLEAN:SINGLE_SOURCE] - Use centralized schema from schema-constants.ts
     // This ensures consistency between fresh installs and migrations
     this.db.exec(SCHEMA_SQL.patterns);
-    
+
     // Also create pattern_tags table
     this.db.exec(SCHEMA_SQL.pattern_tags);
   }
