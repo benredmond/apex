@@ -324,6 +324,7 @@ export class PatternDatabase {
       this.db.prepare("SELECT * FROM patterns WHERE id = ? AND invalid = 0"),
     );
 
+    // Both node:sqlite and better-sqlite3 support named parameters with @ syntax
     this.statements.set(
       "upsertPattern",
       this.db.prepare(`

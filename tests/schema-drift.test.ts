@@ -59,9 +59,7 @@ describe("Schema Drift Detection", () => {
           const columns = insertMatch[1].split(',').map(c => c.trim());
           columns.forEach(col => {
             if (col !== 'patterns_fts' && col !== 'rowid') {
-              expect(ftsColumnSet.has(col), 
-                `Trigger ${index} references FTS column '${col}' that doesn't exist`
-              ).toBe(true);
+              expect(ftsColumnSet.has(col)).toBe(true);
             }
           });
         }
@@ -71,9 +69,7 @@ describe("Schema Drift Detection", () => {
         newColumnRefs.forEach(match => {
           const col = match[1];
           if (col !== 'rowid') {
-            expect(patternColumnSet.has(col),
-              `Trigger ${index} references patterns column 'new.${col}' that doesn't exist`
-            ).toBe(true);
+            expect(patternColumnSet.has(col)).toBe(true);
           }
         });
         
@@ -82,9 +78,7 @@ describe("Schema Drift Detection", () => {
         oldColumnRefs.forEach(match => {
           const col = match[1];
           if (col !== 'rowid') {
-            expect(patternColumnSet.has(col),
-              `Trigger ${index} references patterns column 'old.${col}' that doesn't exist`
-            ).toBe(true);
+            expect(patternColumnSet.has(col)).toBe(true);
           }
         });
       });
@@ -122,9 +116,7 @@ describe("Schema Drift Detection", () => {
         triggerColumns.forEach(col => {
           if (col !== 'rowid' && col !== 'patterns_fts') {
             expect(expectedColumns).toContain(col);
-            expect(actualColumnSet.has(col), 
-              `Trigger expects FTS column '${col}' but it doesn't exist in table`
-            ).toBe(true);
+            expect(actualColumnSet.has(col)).toBe(true);
           }
         });
       }

@@ -699,6 +699,7 @@ architecture_decision:
     - path: [file]
       purpose: [why needed]
       pattern: [pattern using]
+      test_plan: [how to test this new file]
 
   sequence: 1. [First implementation step]
     2. [Second implementation step]
@@ -729,6 +730,7 @@ architecture_decision:
 ☐ YAGNI explicitly lists 3+ exclusions?
 ☐ Patterns have trust scores and usage stats?
 ☐ Architecture decision is CONCRETE?
+☐ New files include test_plan specifications?
 
 **If ANY unchecked → STOP and revise**
 ```

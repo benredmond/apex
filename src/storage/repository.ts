@@ -3,6 +3,7 @@ import path from "path";
 import type Database from "better-sqlite3";
 import type { DatabaseAdapter } from "./database-adapter.js";
 import { PatternDatabase } from "./database.js";
+import { escapeIdentifier } from "./database-utils.js";
 import { PatternCache } from "./cache.js";
 import { PatternLoader } from "./loader.js";
 // PatternWatcher removed - patterns are now in database
@@ -188,8 +189,9 @@ export class PatternRepository {
               .get(tableName);
 
             if (tableExists) {
+              const escapedTableName = escapeIdentifier(tableName);
               this.db
-                .prepare(`DELETE FROM ${tableName} WHERE ${whereClause}`)
+                .prepare(`DELETE FROM ${escapedTableName} WHERE ${whereClause}`)
                 .run(id);
             }
           } catch (error) {
@@ -672,6 +674,7 @@ export class PatternRepository {
       };
 
       // Upsert main pattern
+      // Both node:sqlite and better-sqlite3 support named parameters with @ syntax
       this.db.getStatement("upsertPattern").run(sqlData);
 
       // Insert facet data
@@ -700,7 +703,9 @@ export class PatternRepository {
 
         if (tableExists) {
           this.db
-            .prepare(`DELETE FROM ${tableName} WHERE pattern_id = ?`)
+            .prepare(
+              `DELETE FROM ${escapeIdentifier(tableName)} WHERE pattern_id = ?`,
+            )
             .run(patternId);
         }
       } catch (error) {

@@ -88,3 +88,5 @@ export const migration018FixFtsTriggerSchema: Migration = {
   // This migration is always safe to run
   checksum: "fix-fts-triggers-v1",
 };
+
+export default migration018FixFtsTriggerSchema;

@@ -144,15 +144,15 @@ export function triggerExists(
  */
 export function escapeIdentifier(identifier: string): string {
   // Basic validation - identifier should not be empty
-  if (!identifier || typeof identifier !== 'string') {
+  if (!identifier || typeof identifier !== "string") {
     throw new Error(`Invalid SQL identifier: ${identifier}`);
   }
-  
+
   // Check for null bytes which are never valid
-  if (identifier.includes('\0')) {
+  if (identifier.includes("\0")) {
     throw new Error(`Invalid SQL identifier: contains null byte`);
   }
-  
+
   // SQLite supports double-quoted identifiers
   // Escape any double quotes in the identifier by doubling them
   // This allows identifiers with spaces, hyphens, and other special characters
@@ -198,38 +198,59 @@ export function setPragma(
 ): void {
   // Validate pragma name - only allow known safe pragmas
   const allowedPragmas = [
-    'journal_mode', 'synchronous', 'foreign_keys', 'busy_timeout',
-    'cache_size', 'temp_store', 'mmap_size', 'page_size',
-    'wal_checkpoint', 'optimize', 'analysis_limit', 'read_uncommitted',
-    'wal_autocheckpoint'
+    "journal_mode",
+    "synchronous",
+    "foreign_keys",
+    "busy_timeout",
+    "cache_size",
+    "temp_store",
+    "mmap_size",
+    "page_size",
+    "wal_checkpoint",
+    "optimize",
+    "analysis_limit",
+    "read_uncommitted",
+    "wal_autocheckpoint",
   ];
-  
+
   if (!allowedPragmas.includes(pragma.toLowerCase())) {
     throw new Error(`Unsafe or unknown pragma: ${pragma}`);
   }
-  
+
   // Validate value - only allow safe types and values
   if (value !== null && value !== undefined) {
     // For string values, validate they don't contain SQL
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       // Only allow alphanumeric, underscore, and specific pragma values
-      if (!/^[a-zA-Z0-9_]+$/.test(value) && 
-          !['WAL', 'DELETE', 'TRUNCATE', 'PERSIST', 'MEMORY', 'OFF', 'NORMAL', 'FULL', 'EXCLUSIVE'].includes(value.toUpperCase())) {
+      if (
+        !/^[a-zA-Z0-9_]+$/.test(value) &&
+        ![
+          "WAL",
+          "DELETE",
+          "TRUNCATE",
+          "PERSIST",
+          "MEMORY",
+          "OFF",
+          "NORMAL",
+          "FULL",
+          "EXCLUSIVE",
+        ].includes(value.toUpperCase())
+      ) {
         throw new Error(`Invalid pragma value: ${value}`);
       }
-    } else if (typeof value === 'number') {
+    } else if (typeof value === "number") {
       // Numbers are safe to interpolate
       if (!Number.isFinite(value)) {
         throw new Error(`Invalid pragma value: ${value}`);
       }
-    } else if (typeof value === 'boolean') {
+    } else if (typeof value === "boolean") {
       // Convert boolean to 0/1
       value = value ? 1 : 0;
     } else {
       throw new Error(`Invalid pragma value type: ${typeof value}`);
     }
   }
-  
+
   try {
     db.pragma(`${pragma} = ${value}`);
   } catch (error) {
