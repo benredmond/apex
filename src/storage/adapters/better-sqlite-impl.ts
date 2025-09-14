@@ -97,6 +97,15 @@ export class BetterSqliteAdapter implements DatabaseAdapter {
   }
 
   /**
+   * [PAT:ADAPTER:DELEGATION] ★★★★★ (5 uses, 100% success) - From cache
+   * better-sqlite3 fully supports FTS5 triggers
+   * No manual synchronization needed
+   */
+  supportsFTSTriggers(): boolean {
+    return true; // better-sqlite3 FTS triggers work correctly
+  }
+
+  /**
    * Direct access to better-sqlite3 instance for advanced operations
    * Used by PatternDatabase for migration and compatibility
    */

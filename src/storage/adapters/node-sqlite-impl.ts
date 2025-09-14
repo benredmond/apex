@@ -135,6 +135,15 @@ export class NodeSqliteAdapter implements DatabaseAdapter {
   }
 
   /**
+   * [PAT:ADAPTER:DELEGATION] ★★★★★ (5 uses, 100% success) - From cache
+   * node:sqlite does not support FTS5 trigger syntax properly
+   * Requires manual FTS synchronization instead of triggers
+   */
+  supportsFTSTriggers(): boolean {
+    return false; // node:sqlite FTS triggers incompatible
+  }
+
+  /**
    * Direct access to node:sqlite instance for advanced operations
    * Used for implementation-specific optimizations
    */

@@ -55,6 +55,13 @@ export interface DatabaseAdapter {
    * Used for migration system and advanced operations
    */
   getInstance(): any;
+
+  /**
+   * Check if this adapter supports FTS triggers
+   * [PAT:ADAPTER:DELEGATION] - Capability-based feature detection
+   * Returns true if FTS triggers work correctly, false if manual sync needed
+   */
+  supportsFTSTriggers?(): boolean;
 }
 
 /**

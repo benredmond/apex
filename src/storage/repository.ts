@@ -6,6 +6,7 @@ import { PatternDatabase } from "./database.js";
 import { escapeIdentifier } from "./database-utils.js";
 import { PatternCache } from "./cache.js";
 import { PatternLoader } from "./loader.js";
+import { FTSManager } from "./fts-manager.js";
 // PatternWatcher removed - patterns are now in database
 import { ApexConfig } from "../config/apex-config.js";
 import type {
@@ -25,6 +26,7 @@ export class PatternRepository {
   private db: PatternDatabase;
   private cache: PatternCache;
   private loader: PatternLoader;
+  private ftsManager: FTSManager;
   // Watcher removed - patterns now in database
   private isInitialized: boolean = false;
 
@@ -81,6 +83,7 @@ export class PatternRepository {
     });
     this.cache = new PatternCache(options.cacheSize);
     this.loader = new PatternLoader();
+    this.ftsManager = new FTSManager(this.db);
     // Watcher removed - patterns are now stored in database
   }
 
@@ -174,10 +177,6 @@ export class PatternRepository {
     // Delete from database only (patterns no longer stored in files)
     // Delete facet data first to avoid foreign key constraint issues
     try {
-      // [FIX:NODE_SQLITE:FTS_DELETE] - Handle node:sqlite FTS trigger incompatibility
-      const isNodeSqlite =
-        this.db.database.isNodeSqlite && this.db.database.isNodeSqlite();
-
       this.db.transaction(() => {
         // Helper function to safely delete from facet tables
         const safeDeleteFromTable = (
@@ -216,7 +215,7 @@ export class PatternRepository {
         safeDeleteFromTable("pattern_task_types");
         safeDeleteFromTable("pattern_envs");
 
-        // Then delete the main pattern record - also make this safer
+        // Then delete the main pattern record
         try {
           // Check if pattern exists and get rowid for FTS cleanup
           const patternExists = this.db
@@ -224,50 +223,12 @@ export class PatternRepository {
             .get(id) as any;
 
           if (patternExists) {
-            // For node:sqlite, disable the problematic trigger temporarily and handle FTS manually
-            if (isNodeSqlite) {
-              try {
-                // Temporarily drop the problematic delete trigger
-                this.db.database
-                  .getInstance()
-                  .exec("DROP TRIGGER IF EXISTS patterns_ad");
+            // [PAT:MANAGER:ABSTRACTION] ★★★★☆ (15 uses, 93% success) - From cache
+            // Delegate FTS operations to FTSManager
+            this.ftsManager.handleDelete("patterns", id, patternExists.rowid);
 
-                // Delete from FTS table directly using standard SQL (works with node:sqlite)
-                this.db
-                  .prepare("DELETE FROM patterns_fts WHERE rowid = ?")
-                  .run(patternExists.rowid);
-
-                // Delete the main pattern record (now without trigger interference)
-                this.db.prepare("DELETE FROM patterns WHERE id = ?").run(id);
-
-                // Recreate the trigger for future operations (best effort - don't fail if it doesn't work)
-                try {
-                  this.db.database.getInstance().exec(`
-                    CREATE TRIGGER patterns_ad AFTER DELETE ON patterns
-                    BEGIN
-                      INSERT INTO patterns_fts(patterns_fts, rowid, id, title, summary, tags, keywords, search_index)
-                      VALUES ('delete', old.rowid, old.id, old.title, old.summary, old.tags, old.keywords, old.search_index);
-                    END
-                  `);
-                } catch (recreateError) {
-                  // Log but don't fail - the trigger recreation is best-effort
-                  console.warn(
-                    "Warning: Could not recreate FTS trigger:",
-                    recreateError.message,
-                  );
-                }
-              } catch (ftsError) {
-                // If manual FTS handling fails, try without it (data integrity is more important)
-                console.warn(
-                  `Warning: Manual FTS deletion failed for pattern ${id}:`,
-                  ftsError.message,
-                );
-                this.db.prepare("DELETE FROM patterns WHERE id = ?").run(id);
-              }
-            } else {
-              // For better-sqlite3 and wasm-sqlite, the trigger should work normally
-              this.db.prepare("DELETE FROM patterns WHERE id = ?").run(id);
-            }
+            // Delete the main pattern record
+            this.db.prepare("DELETE FROM patterns WHERE id = ?").run(id);
           } else {
             console.warn(`Pattern ${id} not found for deletion`);
           }
@@ -719,125 +680,34 @@ export class PatternRepository {
           : pattern.common_pitfalls || null,
       };
 
+      // Check if pattern already exists for FTS handling
+      const existingPattern = this.db
+        .prepare("SELECT rowid FROM patterns WHERE id = ? LIMIT 1")
+        .get(sqlData.id) as any;
+
       // Upsert main pattern
-      // Both node:sqlite and better-sqlite3 support named parameters with @ syntax
-      // WORKAROUND: node:sqlite has issues with cached ON CONFLICT statements
-      // Create fresh statement for node:sqlite each time
-      const isNodeSqlite =
-        this.db.database.isNodeSqlite && this.db.database.isNodeSqlite();
-      // For node:sqlite, handle FTS triggers manually to avoid incompatible syntax
-      if (isNodeSqlite) {
-        // Check if pattern already exists
-        const existingPattern = this.db
-          .prepare("SELECT rowid FROM patterns WHERE id = ? LIMIT 1")
-          .get(sqlData.id) as any;
-        
-        if (existingPattern) {
-          // Pattern exists - handle update manually to avoid problematic trigger
-          try {
-            // Drop the problematic update trigger temporarily
-            this.db.database.getInstance().exec("DROP TRIGGER IF EXISTS patterns_au");
-            
-            // Delete old FTS entry
-            this.db
-              .prepare("DELETE FROM patterns_fts WHERE rowid = ?")
-              .run(existingPattern.rowid);
-            
-            // Update the pattern
-            this.db.prepare(`
-              UPDATE patterns SET
-                schema_version = ?, pattern_version = ?, type = ?, title = ?, summary = ?,
-                trust_score = ?, updated_at = ?, source_repo = ?, tags = ?,
-                pattern_digest = ?, json_canonical = ?, invalid = ?, invalid_reason = ?, alias = ?,
-                keywords = ?, search_index = ?, alpha = ?, beta = ?, usage_count = ?, success_count = ?,
-                key_insight = ?, when_to_use = ?, common_pitfalls = ?
-              WHERE id = ?
-            `).run(
-              sqlData.schema_version, sqlData.pattern_version, sqlData.type, 
-              sqlData.title, sqlData.summary, sqlData.trust_score, sqlData.updated_at,
-              sqlData.source_repo, sqlData.tags, sqlData.pattern_digest, sqlData.json_canonical,
-              sqlData.invalid, sqlData.invalid_reason, sqlData.alias, sqlData.keywords,
-              sqlData.search_index, sqlData.alpha, sqlData.beta, sqlData.usage_count,
-              sqlData.success_count, sqlData.key_insight, sqlData.when_to_use, 
-              sqlData.common_pitfalls, sqlData.id
-            );
-            
-            // Insert new FTS entry
-            this.db.prepare(`
-              INSERT INTO patterns_fts(rowid, id, title, summary, tags, keywords, search_index)
-              VALUES (?, ?, ?, ?, ?, ?, ?)
-            `).run(
-              existingPattern.rowid, sqlData.id, sqlData.title, sqlData.summary,
-              sqlData.tags || '', sqlData.keywords || '', sqlData.search_index || ''
-            );
-            
-            // Recreate the trigger (best effort)
-            try {
-              this.db.database.getInstance().exec(`
-                CREATE TRIGGER patterns_au AFTER UPDATE OF title, summary, tags, keywords, search_index ON patterns
-                BEGIN
-                  INSERT INTO patterns_fts(patterns_fts, rowid, id, title, summary, tags, keywords, search_index)
-                  VALUES ('delete', old.rowid, old.id, old.title, old.summary, old.tags, old.keywords, old.search_index);
-                  INSERT INTO patterns_fts(rowid, id, title, summary, tags, keywords, search_index)
-                  VALUES (new.rowid, new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
-                END
-              `);
-            } catch (recreateError) {
-              console.warn("Warning: Could not recreate FTS update trigger:", recreateError.message);
-            }
-            
-          } catch (ftsError) {
-            // If FTS handling fails, fall back to direct update without FTS
-            console.warn(`Warning: Manual FTS update failed for pattern ${sqlData.id}:`, ftsError.message);
-            this.db.prepare(`
-              UPDATE patterns SET
-                schema_version = ?, pattern_version = ?, type = ?, title = ?, summary = ?,
-                trust_score = ?, updated_at = ?, source_repo = ?, tags = ?,
-                pattern_digest = ?, json_canonical = ?, invalid = ?, invalid_reason = ?, alias = ?,
-                keywords = ?, search_index = ?, alpha = ?, beta = ?, usage_count = ?, success_count = ?,
-                key_insight = ?, when_to_use = ?, common_pitfalls = ?
-              WHERE id = ?
-            `).run(
-              sqlData.schema_version, sqlData.pattern_version, sqlData.type, 
-              sqlData.title, sqlData.summary, sqlData.trust_score, sqlData.updated_at,
-              sqlData.source_repo, sqlData.tags, sqlData.pattern_digest, sqlData.json_canonical,
-              sqlData.invalid, sqlData.invalid_reason, sqlData.alias, sqlData.keywords,
-              sqlData.search_index, sqlData.alpha, sqlData.beta, sqlData.usage_count,
-              sqlData.success_count, sqlData.key_insight, sqlData.when_to_use, 
-              sqlData.common_pitfalls, sqlData.id
-            );
-          }
-        } else {
-          // Pattern doesn't exist - simple insert (insert trigger should work)
-          this.db.prepare(`
-            INSERT INTO patterns (
-              id, schema_version, pattern_version, type, title, summary,
-              trust_score, created_at, updated_at, source_repo, tags,
-              pattern_digest, json_canonical, invalid, invalid_reason, alias,
-              keywords, search_index, alpha, beta, usage_count, success_count,
-              key_insight, when_to_use, common_pitfalls
-            ) VALUES (
-              ?, ?, ?, ?, ?, ?,
-              ?, ?, ?, ?, ?,
-              ?, ?, ?, ?, ?,
-              ?, ?, ?, ?, ?, ?,
-              ?, ?, ?
-            )
-          `).run(
-            sqlData.id, sqlData.schema_version, sqlData.pattern_version, sqlData.type,
-            sqlData.title, sqlData.summary, sqlData.trust_score, sqlData.created_at,
-            sqlData.updated_at, sqlData.source_repo, sqlData.tags, sqlData.pattern_digest,
-            sqlData.json_canonical, sqlData.invalid, sqlData.invalid_reason, sqlData.alias,
-            sqlData.keywords, sqlData.search_index, sqlData.alpha, sqlData.beta,
-            sqlData.usage_count, sqlData.success_count, sqlData.key_insight,
-            sqlData.when_to_use, sqlData.common_pitfalls
-          );
-        }
-      } else {
-        // For better-sqlite3 and wasm-sqlite, use the cached statement (triggers should work)
-        const upsertStmt = this.db.getStatement("upsertPattern");
-        upsertStmt.run(sqlData);
-      }
+      const upsertStmt = this.db.getStatement("upsertPattern");
+      const result = upsertStmt.run(sqlData);
+
+      // Get the rowid for FTS synchronization
+      const rowid = existingPattern?.rowid || result.lastInsertRowid;
+
+      // [PAT:MANAGER:ABSTRACTION] ★★★★☆ (15 uses, 93% success) - From cache
+      // Delegate FTS operations to FTSManager
+      this.ftsManager.handleUpsert(
+        "patterns",
+        sqlData.id,
+        !!existingPattern,
+        rowid,
+        {
+          id: sqlData.id,
+          title: sqlData.title,
+          summary: sqlData.summary,
+          tags: sqlData.tags || "",
+          keywords: sqlData.keywords || "",
+          search_index: sqlData.search_index || "",
+        },
+      );
 
       // Insert facet data
       this._insertFacets(pattern.id, pattern);

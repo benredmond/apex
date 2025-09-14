@@ -331,6 +331,15 @@ export class WasmSqliteAdapter implements DatabaseAdapter {
   }
 
   /**
+   * [PAT:ADAPTER:DELEGATION] ★★★★★ (5 uses, 100% success) - From cache
+   * sql.js (WASM) supports FTS5 triggers properly
+   * No manual synchronization needed
+   */
+  supportsFTSTriggers(): boolean {
+    return true; // sql.js FTS triggers work correctly
+  }
+
+  /**
    * Get number of changes from last operation
    * sql.js doesn't track this automatically, so we query it
    */
