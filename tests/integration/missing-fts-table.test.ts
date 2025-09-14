@@ -167,14 +167,14 @@ describe("Database Initialization with Missing FTS Table", () => {
     
     // Create correct FTS table
     setupDb.exec(`
-      CREATE VIRTUAL TABLE patterns_fts USING fts5(
-        id UNINDEXED,
+      CREATE VIRTUAL TABLE patterns_fts USING fts3(
+        id,
         title,
         summary,
         tags,
         keywords,
         search_index,
-        tokenize='unicode61'
+        tokenize=simple
       );
     `);
     

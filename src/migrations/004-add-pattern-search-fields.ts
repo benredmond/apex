@@ -34,17 +34,17 @@ const migration: Migration = {
       // Drop existing FTS table
       db.exec(`DROP TABLE IF EXISTS patterns_fts;`);
 
-      // Recreate FTS5 table with expanded fields
-      // Using unicode61 tokenizer for international support (from Gemini review)
+      // Recreate FTS3 table with expanded fields
+      // Using simple tokenizer for FTS3 compatibility (FTS5 not available in sql.js)
       db.exec(`
-        CREATE VIRTUAL TABLE patterns_fts USING fts5(
-          id UNINDEXED,
+        CREATE VIRTUAL TABLE patterns_fts USING fts3(
+          id,
           title,
           summary,
           tags,
           keywords,
           search_index,
-          tokenize='unicode61'
+          tokenize=simple
         );
       `);
 
@@ -99,11 +99,10 @@ const migration: Migration = {
       db.exec(`DROP TABLE IF EXISTS patterns_fts;`);
 
       db.exec(`
-        CREATE VIRTUAL TABLE patterns_fts USING fts5(
-          id UNINDEXED,
+        CREATE VIRTUAL TABLE patterns_fts USING fts3(
+          id,
           title,
-          summary,
-          content=''
+          summary
         );
       `);
 

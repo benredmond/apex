@@ -394,12 +394,12 @@ export class PatternDatabase {
     this.statements.set(
       "searchPatterns",
       this.db.prepare(`
-      SELECT p.*, bm25(patterns_fts) AS rank
+      SELECT p.*
       FROM patterns_fts
       JOIN patterns p ON p.rowid = patterns_fts.rowid
       WHERE patterns_fts MATCH ?
       AND p.invalid = 0
-      ORDER BY rank
+      ORDER BY patterns_fts.rowid
       LIMIT ?
     `),
     );

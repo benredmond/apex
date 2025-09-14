@@ -227,16 +227,36 @@ export class WasmSqliteAdapter implements DatabaseAdapter {
 
     // Format result to match expected structure
     if (result && result.length > 0 && result[0].values.length > 0) {
-      // Convert array result to object
-      const columns = result[0].columns;
-      const values = result[0].values[0];
-      const obj: any = {};
+      // Check if this is a multi-row pragma (like table_info, table_list, etc.)
+      if (
+        pragmaString.includes("table_info") ||
+        pragmaString.includes("table_list") ||
+        pragmaString.includes("foreign_key_list") ||
+        pragmaString.includes("index_list") ||
+        pragmaString.includes("index_info") ||
+        result[0].values.length > 1
+      ) {
+        // Return array of objects for multi-row results
+        const columns = result[0].columns;
+        return result[0].values.map((row: any[]) => {
+          const obj: any = {};
+          for (let i = 0; i < columns.length; i++) {
+            obj[columns[i]] = row[i];
+          }
+          return obj;
+        });
+      } else {
+        // Single row result - return as object
+        const columns = result[0].columns;
+        const values = result[0].values[0];
+        const obj: any = {};
 
-      for (let i = 0; i < columns.length; i++) {
-        obj[columns[i]] = values[i];
+        for (let i = 0; i < columns.length; i++) {
+          obj[columns[i]] = values[i];
+        }
+
+        return obj;
       }
-
-      return obj;
     }
 
     return undefined;
@@ -332,7 +352,7 @@ export class WasmSqliteAdapter implements DatabaseAdapter {
 
   /**
    * [PAT:ADAPTER:DELEGATION] ★★★★★ (5 uses, 100% success) - From cache
-   * sql.js (WASM) supports FTS5 triggers properly
+   * sql.js (WASM) supports FTS3 triggers properly
    * No manual synchronization needed
    */
   supportsFTSTriggers(): boolean {

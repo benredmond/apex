@@ -212,8 +212,8 @@ const migration: Migration = {
         END;
       `);
 
-      // Rebuild the FTS5 index to ensure it's in sync
-      console.log(`[Migration 009] Rebuilding FTS5 index...`);
+      // Rebuild the FTS3 index to ensure it's in sync
+      console.log(`[Migration 009] Rebuilding FTS3 index...`);
 
       // Delete and repopulate FTS table
       db.exec(`DELETE FROM patterns_fts`);
@@ -229,7 +229,7 @@ const migration: Migration = {
       // Optimize the FTS index
       db.exec(`INSERT INTO patterns_fts(patterns_fts) VALUES('optimize')`);
 
-      console.log(`[Migration 009] FTS5 index rebuilt successfully`);
+      console.log(`[Migration 009] FTS3 index rebuilt successfully`);
     } catch (error) {
       throw new Error(`Migration 009 failed: ${(error as Error).message}`);
     }

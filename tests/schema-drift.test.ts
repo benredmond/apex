@@ -97,7 +97,7 @@ describe("Schema Drift Detection", () => {
       const actualColumnSet = new Set(actualColumns.map(c => c.name));
       
       // Parse expected columns from FTS schema definition
-      const schemaMatch = FTS_SCHEMA_SQL.patterns_fts.match(/USING fts5\s*\(([^)]+)\)/);
+      const schemaMatch = FTS_SCHEMA_SQL.patterns_fts.match(/USING fts3\s*\(([^)]+)\)/);
       if (!schemaMatch) {
         throw new Error("Could not parse FTS schema");
       }

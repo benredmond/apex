@@ -151,16 +151,16 @@ describe('Node:SQLite exec() method fix', () => {
     expect(tableCount.count).toBe(2);
   });
 
-  test('should handle FTS5 virtual tables with triggers', () => {
+  test('should handle FTS3 virtual tables with triggers', () => {
     const ftsSQL = `
-      CREATE VIRTUAL TABLE IF NOT EXISTS patterns_fts USING fts5(
-        id UNINDEXED,
+      CREATE VIRTUAL TABLE IF NOT EXISTS patterns_fts USING fts3(
+        id,
         title,
         summary,
         tags,
-        tokenize='unicode61'
+        tokenize=simple
       );
-      
+
       CREATE TRIGGER IF NOT EXISTS patterns_ai AFTER INSERT ON patterns BEGIN
         INSERT INTO patterns_fts (rowid, id, title, summary, tags)
         VALUES (new.rowid, new.id, new.title, new.summary, new.tags);

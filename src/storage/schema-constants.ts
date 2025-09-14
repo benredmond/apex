@@ -250,14 +250,14 @@ export const SCHEMA_SQL = {
 // Full-text search tables
 export const FTS_SCHEMA_SQL = {
   patterns_fts: `
-    CREATE VIRTUAL TABLE IF NOT EXISTS patterns_fts USING fts5(
-      id UNINDEXED,
+    CREATE VIRTUAL TABLE IF NOT EXISTS patterns_fts USING fts3(
+      id,
       title,
       summary,
       tags,
       keywords,
       search_index,
-      tokenize='unicode61'
+      tokenize=simple
     )`,
 
   // FTS triggers - using consistent naming: patterns_ai, patterns_ad, patterns_au
@@ -272,7 +272,7 @@ export const FTS_SCHEMA_SQL = {
     update: `
       CREATE TRIGGER patterns_au AFTER UPDATE OF title, summary, tags, keywords, search_index ON patterns
       BEGIN
-        -- FTS5 doesn't support UPDATE, must delete and re-insert
+        -- FTS3 doesn't support UPDATE, must delete and re-insert
         INSERT INTO patterns_fts(patterns_fts, rowid, id, title, summary, tags, keywords, search_index)
         VALUES ('delete', old.rowid, old.id, old.title, old.summary, old.tags, old.keywords, old.search_index);
         INSERT INTO patterns_fts(rowid, id, title, summary, tags, keywords, search_index)
@@ -336,6 +336,96 @@ export function getAllSchemaSql(): string[] {
   );
 
   return statements;
+}
+
+/**
+ * Generate FTS trigger SQL for a given table
+ * These triggers automatically sync data to the FTS virtual table
+ *
+ * @param tableName - The base table name (e.g., "patterns")
+ * @returns SQL strings for each trigger separately
+ */
+export function generateFTSTriggers(tableName: string): {
+  insert: string;
+  update: string;
+  delete: string;
+} {
+  // Import escapeIdentifier locally to avoid circular dependencies
+  const escapeIdentifier = (str: string) => `"${str.replace(/"/g, '""')}"`;
+
+  const escapedTable = escapeIdentifier(tableName);
+  const escapedFTSTable = escapeIdentifier(`${tableName}_fts`);
+  const triggerInsert = escapeIdentifier(`${tableName}_ai`);
+  const triggerUpdate = escapeIdentifier(`${tableName}_au`);
+  const triggerDelete = escapeIdentifier(`${tableName}_ad`);
+
+  return {
+    insert: `CREATE TRIGGER IF NOT EXISTS ${triggerInsert} AFTER INSERT ON ${escapedTable}
+      BEGIN
+        INSERT INTO ${escapedFTSTable}(rowid, id, title, summary, tags, keywords, search_index)
+        VALUES (new.rowid, new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
+      END`,
+
+    update: `CREATE TRIGGER IF NOT EXISTS ${triggerUpdate} AFTER UPDATE OF title, summary, tags, keywords, search_index ON ${escapedTable}
+      BEGIN
+        DELETE FROM ${escapedFTSTable} WHERE rowid = old.rowid;
+        INSERT INTO ${escapedFTSTable}(rowid, id, title, summary, tags, keywords, search_index)
+        VALUES (new.rowid, new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
+      END`,
+
+    delete: `CREATE TRIGGER IF NOT EXISTS ${triggerDelete} AFTER DELETE ON ${escapedTable}
+      BEGIN
+        DELETE FROM ${escapedFTSTable} WHERE rowid = old.rowid;
+      END`,
+  };
+}
+
+/**
+ * Generate combined FTS trigger SQL for a given table
+ *
+ * @param tableName - The base table name (e.g., "patterns")
+ * @returns Combined SQL string containing all three triggers
+ */
+export function generateCombinedFTSTriggerSQL(tableName: string): string {
+  const triggers = generateFTSTriggers(tableName);
+  return `
+    -- After Insert Trigger
+    ${triggers.insert};
+
+    -- After Update Trigger
+    ${triggers.update};
+
+    -- After Delete Trigger
+    ${triggers.delete};
+  `;
+}
+
+/**
+ * Generate SQL to drop FTS triggers for a given table
+ *
+ * @param tableName - The base table name (e.g., "patterns")
+ * @returns SQL string to drop all FTS triggers
+ */
+export function generateDropFTSTriggerSQL(tableName: string): string {
+  const escapeIdentifier = (str: string) => `"${str.replace(/"/g, '""')}"`;
+
+  const triggerInsert = escapeIdentifier(`${tableName}_ai`);
+  const triggerUpdate = escapeIdentifier(`${tableName}_au`);
+  const triggerDelete = escapeIdentifier(`${tableName}_ad`);
+
+  // Also drop legacy naming convention triggers
+  const legacyInsert = escapeIdentifier(`${tableName}_fts_insert`);
+  const legacyUpdate = escapeIdentifier(`${tableName}_fts_update`);
+  const legacyDelete = escapeIdentifier(`${tableName}_fts_delete`);
+
+  return `
+    DROP TRIGGER IF EXISTS ${triggerInsert};
+    DROP TRIGGER IF EXISTS ${triggerUpdate};
+    DROP TRIGGER IF EXISTS ${triggerDelete};
+    DROP TRIGGER IF EXISTS ${legacyInsert};
+    DROP TRIGGER IF EXISTS ${legacyUpdate};
+    DROP TRIGGER IF EXISTS ${legacyDelete};
+  `;
 }
 
 // Export indices creation statements

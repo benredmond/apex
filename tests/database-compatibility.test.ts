@@ -37,8 +37,8 @@ describe("Database Compatibility", () => {
       
       // Create FTS table
       db.exec(`
-        CREATE VIRTUAL TABLE patterns_fts USING fts5(
-          id UNINDEXED,
+        CREATE VIRTUAL TABLE patterns_fts USING fts3(
+          id,
           title,
           summary,
           tags,

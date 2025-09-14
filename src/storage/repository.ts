@@ -403,15 +403,15 @@ export class PatternRepository {
   }
 
   /**
-   * Semantic search with facets using FTS5
-   * [PAT:SEARCH:FTS5] ★★★★☆ - SQLite FTS5 search implementation
+   * Semantic search with facets using FTS3
+   * [PAT:SEARCH:FTS3] ★★★★☆ - SQLite FTS3 search implementation
    */
   public async search(query: SearchQuery): Promise<PatternPack> {
     // [PAT:PERF:QUERY_MONITORING] - Monitor query performance
     const startTime = performance.now();
     const { task = "", type, tags, k = 20 } = query;
 
-    // Build FTS5 query
+    // Build FTS3 query
     let ftsQuery = task.trim();
     if (!ftsQuery) {
       // Fall back to facet-based search if no text query
@@ -422,14 +422,14 @@ export class PatternRepository {
       } as LookupQuery);
     }
 
-    // Process the query for FTS5
+    // Process the query for FTS3
     // Split multi-word queries into individual terms with OR
     const terms = ftsQuery.split(/\s+/).filter((t) => t.length > 0);
     if (terms.length > 1) {
       // Create an OR query for multiple terms
       ftsQuery = terms
         .map((term) => {
-          // Escape special FTS5 characters
+          // Escape special FTS3 characters
           const escaped = term.replace(/"/g, '""');
           return `"${escaped}"`;
         })
@@ -439,11 +439,11 @@ export class PatternRepository {
       ftsQuery = ftsQuery.replace(/"/g, '""');
     }
 
-    // Build the SQL query using FTS5 MATCH
-    // Join on rowid for FTS5 virtual table (id is stored as UNINDEXED content)
+    // Build the SQL query using FTS3 MATCH
+    // Join on rowid for FTS3 virtual table
     let sql = `
-      SELECT DISTINCT p.*, 
-             rank * -1 as fts_rank
+      SELECT DISTINCT p.*,
+             (p.trust_score * 100 + p.usage_count) as fts_rank
       FROM patterns p
       JOIN patterns_fts pf ON p.rowid = pf.rowid
       WHERE pf.patterns_fts MATCH ?
@@ -485,10 +485,10 @@ export class PatternRepository {
         ? this.db.queryWithFallback(sql, params)
         : (this.db.prepare(sql).all(...params) as any[]);
     } catch (error) {
-      console.error("[ERROR] FTS5 search failed:", error);
+      console.error("[ERROR] FTS3 search failed:", error);
       console.error("[ERROR] Query:", { task: ftsQuery, type, tags });
       // Fall back to regular facet-based search
-      console.warn("[FALLBACK] Using facet-based search due to FTS5 error");
+      console.warn("[FALLBACK] Using facet-based search due to FTS3 error");
       return this.lookup({
         type: Array.isArray(type) ? type : type ? [type] : undefined,
         tags,
@@ -506,7 +506,7 @@ export class PatternRepository {
     const duration = performance.now() - startTime;
     if (duration > 100) {
       console.warn(
-        `[PERF] Slow FTS5 search detected: ${duration.toFixed(2)}ms`,
+        `[PERF] Slow FTS3 search detected: ${duration.toFixed(2)}ms`,
         {
           query: task,
           resultCount: patterns.length,
