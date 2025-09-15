@@ -31,6 +31,9 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:vitest": "vitest",
+    "migrate:vitest": "node scripts/migrate-to-vitest.js",
+    "migrate:vitest:dry": "node scripts/migrate-to-vitest.js --dry-run",
+    "migrate:vitest:restore": "node scripts/migrate-to-vitest.js --restore",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:schema": "vitest run tests/schema-drift.test.ts",
     "test:compat": "vitest run tests/database-compatibility.test.ts",
@@ -83,6 +86,7 @@
     "postject": "^1.0.0-alpha.6",
     "prettier": "^3.1.1",
     "ts-jest": "^29.4.1",
+    "ts-morph": "^27.0.0",
     "typescript": "^5.3.3",
     "vitest": "^3.2.4"
   },
