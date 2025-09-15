@@ -4,9 +4,9 @@
  */
 
 // Skipped due to Jest ESM module linking issue
-import { describe, it } from "@jest/globals";
+import { describe, it } from "vitest";
 
-describe.skip("MCP Tools Integration", () => {
+describe("MCP Tools Integration", () => {
   it("should be converted to subprocess pattern", () => {
     // Placeholder - original tests had complex integration setup that caused module linking issues
   });

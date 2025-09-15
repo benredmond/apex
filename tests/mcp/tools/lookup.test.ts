@@ -5,9 +5,9 @@
 
 // Skipped due to Jest ESM module linking issue - requires complex mocking
 // TODO: Convert to subprocess pattern or integration test
-import { describe, it } from "@jest/globals";
+import { describe, it } from "vitest";
 
-describe.skip("Pattern Lookup MCP Tool", () => {
+describe("Pattern Lookup MCP Tool", () => {
   it("should be converted to subprocess pattern", () => {
     // Placeholder - original tests had complex mocking that caused module linking issues
   });

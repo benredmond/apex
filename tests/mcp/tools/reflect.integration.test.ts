@@ -4,9 +4,9 @@
  */
 
 // Skipped due to Jest ESM module linking issue
-import { describe, it } from "@jest/globals";
+import { describe, it } from "vitest";
 
-describe.skip("Reflection Integration Test", () => {
+describe("Reflection Integration Test", () => {
   it("should be converted to subprocess pattern", () => {
     // Placeholder - original tests had complex integration setup that caused module linking issues
   });

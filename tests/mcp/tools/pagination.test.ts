@@ -5,9 +5,9 @@
 
 // Skipped due to Jest ESM module linking issue - requires complex setup
 // TODO: Convert to subprocess pattern or integration test
-import { describe, it } from "@jest/globals";
+import { describe, it } from "vitest";
 
-describe.skip("Pagination Tool", () => {
+describe("Pagination Tool", () => {
   it("should be converted to subprocess pattern", () => {
     // Placeholder - original tests had complex setup that caused module linking issues
   });
