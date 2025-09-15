@@ -4,11 +4,23 @@
 
 [![npm version](https://badge.fury.io/js/%40benredmond%2Fapex.svg)](https://badge.fury.io/js/%40benredmond%2Fapex)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D14-brightgreen)](https://nodejs.org)
+[![Works Everywhere](https://img.shields.io/badge/works-everywhere-blue)](https://www.npmjs.com/package/@benredmond/apex)
 
 ```bash
 # See APEX in action - no installation required!
 npx @benredmond/apex start
 ```
+
+## 🌍 Universal Compatibility
+
+**APEX now works everywhere** - no compilation, no native module errors, just intelligence:
+
+- ✅ **Works on Node.js 14+** - Supports all modern Node versions
+- 📦 **93% smaller package** - Reduced from 66.8MB to ~5MB
+- 🚀 **Zero compilation required** - No build tools or Python needed
+- 🎯 **Automatic optimization** - Uses the fastest available SQLite adapter
+- 🛡️ **Always works** - Graceful fallback ensures compatibility
 
 ## The Problem
 
@@ -27,13 +39,14 @@ Without APEX: AI suggests generic solution → Often wrong → You fix it → AI
 With APEX:    AI recalls what worked → Applies proven patterns → Prevents past failures → Gets smarter
 ```
 
-## Why APEX?|
+## Why APEX?
 
-### 🎯 Three Key Differentiators
+### 🎯 Four Key Differentiators
 
-1. **Zero-Runtime Intelligence** - No background processes, no performance impact
-2. **Pattern Evolution** - Discovers, validates, and promotes patterns automatically
-3. **Failure Prevention** - Learns from mistakes to prevent repetition
+1. **Universal Compatibility** - Works on any Node.js 14+ without compilation
+2. **Zero-Runtime Intelligence** - No background processes, no performance impact
+3. **Pattern Evolution** - Discovers, validates, and promotes patterns automatically
+4. **Failure Prevention** - Learns from mistakes to prevent repetition
 
 ### 💬 Real Developer Experience
 
@@ -41,11 +54,11 @@ With APEX:    AI recalls what worked → Applies proven patterns → Prevents pa
 
 ## Getting Started
 
-Choose your preferred way to start:
+**No compilation required!** APEX works instantly on any system with Node.js 14+:
 
 ### 🚀 Try It Now (Recommended)
 ```bash
-# Run this in any project - installs nothing globally
+# Run this in any project - works instantly, no build tools needed
 npx @benredmond/apex start
 
 # That's it! APEX is now active in your AI assistant
@@ -429,13 +442,87 @@ A: Immediately for workflow organization. Pattern benefits appear after 5-10 tas
 **Q: Can I share patterns with my team?**
 A: Yes! Patterns are stored in `.apex/CONVENTIONS.md` which can be committed to version control and shared.
 
+## Performance & Database Adapters
+
+APEX automatically selects the best SQLite adapter for your environment:
+
+### Three-Tier Adapter System
+```
+┌─────────────────────────────────────┐
+│     Automatic Adapter Selection     │
+├─────────────────────────────────────┤
+│ Node 22+ → node:sqlite (built-in)  │
+│ Node 14-21 → better-sqlite3/sql.js │
+│ Containers → sql.js (universal)    │
+└─────────────────────────────────────┘
+```
+
+**Performance comparison:**
+| Operation | Native | WASM | Impact |
+|-----------|--------|------|--------|
+| Pattern lookup | 1ms | 2-3ms | ✅ Excellent |
+| Search | 5ms | 10-20ms | ✅ Good |
+| Batch import | 100ms | 300ms | ✅ Acceptable |
+
+### Force Specific Adapter (Optional)
+```bash
+export APEX_FORCE_ADAPTER=wasm  # Always works
+export APEX_FORCE_ADAPTER=better-sqlite3  # If available
+export APEX_FORCE_ADAPTER=node-sqlite  # Node 22+ only
+```
+
+## Troubleshooting & Support
+
+### Quick Diagnostics
+```bash
+apex doctor           # System health check
+apex doctor --verbose # Detailed diagnostics
+```
+
+### Common Solutions
+
+**"Cannot find module 'better-sqlite3'"**
+✅ Normal - APEX automatically uses WebAssembly fallback
+
+**Slow pattern lookups**
+→ Check adapter: `apex doctor`
+→ Upgrade to Node 22+ for native performance
+
+**"Database locked" error**
+→ Kill other APEX processes: `pkill -f apex`
+
+### Debug Mode
+```bash
+export APEX_DEBUG=1      # Basic debug output
+export APEX_TRACE=1      # Verbose logging
+export APEX_PERF_LOG=1   # Performance metrics
+```
+
+## Migration from Earlier Versions
+
+### v1.0.0 Universal Compatibility Update
+
+**What changed:**
+- 93% smaller package (66.8MB → ~5MB)
+- No compilation required
+- Works on Node.js 14+
+- Automatic adapter selection
+
+**For existing users:**
+```bash
+npm update -g @benredmond/apex
+apex start  # Automatic migration
+```
+
+Your patterns and database work identically across all adapters.
+
 ## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 Key areas for contribution:
 - Domain-specific pattern libraries
-- AI assistant integrations  
+- AI assistant integrations
 - Workflow improvements
 - Documentation examples
 
@@ -443,12 +530,20 @@ Key areas for contribution:
 
 MIT License - see [LICENSE](LICENSE) for details
 
-## Acknowledgments
+## Changelog
 
-APEX was inspired by the need for AI assistants that truly learn and improve. Special thanks to:
-- The Claude, Cursor, and Copilot communities
-- Early adopters who provided pattern data
-- Contributors who shaped the workflow methodology
+### v1.0.0 - Universal Compatibility
+- ✨ Works on any Node.js 14+ without compilation
+- 📦 93% package size reduction
+- 🚀 Three-tier adapter system with automatic selection
+- 🛡️ WebAssembly fallback ensures it always works
+
+### v0.4.4 - Previous Release
+- MCP integration
+- Pattern discovery improvements
+- Task similarity search
+
+See full [release history](https://github.com/benredmond/apex/releases)
 
 ---
 

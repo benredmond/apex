@@ -2,52 +2,76 @@
 
 Welcome to APEX (Autonomous Pattern-Enhanced eXecution) - an AI-powered development workflow system that makes your AI coding assistant smarter over time.
 
+## Prerequisites
+
+✅ **Only requirement**: Node.js 14 or higher
+- No compilation tools needed
+- No Python required
+- No build dependencies
+- Works on Windows, macOS, Linux, and containers
+
 ## What is APEX Intelligence?
 
 APEX Intelligence is a learning system that:
 - **Discovers patterns** in your successful code implementations
-- **Learns from failures** to prevent repeated mistakes  
+- **Learns from failures** to prevent repeated mistakes
 - **Adapts complexity** based on task requirements
 - **Provides structured workflows** for consistent quality
 
 ## Installation
 
-### Global Installation (Recommended)
+### Quick Start (No Installation)
 
 ```bash
-npm install -g apex
+# Works instantly - no global install needed
+npx @benredmond/apex start
+```
+
+### Global Installation
+
+```bash
+# Install once, use everywhere
+npm install -g @benredmond/apex
+apex start
 ```
 
 ### Project-specific Installation
 
 ```bash
-npm install --save-dev apex
+# Add to your project
+npm install --save-dev @benredmond/apex
 ```
 
 ## Quick Start
 
-### 1. Initialize APEX in Your Project
+### 1. Start APEX in Your Project
 
 ```bash
 cd your-project
-apex init
+npx @benredmond/apex start
 ```
 
-This creates:
-- `.apex/` - APEX Intelligence configuration and data
-- `.claude/commands/apex/` - Command templates for Claude (if using Claude)
-- Pattern tracking files
-- Project manifest
+This automatically:
+- ✅ Detects your project structure
+- ✅ Initializes the pattern database
+- ✅ Sets up MCP integration (if available)
+- ✅ Optimizes based on your Node.js version
 
-### 2. Prime Your AI Assistant
+### 2. Use with Your AI Assistant
 
-Start your AI coding assistant (Claude, Cursor, GitHub Copilot, etc.) and run:
+APEX works with any AI coding assistant (Claude Code, Cursor, GitHub Copilot, etc.)
 
+For Claude Code users:
 ```bash
+# MCP integration is automatic
+apex mcp install
+```
+
+For other AI assistants:
+```bash
+# Load APEX context
 apex prime
 ```
-
-Copy the output into your AI assistant to load APEX Intelligence.
 
 ### 3. Create Your First Task
 

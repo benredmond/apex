@@ -5,6 +5,7 @@
 import { PatternDatabase } from "./database.js";
 import { DatabaseAdapter } from "./database-adapter.js";
 import { escapeIdentifier } from "./database-utils.js";
+import { generateCombinedFTSTriggerSQL } from "./schema-constants.js";
 
 export interface FTSOperationContext {
   tableName: string;
@@ -14,37 +15,107 @@ export interface FTSOperationContext {
   searchableFields: Record<string, any>;
 }
 
+export interface FTSMetrics {
+  totalOperations: number;
+  manualSyncCount: number;
+  triggerSyncCount: number;
+  avgSyncDuration: number;
+  maxSyncDuration: number;
+  failureCount: number;
+  lastReset: Date;
+}
+
+export interface FTSOperationMetrics {
+  operation: "insert" | "update" | "delete";
+  tableName: string;
+  duration: number;
+  syncType: "trigger" | "manual";
+  success: boolean;
+  timestamp: Date;
+}
+
 /**
  * Manages Full-Text Search operations with adapter-specific strategies
  * Applies PAT:MANAGER:ABSTRACTION to eliminate 120+ lines of duplication
+ * Includes operation metrics for performance monitoring
  */
 export class FTSManager {
   private readonly adapter: DatabaseAdapter;
+  private metrics: FTSMetrics;
+  private recentOperations: FTSOperationMetrics[] = [];
+  private static readonly MAX_RECENT_OPERATIONS = 100;
+  private static readonly SLOW_OPERATION_THRESHOLD_MS = 50;
 
   constructor(private readonly db: PatternDatabase) {
     this.adapter = db.database;
+    this.metrics = this.initializeMetrics();
+  }
+
+  private initializeMetrics(): FTSMetrics {
+    return {
+      totalOperations: 0,
+      manualSyncCount: 0,
+      triggerSyncCount: 0,
+      avgSyncDuration: 0,
+      maxSyncDuration: 0,
+      failureCount: 0,
+      lastReset: new Date(),
+    };
   }
 
   /**
    * Synchronize FTS index for a pattern operation
    * Uses adapter capabilities to determine strategy
+   * Tracks metrics for performance monitoring
    */
   public syncFTS(
     context: FTSOperationContext,
     operation: "insert" | "update" | "delete",
   ): void {
-    // [PAT:ADAPTER:DELEGATION] ★★★★★ (5 uses, 100% success) - From cache
-    // Check adapter FTS capability
+    const startTime = Date.now();
     const supportsTriggers = this.adapter.supportsFTSTriggers?.() ?? true;
+    let success = true;
 
-    if (supportsTriggers) {
-      // For better-sqlite3 and other adapters with working triggers
-      // No manual FTS sync needed - triggers handle it automatically
-      return;
+    try {
+      if (supportsTriggers) {
+        // For better-sqlite3 and other adapters with working triggers
+        // No manual FTS sync needed - triggers handle it automatically
+        this.recordOperation(operation, context.tableName, 0, "trigger", true);
+        return;
+      }
+
+      // For node:sqlite - manual FTS handling required
+      this.manualFTSSync(context, operation);
+
+      const duration = Date.now() - startTime;
+      this.recordOperation(
+        operation,
+        context.tableName,
+        duration,
+        "manual",
+        true,
+      );
+
+      // Log slow operations
+      if (duration > FTSManager.SLOW_OPERATION_THRESHOLD_MS) {
+        if (process.env.APEX_DEBUG) {
+          console.log(
+            `[FTS] Slow operation detected: ${operation} on ${context.tableName} took ${duration}ms`,
+          );
+        }
+      }
+    } catch (error) {
+      success = false;
+      const duration = Date.now() - startTime;
+      this.recordOperation(
+        operation,
+        context.tableName,
+        duration,
+        supportsTriggers ? "trigger" : "manual",
+        false,
+      );
+      throw error;
     }
-
-    // For node:sqlite - manual FTS handling required
-    this.manualFTSSync(context, operation);
   }
 
   /**
@@ -112,7 +183,7 @@ export class FTSManager {
 
     // [FIX:ADAPTER:STATEMENT_FRESH] ★★★★☆ (2 uses, 100% success) - From cache
     // Fresh statement creation for node:sqlite compatibility
-    const insertSQL = `INSERT INTO ${escapedFTSTable}(${columns.map(c => escapeIdentifier(c)).join(", ")}) VALUES (${placeholders})`;
+    const insertSQL = `INSERT INTO ${escapedFTSTable}(${columns.map((c) => escapeIdentifier(c)).join(", ")}) VALUES (${placeholders})`;
 
     this.adapter.prepare(insertSQL).run(...values);
   }
@@ -194,35 +265,8 @@ export class FTSManager {
    * Only for adapters that support triggers
    */
   private recreateTriggers(tableName: string): void {
-    const escapedTable = escapeIdentifier(tableName);
-    const escapedFTSTable = escapeIdentifier(`${tableName}_fts`);
-
-    // These trigger definitions match migration 018-fix-fts-trigger-schema.ts
-    const triggerSQL = `
-      -- After Insert Trigger
-      CREATE TRIGGER IF NOT EXISTS ${escapeIdentifier(tableName + "_ai")}
-      AFTER INSERT ON ${escapedTable}
-      BEGIN
-        INSERT INTO ${escapedFTSTable}(rowid, id, title, summary, tags, keywords, search_index)
-        VALUES (new.rowid, new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
-      END;
-
-      -- After Update Trigger
-      CREATE TRIGGER IF NOT EXISTS ${escapeIdentifier(tableName + "_au")}
-      AFTER UPDATE OF title, summary, tags, keywords, search_index ON ${escapedTable}
-      BEGIN
-        DELETE FROM ${escapedFTSTable} WHERE rowid = old.rowid;
-        INSERT INTO ${escapedFTSTable}(rowid, id, title, summary, tags, keywords, search_index)
-        VALUES (new.rowid, new.id, new.title, new.summary, new.tags, new.keywords, new.search_index);
-      END;
-
-      -- After Delete Trigger
-      CREATE TRIGGER IF NOT EXISTS ${escapeIdentifier(tableName + "_ad")}
-      AFTER DELETE ON ${escapedTable}
-      BEGIN
-        DELETE FROM ${escapedFTSTable} WHERE rowid = old.rowid;
-      END;
-    `;
+    // Use centralized trigger definitions from schema-constants.ts
+    const triggerSQL = generateCombinedFTSTriggerSQL(tableName);
 
     try {
       this.adapter.exec(triggerSQL);
@@ -232,5 +276,109 @@ export class FTSManager {
         error.message,
       );
     }
+  }
+
+  /**
+   * Record an operation for metrics tracking
+   */
+  private recordOperation(
+    operation: "insert" | "update" | "delete",
+    tableName: string,
+    duration: number,
+    syncType: "trigger" | "manual",
+    success: boolean,
+  ): void {
+    // Update metrics
+    this.metrics.totalOperations++;
+    if (syncType === "manual") {
+      this.metrics.manualSyncCount++;
+    } else {
+      this.metrics.triggerSyncCount++;
+    }
+
+    if (!success) {
+      this.metrics.failureCount++;
+    }
+
+    // Update duration metrics
+    if (duration > 0) {
+      this.metrics.avgSyncDuration =
+        (this.metrics.avgSyncDuration * (this.metrics.totalOperations - 1) +
+          duration) /
+        this.metrics.totalOperations;
+      this.metrics.maxSyncDuration = Math.max(
+        this.metrics.maxSyncDuration,
+        duration,
+      );
+    }
+
+    // Add to recent operations
+    const operationMetrics: FTSOperationMetrics = {
+      operation,
+      tableName,
+      duration,
+      syncType,
+      success,
+      timestamp: new Date(),
+    };
+
+    this.recentOperations.push(operationMetrics);
+
+    // Keep only the most recent operations
+    if (this.recentOperations.length > FTSManager.MAX_RECENT_OPERATIONS) {
+      this.recentOperations.shift();
+    }
+  }
+
+  /**
+   * Get current metrics
+   */
+  public getMetrics(): FTSMetrics {
+    return { ...this.metrics };
+  }
+
+  /**
+   * Get recent operations for debugging
+   */
+  public getRecentOperations(): FTSOperationMetrics[] {
+    return [...this.recentOperations];
+  }
+
+  /**
+   * Reset metrics
+   */
+  public resetMetrics(): void {
+    this.metrics = this.initializeMetrics();
+    this.recentOperations = [];
+  }
+
+  /**
+   * Get metrics summary for logging
+   */
+  public getMetricsSummary(): string {
+    const {
+      totalOperations,
+      manualSyncCount,
+      triggerSyncCount,
+      avgSyncDuration,
+      maxSyncDuration,
+      failureCount,
+    } = this.metrics;
+    const successRate =
+      totalOperations > 0
+        ? (((totalOperations - failureCount) / totalOperations) * 100).toFixed(
+            2,
+          )
+        : "N/A";
+    const manualPercentage =
+      totalOperations > 0
+        ? ((manualSyncCount / totalOperations) * 100).toFixed(2)
+        : "N/A";
+
+    return (
+      `FTS Metrics: Total=${totalOperations}, Manual=${manualSyncCount} (${manualPercentage}%), ` +
+      `Trigger=${triggerSyncCount}, Avg=${avgSyncDuration.toFixed(2)}ms, Max=${maxSyncDuration}ms, ` +
+      `Success=${successRate}%`
+    );
   }
 }

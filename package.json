@@ -29,6 +29,8 @@
   ],
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:vitest": "vitest",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:schema": "vitest run tests/schema-drift.test.ts",
     "test:compat": "vitest run tests/database-compatibility.test.ts",
@@ -73,6 +75,7 @@
     "@types/jest": "^29.5.14",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.10.5",
+    "@vitest/ui": "^3.2.4",
     "@yao-pkg/pkg": "^6.6.0",
     "esbuild": "^0.19.0",
     "eslint": "^8.56.0",
@@ -80,7 +83,8 @@
     "postject": "^1.0.0-alpha.6",
     "prettier": "^3.1.1",
     "ts-jest": "^29.4.1",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=16.0.0"

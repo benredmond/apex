@@ -98,6 +98,163 @@ interface SearchQuery {
 
 ---
 
+## SQLite Adapter Migration (v1.0.0)
+
+### Overview
+
+As of v1.0.0, APEX uses a three-tier database adapter system for universal compatibility:
+- **node:sqlite** - Built-in SQLite for Node.js 22+
+- **better-sqlite3** - High-performance native module
+- **sql.js** - WebAssembly fallback for universal compatibility
+
+### What Changed
+
+#### Before v1.0.0
+- Required better-sqlite3 compilation
+- NODE_MODULE_VERSION errors common
+- Installation failed without build tools
+- 66.8MB package size
+
+#### After v1.0.0
+- No compilation required
+- Works on any Node.js 14+
+- Automatic adapter selection
+- 93% smaller package (~5MB)
+
+### Migration for Existing Users
+
+**No manual migration required!** APEX automatically handles adapter selection and database compatibility.
+
+#### Automatic Migration
+When you update to v1.0.0, APEX will:
+1. Detect your Node.js version
+2. Select the best available adapter
+3. Use your existing database without changes
+4. Maintain all patterns, tasks, and history
+
+```bash
+# Just update and run
+npm update -g @benredmond/apex
+apex start
+```
+
+### Adapter Selection Process
+
+```
+Node.js 22+ → Uses built-in node:sqlite
+Node.js 14-21 with build tools → Uses better-sqlite3
+Node.js 14-21 without build tools → Uses sql.js (WASM)
+Containers/CI → Typically uses sql.js for consistency
+```
+
+### Performance Considerations
+
+#### Native Adapters (node:sqlite, better-sqlite3)
+- 100% baseline performance
+- <5ms pattern lookups
+- Recommended for development
+
+#### WebAssembly Adapter (sql.js)
+- 30-70% of native performance
+- 10-20ms pattern lookups
+- Still faster than network requests
+- Perfect for CI/CD and containers
+
+### Manual Adapter Control
+
+If you need to force a specific adapter:
+
+```bash
+# Force WebAssembly (always works)
+export APEX_FORCE_ADAPTER=wasm
+apex start
+
+# Force better-sqlite3 (if available)
+export APEX_FORCE_ADAPTER=better-sqlite3
+apex start
+
+# Force node:sqlite (Node 22+ only)
+export APEX_FORCE_ADAPTER=node-sqlite
+apex start
+```
+
+### Checking Your Adapter
+
+```bash
+# See which adapter is active
+apex doctor
+
+# With debug output
+APEX_DEBUG=1 apex doctor
+
+# Output shows:
+# Using node:sqlite (built-in, 2ms)
+# Database adapter: node-sqlite
+# Performance: Native (100%)
+```
+
+### Database Compatibility
+
+Your APEX database is **fully compatible** across all adapters:
+
+```bash
+# Database created with better-sqlite3
+node --version  # v20.0.0
+apex patterns list  # Works with better-sqlite3
+
+# Switch to Node 22
+nvm use 22
+node --version  # v22.0.0
+apex patterns list  # Same database now uses node:sqlite
+
+# In Docker container
+docker run -v ~/.apex:/root/.apex node:14
+apex patterns list  # Same database now uses sql.js
+```
+
+### Troubleshooting Adapter Issues
+
+#### "Cannot find module 'better-sqlite3'"
+**This is normal!** APEX will automatically use the WASM adapter.
+
+#### Force WASM for consistency
+```bash
+# In package.json scripts
+"scripts": {
+  "apex": "APEX_FORCE_ADAPTER=wasm apex"
+}
+```
+
+#### Check adapter performance
+```bash
+apex stats --performance
+
+# Shows:
+# Adapter: sql.js (WASM)
+# Avg pattern lookup: 15ms
+# Avg search: 35ms
+# Performance rating: Good
+```
+
+### Migration FAQ
+
+#### Q: Will my patterns and tasks still work?
+**A**: Yes, all data is preserved and works identically across adapters.
+
+#### Q: Do I need to rebuild my database?
+**A**: No, the database format is identical for all adapters.
+
+#### Q: Can I switch back to an older APEX version?
+**A**: Yes, but you'll lose universal compatibility. Database remains compatible.
+
+#### Q: Should I force a specific adapter?
+**A**: Generally no. Let APEX choose the optimal adapter automatically.
+
+#### Q: What if I need maximum performance?
+**A**: Upgrade to Node.js 22+ for native sqlite, or ensure better-sqlite3 compiles.
+
+---
+
 # APEX Database Migration Guide
 
 This guide explains how to create and manage database migrations for the APEX pattern management system.

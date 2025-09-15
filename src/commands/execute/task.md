@@ -982,8 +982,10 @@ Use test-validator subagent:
 ### Validation Decision Logic
 
 <critical-gate>
-If ANY critical issues (syntax errors, failing tests):
+If ANY issues (syntax errors, failing tests):
 → Return to BUILDER phase with detailed issue list
+
+do NOT ignore test failures
 
 If only warnings/formatting issues:
 → Document for REVIEWER phase consideration
