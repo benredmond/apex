@@ -10,15 +10,15 @@
  * like tests/integration/database-tables.test.js
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import fs from "fs-extra";
 import path from "path";
 import os from "os";
-// Commented out due to module linking issue - see file header for details
-// import { AutoMigrator } from "../../src/migrations/auto-migrator.js";
+// With Vitest, ESM module linking works properly
+import { AutoMigrator } from "../../src/migrations/auto-migrator.js";
 
-describe.skip("AutoMigrator Table Creation", () => {
+describe("AutoMigrator Table Creation", () => {
   let tempDir;
   let testDbPath;
   
@@ -35,7 +35,6 @@ describe.skip("AutoMigrator Table Creation", () => {
 
   it("should create task_evidence table for fresh database", async () => {
     // Run migrations on fresh database
-    // @ts-ignore - AutoMigrator not imported due to module linking issue
     const migrator = new AutoMigrator(testDbPath);
     const success = await migrator.autoMigrate({ silent: true });
     
@@ -126,7 +125,6 @@ describe.skip("AutoMigrator Table Creation", () => {
     db.close();
     
     // Run migrations
-    // @ts-ignore - AutoMigrator not imported due to module linking issue
     const migrator = new AutoMigrator(testDbPath);
     const success = await migrator.autoMigrate({ silent: true });
     
@@ -145,7 +143,6 @@ describe.skip("AutoMigrator Table Creation", () => {
   });
 
   it("should close database connection after autoMigrate", async () => {
-    // @ts-ignore - AutoMigrator not imported due to module linking issue
     const migrator = new AutoMigrator(testDbPath);
     await migrator.autoMigrate({ silent: true });
     

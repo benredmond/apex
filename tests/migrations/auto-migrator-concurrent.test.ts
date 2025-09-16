@@ -10,17 +10,17 @@
  * like tests/integration/database-tables.test.js
  */
 
-import { describe, it, expect, beforeEach, afterEach, beforeAll, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach, beforeAll, vi } from "vitest";
 import fs from "fs-extra";
 import path from "path";
 import os from "os";
 import { nanoid } from "nanoid";
 import Database from "better-sqlite3";
-// Commented out due to module linking issue - see file header for details
-// import { AutoMigrator } from "../../src/migrations/auto-migrator.js";
-// import { MigrationLock } from "../../src/migrations/migration-lock.js";
+// With Vitest, ESM module linking works properly
+import { AutoMigrator } from "../../src/migrations/auto-migrator.js";
+import { MigrationLock } from "../../src/migrations/migration-lock.js";
 
-describe.skip("AutoMigrator with MigrationLock", () => {
+describe("AutoMigrator with MigrationLock", () => {
   let testDir;
   let dbPath;
   let lockPath;
@@ -33,8 +33,8 @@ describe.skip("AutoMigrator with MigrationLock", () => {
     lockPath = path.join(testDir, "test.migration.lock");
     
     // Mock console methods to reduce test output noise
-    jest.spyOn(console, 'log').mockImplementation(() => {});
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -90,7 +90,7 @@ describe.skip("AutoMigrator with MigrationLock", () => {
       const migrator = new AutoMigrator(dbPath);
       
       // Mock the waitForLock to return faster for testing
-      jest.spyOn(MigrationLock.prototype, 'waitForLock').mockResolvedValue(false);
+      vi.spyOn(MigrationLock.prototype, 'waitForLock').mockResolvedValue(false);
       
       const result = await migrator.autoMigrate({ silent: false });
       
@@ -146,8 +146,8 @@ describe.skip("AutoMigrator with MigrationLock", () => {
 
     it("should handle lock acquisition failure after wait", async () => {
       // Mock waitForLock to return true but tryAcquire to fail
-      jest.spyOn(MigrationLock.prototype, 'waitForLock').mockResolvedValue(true);
-      jest.spyOn(MigrationLock.prototype, 'tryAcquire')
+      vi.spyOn(MigrationLock.prototype, 'waitForLock').mockResolvedValue(true);
+      vi.spyOn(MigrationLock.prototype, 'tryAcquire')
         .mockReturnValueOnce(false) // First try fails
         .mockReturnValueOnce(false); // Second try after wait also fails
 
@@ -170,7 +170,7 @@ describe.skip("AutoMigrator with MigrationLock", () => {
       lock.tryAcquire();
 
       // Mock waitForLock to timeout quickly
-      jest.spyOn(MigrationLock.prototype, 'waitForLock').mockResolvedValue(false);
+      vi.spyOn(MigrationLock.prototype, 'waitForLock').mockResolvedValue(false);
 
       const migrator = new AutoMigrator(dbPath);
       const result = await migrator.autoMigrate({ silent: false });
@@ -192,7 +192,7 @@ describe.skip("AutoMigrator with MigrationLock", () => {
     it("should always release lock even on migration error", async () => {
       // Mock migration to throw error
       if (AutoMigrator && AutoMigrator.prototype) {
-        jest.spyOn(AutoMigrator.prototype, 'isFreshDatabase').mockImplementation(() => {
+        vi.spyOn(AutoMigrator.prototype, 'isFreshDatabase').mockImplementation(() => {
           throw new Error("Simulated migration error");
         });
       }

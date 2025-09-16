@@ -10,21 +10,19 @@
  * like tests/integration/database-tables.test.js
  */
 
-import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// Commented out due to module linking issue - see file header for details
-// The issue occurs because MigrationLoader uses dynamic imports for migration files,
-// and Jest's experimental VM modules don't handle repeated dynamic imports properly.
-// import { AutoMigrator } from "../../src/migrations/auto-migrator.js";
+// With Vitest, ESM module linking works properly
+import { AutoMigrator } from "../../src/migrations/auto-migrator.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-describe.skip("AutoMigrator", () => {
+describe("AutoMigrator", () => {
   const testDbPath = path.join(__dirname, "test-auto-migrator.db");
   let db;
 
@@ -53,7 +51,6 @@ describe.skip("AutoMigrator", () => {
     it("should create full schema directly for fresh database", async () => {
       // Dynamic import to avoid module linking issues
       
-      // @ts-ignore - AutoMigrator not imported due to module linking issue
       const migrator = new AutoMigrator(testDbPath);
       
       // Mock console.log to capture output
@@ -94,7 +91,6 @@ describe.skip("AutoMigrator", () => {
 
     it("should mark all migrations as applied for fresh database", async () => {
       
-      // @ts-ignore - AutoMigrator not imported due to module linking issue
       const migrator = new AutoMigrator(testDbPath);
       
       await migrator.autoMigrate({ silent: true });
@@ -116,7 +112,6 @@ describe.skip("AutoMigrator", () => {
     });
 
     it("should have all columns in patterns table for fresh install", async () => {
-      // @ts-ignore - AutoMigrator not imported due to module linking issue
       const migrator = new AutoMigrator(testDbPath);
       
       await migrator.autoMigrate({ silent: true });
@@ -207,7 +202,6 @@ describe.skip("AutoMigrator", () => {
     });
 
     it("should not treat existing database as fresh", async () => {
-      // @ts-ignore - AutoMigrator not imported due to module linking issue
       const migrator = new AutoMigrator(testDbPath);
       
       // Mock console.log to check output
@@ -228,7 +222,6 @@ describe.skip("AutoMigrator", () => {
     });
 
     it("should run only pending migrations on existing database", async () => {
-      // @ts-ignore - AutoMigrator not imported due to module linking issue
       const migrator = new AutoMigrator(testDbPath);
       
       const result = await migrator.autoMigrate({ silent: true });
@@ -257,7 +250,6 @@ describe.skip("AutoMigrator", () => {
 
   describe("Edge Cases", () => {
     it("should handle empty database correctly", async () => {
-      // @ts-ignore - AutoMigrator not imported due to module linking issue
       const migrator = new AutoMigrator(testDbPath);
       
       const result = await migrator.autoMigrate({ silent: true });
