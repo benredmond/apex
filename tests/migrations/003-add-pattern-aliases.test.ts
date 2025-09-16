@@ -2,7 +2,7 @@
  * Tests for pattern alias migration
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { migration } from "../../src/migrations/003-add-pattern-aliases.js";
 import path from "path";

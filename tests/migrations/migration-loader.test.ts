@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import { MigrationLoader } from "../../src/migrations/MigrationLoader.js";
 import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";

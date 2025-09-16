@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { MigrationRunner } from "../../src/migrations/MigrationRunner.js";
 import type { Migration } from "../../src/migrations/types.js";

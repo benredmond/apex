@@ -3,7 +3,7 @@
  * Tests that legacy path detection is removed and migrations run correctly
  */
 
-import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs-extra";
 import path from "path";
 import os from "os";
@@ -65,9 +65,9 @@ describe("MCP Database Path Bug Fix", () => {
   describe("ApexConfig", () => {
     it("should always return primary path from getProjectDbPath", async () => {
       // Mock RepoIdentifier to control paths
-      jest.unstable_mockModule("../../dist/utils/repo-identifier.js", () => ({
+      vi.unstable_mockModule("../../dist/utils/repo-identifier.js", () => ({
         RepoIdentifier: {
-          getDatabasePaths: jest.fn().mockResolvedValue({
+          getDatabasePaths: vi.fn().mockResolvedValue({
             primary: "/test/.apex/project/patterns.db",
             fallback: "/test/.apex/global/patterns.db",
             // No legacy field!
@@ -120,9 +120,9 @@ describe("MCP Database Path Bug Fix", () => {
       db.close();
       
       // Mock RepoIdentifier
-      jest.unstable_mockModule("../../dist/utils/repo-identifier.js", () => ({
+      vi.unstable_mockModule("../../dist/utils/repo-identifier.js", () => ({
         RepoIdentifier: {
-          getDatabasePaths: jest.fn().mockResolvedValue({
+          getDatabasePaths: vi.fn().mockResolvedValue({
             primary: path.join(tempDir, "new", "patterns.db"),
             fallback: path.join(tempDir, ".apex", "global", "patterns.db"),
           }),
@@ -132,8 +132,8 @@ describe("MCP Database Path Bug Fix", () => {
       const { ApexConfig } = await import("../../dist/config/apex-config.js");
       
       // Spy on fs operations
-      const unlinkSpy = jest.spyOn(fs, "unlinkSync");
-      const copySpy = jest.spyOn(fs, "copyFileSync");
+      const unlinkSpy = vi.spyOn(fs, "unlinkSync");
+      const copySpy = vi.spyOn(fs, "copyFileSync");
       
       // Run migration
       const migrated = await ApexConfig.migrateLegacyDatabase();

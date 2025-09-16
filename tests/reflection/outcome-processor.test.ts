@@ -3,7 +3,7 @@
  * [PAT:TEST:ISOLATION] ★★★★★ (89 uses, 98% success)
  */
 
-import { describe, test, expect } from "@jest/globals";
+import { describe, test, expect } from "vitest";
 import { OutcomeProcessor } from "../../src/reflection/outcome-processor.js";
 import { TrustUpdate, PatternOutcome } from "../../src/reflection/types.js";
 

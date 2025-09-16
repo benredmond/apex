@@ -3,7 +3,7 @@
  */
 
 // [BUILD:MODULE:ESM] ★★★☆☆ - ES module pattern
-import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { mkdtempSync, rmSync } from "fs";
 import { join } from "path";

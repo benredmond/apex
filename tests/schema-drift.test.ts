@@ -1,11 +1,11 @@
 /**
  * Schema Drift Detection Test Suite
- * 
+ *
  * Detects when the code's schema expectations diverge from
  * what's actually possible in the database.
  */
 
-// Using Jest which is configured for this project
+import { describe, test, expect, beforeEach, afterEach, it } from "vitest";
 import Database from "better-sqlite3";
 import { FTS_SCHEMA_SQL } from "../src/storage/schema-constants.js";
 

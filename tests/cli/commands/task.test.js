@@ -3,7 +3,7 @@
  * [PAT:TEST:UNIT] ★★★★☆ - Unit testing pattern
  */
 
-import { jest } from "@jest/globals";
+import { vi } from "vitest";
 import chalk from "chalk";
 
 // [FIX:NODE:ESMODULE_IMPORTS] ★★★★☆ - Mock ES modules BEFORE imports
@@ -13,35 +13,35 @@ import chalk from "chalk";
 let mockDatabase;
 let repo;
 
-jest.unstable_mockModule("../../../dist/storage/database.js", () => ({
-  PatternDatabase: jest.fn().mockImplementation(() => {
+vi.unstable_mockModule("../../../dist/storage/database.js", () => ({
+  PatternDatabase: vi.fn().mockImplementation(() => {
     if (!mockDatabase) {
       mockDatabase = {
         database: {
-          pragma: jest.fn(),
-          exec: jest.fn(),
-          prepare: jest.fn().mockReturnValue({
-            run: jest.fn(),
-            get: jest.fn(),
-            all: jest.fn().mockReturnValue([]),
+          pragma: vi.fn(),
+          exec: vi.fn(),
+          prepare: vi.fn().mockReturnValue({
+            run: vi.fn(),
+            get: vi.fn(),
+            all: vi.fn().mockReturnValue([]),
           }),
         },
-        close: jest.fn(),
+        close: vi.fn(),
       };
     }
     return mockDatabase;
   }),
 }));
 
-jest.unstable_mockModule("../../../dist/storage/repositories/task-repository.js", () => ({
-  TaskRepository: jest.fn().mockImplementation(() => {
+vi.unstable_mockModule("../../../dist/storage/repositories/task-repository.js", () => ({
+  TaskRepository: vi.fn().mockImplementation(() => {
     if (!repo) {
       repo = {
-        findActive: jest.fn().mockReturnValue([]),
-        findByStatus: jest.fn().mockReturnValue([]),
-        findRecent: jest.fn().mockReturnValue([]),
-        findById: jest.fn(),
-        getStatistics: jest.fn().mockReturnValue({
+        findActive: vi.fn().mockReturnValue([]),
+        findByStatus: vi.fn().mockReturnValue([]),
+        findRecent: vi.fn().mockReturnValue([]),
+        findById: vi.fn(),
+        getStatistics: vi.fn().mockReturnValue({
           total: 0,
           byPhase: {},
           byStatus: {},
@@ -53,29 +53,29 @@ jest.unstable_mockModule("../../../dist/storage/repositories/task-repository.js"
   }),
 }));
 
-jest.unstable_mockModule("../../../dist/cli/commands/shared/progress.js", () => ({
-  PerformanceTimer: jest.fn().mockImplementation(() => ({
-    elapsed: jest.fn().mockReturnValue(50),
-    meetsRequirement: jest.fn().mockReturnValue(true),
+vi.unstable_mockModule("../../../dist/cli/commands/shared/progress.js", () => ({
+  PerformanceTimer: vi.fn().mockImplementation(() => ({
+    elapsed: vi.fn().mockReturnValue(50),
+    meetsRequirement: vi.fn().mockReturnValue(true),
   })),
 }));
 
-jest.unstable_mockModule("../../../dist/cli/commands/shared/formatters.js", () => ({
+vi.unstable_mockModule("../../../dist/cli/commands/shared/formatters.js", () => ({
   FormatterFactory: {
-    create: jest.fn().mockReturnValue({
-      format: jest.fn().mockReturnValue("formatted output"),
+    create: vi.fn().mockReturnValue({
+      format: vi.fn().mockReturnValue("formatted output"),
     }),
   },
 }));
 
-jest.unstable_mockModule("../../../dist/cli/commands/shared/validators.js", () => ({
-  validateOptions: jest.fn().mockImplementation((options) => ({ 
+vi.unstable_mockModule("../../../dist/cli/commands/shared/validators.js", () => ({
+  validateOptions: vi.fn().mockImplementation((options) => ({ 
     valid: true,
     validated: options,
     errors: []
   })),
-  displayValidationErrors: jest.fn(),
-  validateTaskId: jest.fn().mockImplementation((id) => {
+  displayValidationErrors: vi.fn(),
+  validateTaskId: vi.fn().mockImplementation((id) => {
     // Return true for valid IDs, false for invalid ones
     return !id.includes("@");
   }),
@@ -105,15 +105,15 @@ describe("Task Command", () => {
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Spy on console methods
-    consoleLogSpy = jest.spyOn(console, "log").mockImplementation();
-    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
-    consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation();
+    consoleLogSpy = vi.spyOn(console, "log").mockImplementation();
+    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation();
+    consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation();
 
     // Mock process.exit
-    processExitSpy = jest
+    processExitSpy = vi
       .spyOn(process, "exit")
       .mockImplementation(() => {
         throw new Error("process.exit");
@@ -121,7 +121,7 @@ describe("Task Command", () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe("list command", () => {
@@ -187,8 +187,8 @@ describe("Task Command", () => {
 
     test("should warn when performance target not met", async () => {
       const mockTimer = {
-        elapsed: jest.fn().mockReturnValue(150),
-        meetsRequirement: jest.fn().mockReturnValue(false),
+        elapsed: vi.fn().mockReturnValue(150),
+        meetsRequirement: vi.fn().mockReturnValue(false),
       };
       PerformanceTimer.mockImplementation(() => mockTimer);
 
@@ -298,8 +298,8 @@ describe("Task Command", () => {
 
     test("should meet performance target < 50ms", async () => {
       const mockTimer = {
-        elapsed: jest.fn().mockReturnValue(45),
-        meetsRequirement: jest.fn().mockReturnValue(true),
+        elapsed: vi.fn().mockReturnValue(45),
+        meetsRequirement: vi.fn().mockReturnValue(true),
       };
       PerformanceTimer.mockImplementation(() => mockTimer);
 
@@ -352,8 +352,8 @@ describe("Task Command", () => {
 
     test("should meet performance target < 200ms", async () => {
       const mockTimer = {
-        elapsed: jest.fn().mockReturnValue(150),
-        meetsRequirement: jest.fn().mockReturnValue(true),
+        elapsed: vi.fn().mockReturnValue(150),
+        meetsRequirement: vi.fn().mockReturnValue(true),
       };
       PerformanceTimer.mockImplementation(() => mockTimer);
 

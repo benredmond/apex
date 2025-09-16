@@ -1,5 +1,5 @@
 // [PAT:TEST:MOCK] ★★★★★ (156 uses, 95% success) - From cache
-import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   setupGitMocks,
   teardownGitMocks,

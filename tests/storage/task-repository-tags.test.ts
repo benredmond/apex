@@ -5,7 +5,7 @@
  * [TEST:INTEGRATION:SQLITE] ★★★★☆ - SQLite integration testing
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { TaskRepository } from '../../src/storage/repositories/task-repository.js';
 import type { Task } from '../../src/schemas/task/types.js';

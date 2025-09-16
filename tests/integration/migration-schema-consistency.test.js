@@ -4,7 +4,7 @@
  * and can work together without errors.
  */
 
-import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { AutoMigrator } from '../../src/migrations/auto-migrator.js';
 import { MigrationRunner } from '../../src/migrations/MigrationRunner.js';
 import { MigrationLoader } from '../../src/migrations/MigrationLoader.js';

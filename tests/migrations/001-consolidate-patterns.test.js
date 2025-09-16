@@ -3,7 +3,7 @@
  * Ensures it handles missing patterns table correctly
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import fs from "fs";
 import * as path from "path";

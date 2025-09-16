@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach, jest } from "@jest/globals";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import Database from "better-sqlite3";
 import { PatternInserter } from "../../src/reflection/pattern-inserter.js";
 import { NewPattern, AntiPattern } from "../../src/reflection/types.js";
@@ -258,7 +258,7 @@ describe("PatternInserter", () => {
       };
 
       // Spy on console.log to verify duplicate detection message
-      const consoleSpy = jest.spyOn(console, "log").mockImplementation();
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation();
 
       // First insert - should succeed
       const id1 = inserter.insertNewPattern(pattern, "NEW_PATTERN");

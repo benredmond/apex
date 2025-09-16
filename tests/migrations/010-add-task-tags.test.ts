@@ -4,7 +4,7 @@
  * [BUILD:MODULE:ESM] ★★★☆☆ - ES module with .js extensions
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { migration } from '../../src/migrations/migrations/010-add-task-tags.js';
 import fs from 'fs-extra';

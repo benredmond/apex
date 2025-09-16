@@ -3,12 +3,12 @@
  * [PAT:TEST:BEHAVIOR_OVER_INTERNALS] ★★★☆☆ (3 uses) - Test API behavior
  */
 
-import { jest } from "@jest/globals";
+import { vi } from "vitest";
 import { createMockGitProcess } from "../helpers/git-mock.js";
 
 // Mock child_process before ANY other imports
-jest.unstable_mockModule("child_process", () => ({
-  spawn: jest.fn(),
+vi.unstable_mockModule("child_process", () => ({
+  spawn: vi.fn(),
 }));
 
 // Import child_process first to get the mocked version
@@ -28,14 +28,14 @@ describe("EvidenceValidator", () => {
 
   beforeEach(async () => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Create mock repository
     mockRepository = {
-      get: jest
+      get: vi
         .fn()
         .mockResolvedValue({ id: "TEST:PATTERN", trust_score: 0.8 }),
-      getByIdOrAlias: jest
+      getByIdOrAlias: vi
         .fn()
         .mockResolvedValue({ id: "TEST:PATTERN", trust_score: 0.8 }), // [FIX:TEST:ES_MODULE_MOCK_ORDER] ★★★☆☆
     } as any;
@@ -48,14 +48,14 @@ describe("EvidenceValidator", () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("validateRequest", () => {
     it("should validate a valid request", async () => {
       // Mock git command for commit validation
       // git cat-file -e returns empty stdout, but validator checks for truthy value
-      (child_process.spawn as jest.Mock).mockImplementation(
+      (child_process.spawn as vi.Mock).mockImplementation(
         (cmd: string, args: string[]) => {
           if (cmd === "git" && args[0] === "cat-file") {
             return createMockGitProcess({
@@ -103,7 +103,7 @@ describe("EvidenceValidator", () => {
         console.log("Validation failed:", result);
         console.log(
           "Spawn calls:",
-          (child_process.spawn as jest.Mock).mock.calls,
+          (child_process.spawn as vi.Mock).mock.calls,
         );
       }
       expect(result.valid).toBe(true);
@@ -111,8 +111,8 @@ describe("EvidenceValidator", () => {
     });
 
     it("should detect missing patterns", async () => {
-      (mockRepository.get as jest.Mock).mockResolvedValueOnce(null);
-      (mockRepository.getByIdOrAlias as jest.Mock).mockResolvedValueOnce(null); // [FIX:TEST:ES_MODULE_MOCK_ORDER] ★★★☆☆
+      (mockRepository.get as vi.Mock).mockResolvedValueOnce(null);
+      (mockRepository.getByIdOrAlias as vi.Mock).mockResolvedValueOnce(null); // [FIX:TEST:ES_MODULE_MOCK_ORDER] ★★★☆☆
 
       const request: ReflectRequest = {
         task: { id: "TASK-123", title: "Test task" },
@@ -163,7 +163,7 @@ describe("EvidenceValidator", () => {
   describe("validateEvidence", () => {
     it("should validate commit evidence", async () => {
       // git cat-file -e returns empty stdout, but validator checks for truthy value
-      (child_process.spawn as jest.Mock).mockImplementation(
+      (child_process.spawn as vi.Mock).mockImplementation(
         (cmd: string, args: string[]) => {
           if (cmd === "git" && args[0] === "cat-file") {
             return createMockGitProcess({
@@ -225,7 +225,7 @@ describe("EvidenceValidator", () => {
     });
 
     it("should validate git_lines evidence", async () => {
-      (child_process.spawn as jest.Mock).mockImplementation(
+      (child_process.spawn as vi.Mock).mockImplementation(
         (cmd: string, args: string[]) => {
           if (cmd === "git") {
             if (args[0] === "cat-file") {
@@ -261,7 +261,7 @@ describe("EvidenceValidator", () => {
     });
 
     it("should reject git_lines with invalid line range", async () => {
-      (child_process.spawn as jest.Mock).mockImplementation(
+      (child_process.spawn as vi.Mock).mockImplementation(
         (cmd: string, args: string[]) => {
           if (cmd === "git") {
             if (args[0] === "cat-file") {
@@ -300,7 +300,7 @@ describe("EvidenceValidator", () => {
     it("should validate git_lines with snippet hash - Stage 1 success", async () => {
       const fileContent = "function test() {\n  return true;\n}\n";
 
-      (child_process.spawn as jest.Mock).mockImplementation(
+      (child_process.spawn as vi.Mock).mockImplementation(
         (cmd: string, args: string[]) => {
           if (cmd === "git") {
             if (args[0] === "cat-file") {
@@ -349,7 +349,7 @@ describe("EvidenceValidator", () => {
       const fileContent =
         "line1\nline2\nfunction test() {\n  return true;\n}\nline6\n";
 
-      (child_process.spawn as jest.Mock).mockImplementation(
+      (child_process.spawn as vi.Mock).mockImplementation(
         (cmd: string, args: string[]) => {
           if (cmd === "git") {
             if (args[0] === "cat-file") {
@@ -399,7 +399,7 @@ describe("EvidenceValidator", () => {
       const fileContent =
         "function test() {\n  return true;\n}\n\nfunction test() {\n  return true;\n}\n";
 
-      (child_process.spawn as jest.Mock).mockImplementation(
+      (child_process.spawn as vi.Mock).mockImplementation(
         (cmd: string, args: string[]) => {
           if (cmd === "git") {
             if (args[0] === "cat-file") {
@@ -447,7 +447,7 @@ describe("EvidenceValidator", () => {
     it("should fail when snippet not found", async () => {
       const fileContent = "function other() {\n  return false;\n}\n";
 
-      (child_process.spawn as jest.Mock).mockImplementation(
+      (child_process.spawn as vi.Mock).mockImplementation(
         (cmd: string, args: string[]) => {
           if (cmd === "git") {
             if (args[0] === "cat-file") {
@@ -494,7 +494,7 @@ describe("EvidenceValidator", () => {
         cacheTTL: 1000,
       });
 
-      (child_process.spawn as jest.Mock).mockImplementation(
+      (child_process.spawn as vi.Mock).mockImplementation(
         (cmd: string, args: string[]) => {
           if (cmd === "git" && args[0] === "cat-file") {
             return createMockGitProcess({
@@ -530,7 +530,7 @@ describe("EvidenceValidator", () => {
         cacheEnabled: true,
       });
 
-      (child_process.spawn as jest.Mock).mockImplementation(
+      (child_process.spawn as vi.Mock).mockImplementation(
         (cmd: string, args: string[]) => {
           if (cmd === "git" && args[0] === "cat-file") {
             return createMockGitProcess({
@@ -563,7 +563,7 @@ describe("EvidenceValidator", () => {
   describe("flexible git refs", () => {
     it("should validate various git ref formats", async () => {
       // Mock git rev-parse for ref resolution
-      (child_process.spawn as jest.Mock).mockImplementation(
+      (child_process.spawn as vi.Mock).mockImplementation(
         (cmd: string, args: string[]) => {
           if (
             cmd === "git" &&
@@ -640,7 +640,7 @@ describe("EvidenceValidator", () => {
     it("should validate git_lines with flexible refs", async () => {
       const fileContent = "line1\nline2\nline3\n";
 
-      (child_process.spawn as jest.Mock).mockImplementation(
+      (child_process.spawn as vi.Mock).mockImplementation(
         (cmd: string, args: string[]) => {
           if (cmd === "git") {
             if (
@@ -690,7 +690,7 @@ describe("EvidenceValidator", () => {
     });
 
     it("should handle ambiguous refs", async () => {
-      (child_process.spawn as jest.Mock).mockImplementation(
+      (child_process.spawn as vi.Mock).mockImplementation(
         (cmd: string, args: string[]) => {
           if (cmd === "git" && args[0] === "rev-parse") {
             return createMockGitProcess({

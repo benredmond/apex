@@ -4,15 +4,15 @@ import {
   expect,
   beforeEach,
   afterEach,
-  jest,
-} from "@jest/globals";
+  vi,
+} from "vitest";
 import { PackBuilder } from "../../src/ranking/pack-builder.ts";
 import { PatternRepository } from "../../src/storage/repository.ts";
 import { Pattern } from "../../src/schemas/pattern/base.ts";
 import { RankedPattern } from "../../src/ranking/types.ts";
 
 // Mock the repository
-jest.mock("../../src/storage/repository");
+vi.mock("../../src/storage/repository");
 
 describe("PackBuilder", () => {
   let builder: PackBuilder;
@@ -20,14 +20,14 @@ describe("PackBuilder", () => {
 
   beforeEach(() => {
     mockRepository = {
-      get: jest.fn(),
-      search: jest.fn(),
+      get: vi.fn(),
+      search: vi.fn(),
     };
     builder = new PackBuilder(mockRepository);
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("Basic functionality", () => {

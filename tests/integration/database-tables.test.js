@@ -3,7 +3,7 @@
  * This test bypasses the ESM module linking issues by spawning child processes
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { spawn } from "child_process";
 import fs from "fs-extra";
 import path from "path";

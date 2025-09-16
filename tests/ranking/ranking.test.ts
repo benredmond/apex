@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeAll } from "@jest/globals";
+import { describe, test, expect, beforeAll } from "vitest";
 import { rankPatterns, PatternMeta, Signals } from "../../src/ranking/index.ts";
 import {
   wilsonLowerBound,
@@ -12,7 +12,7 @@ import { scoreLocality } from "../../src/ranking/scorers/locality.ts";
 // This is a known limitation with Jest's experimental VM modules
 // when importing from index files that re-export modules.
 // See: https://github.com/nodejs/node/issues/35889
-describe.skip("Pattern Ranking System - SKIPPED: Jest ESM module linking issue", () => {
+describe("Pattern Ranking System - SKIPPED: Jest ESM module linking issue", () => {
   const testPatterns: PatternMeta[] = [
     {
       id: "ACME.PLT:LANG:TS:ASYNC",

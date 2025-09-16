@@ -1,6 +1,6 @@
 /**
  * Test to verify the node:sqlite exec() method fix
- * 
+ *
  * This test ensures that the exec() method in node-sqlite-impl.ts
  * properly handles complex multi-statement SQL including:
  * - CREATE TABLE with CHECK constraints
@@ -9,6 +9,7 @@
  * - Foreign keys
  */
 
+import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import { DatabaseAdapterFactory } from '../../dist/storage/database-adapter.js';
 import fs from 'fs';
 import path from 'path';

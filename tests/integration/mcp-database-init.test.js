@@ -3,7 +3,7 @@
  * Uses subprocess isolation to avoid Jest ESM module linking issues
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { spawn } from "child_process";
 import fs from "fs-extra";
 import path from "path";

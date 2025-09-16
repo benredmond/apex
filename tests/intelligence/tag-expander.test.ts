@@ -5,7 +5,7 @@
  * [TEST:PERF:BENCHMARK] ★★★★☆ - Performance benchmarking for <50ms requirement
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { TagExpander } from '../../src/intelligence/tag-expander.js';
 import { TAG_RELATIONSHIPS } from '../../src/intelligence/tag-relationships.js';
 

@@ -3,7 +3,7 @@
  * This simulates the actual startup sequence and verifies each step
  */
 
-import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { PatternDatabase } from '../../src/storage/database.js';
 import { DatabaseAdapterFactory } from '../../src/storage/database-adapter.js';
 import { AutoMigrator } from '../../src/migrations/auto-migrator.js';

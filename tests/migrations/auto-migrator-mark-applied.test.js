@@ -3,7 +3,7 @@
  * This test specifically verifies the private method that caused the schema mismatch
  */
 
-import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { AutoMigrator } from '../../src/migrations/auto-migrator.js';
 import { DatabaseAdapterFactory } from '../../src/storage/database-adapter.js';
 import fs from 'fs-extra';

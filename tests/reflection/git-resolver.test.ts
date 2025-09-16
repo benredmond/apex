@@ -4,12 +4,12 @@
  * [FIX:MOCK:ESM_IMPORTS] ★★★★★ (12 uses, 100% success) - From cache
  */
 
-import { jest, describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createMockGitProcess } from "../helpers/git-mock.js";
 
 // Mock child_process before ANY other imports
-jest.unstable_mockModule("child_process", () => ({
-  spawn: jest.fn(),
+vi.unstable_mockModule("child_process", () => ({
+  spawn: vi.fn(),
 }));
 
 // Import child_process first to get the mocked version
@@ -23,7 +23,7 @@ describe("GitResolver", () => {
 
   beforeEach(async () => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     resolver = new GitResolver({
       cacheEnabled: true,
@@ -42,7 +42,7 @@ describe("GitResolver", () => {
 
     it("should resolve HEAD to full SHA", async () => {
       const expectedSha = "f5e4d3c2b1a0987654321098765432109876543";
-      (child_process.spawn as jest.Mock).mockImplementation((cmd: string, args: string[]) => {
+      (child_process.spawn as vi.Mock).mockImplementation((cmd: string, args: string[]) => {
         if (cmd === "git" && args[0] === "rev-parse" && args[1] === "--verify" && args[2] === "HEAD") {
           return createMockGitProcess({ 
             command: "rev-parse", 
@@ -61,7 +61,7 @@ describe("GitResolver", () => {
 
     it("should resolve branch names", async () => {
       const expectedSha = "b2c3d4e5f6789012345678901234567890abcde";
-      (child_process.spawn as jest.Mock).mockImplementation((cmd: string, args: string[]) => {
+      (child_process.spawn as vi.Mock).mockImplementation((cmd: string, args: string[]) => {
         if (cmd === "git" && args[0] === "rev-parse" && args[1] === "--verify" && args[2] === "main") {
           return createMockGitProcess({ 
             command: "rev-parse", 
@@ -78,7 +78,7 @@ describe("GitResolver", () => {
     it("should resolve short SHAs", async () => {
       const shortSha = "a1b2c3d";
       const fullSha = "a1b2c3d4e5f6789012345678901234567890abcd";
-      (child_process.spawn as jest.Mock).mockImplementation((cmd: string, args: string[]) => {
+      (child_process.spawn as vi.Mock).mockImplementation((cmd: string, args: string[]) => {
         if (cmd === "git" && args[0] === "rev-parse" && args[1] === "--verify" && args[2] === shortSha) {
           return createMockGitProcess({ 
             command: "rev-parse", 
@@ -94,7 +94,7 @@ describe("GitResolver", () => {
 
     it("should resolve tags", async () => {
       const expectedSha = "c3d4e5f6789012345678901234567890abcdef0";
-      (child_process.spawn as jest.Mock).mockImplementation((cmd: string, args: string[]) => {
+      (child_process.spawn as vi.Mock).mockImplementation((cmd: string, args: string[]) => {
         if (cmd === "git" && args[0] === "rev-parse" && args[1] === "--verify" && args[2] === "v1.2.3") {
           return createMockGitProcess({ 
             command: "rev-parse", 
@@ -110,7 +110,7 @@ describe("GitResolver", () => {
 
     it("should cache resolved refs", async () => {
       const expectedSha = "d4e5f6789012345678901234567890abcdef012";
-      (child_process.spawn as jest.Mock).mockImplementation((cmd: string, args: string[]) => {
+      (child_process.spawn as vi.Mock).mockImplementation((cmd: string, args: string[]) => {
         if (cmd === "git" && args[0] === "rev-parse" && args[1] === "--verify" && args[2] === "develop") {
           return createMockGitProcess({ 
             command: "rev-parse", 
@@ -126,7 +126,7 @@ describe("GitResolver", () => {
       expect(child_process.spawn).toHaveBeenCalledTimes(1);
 
       // Second call should use cache
-      jest.clearAllMocks();
+      vi.clearAllMocks();
       const result2 = await resolver.resolveRef("develop");
       expect(result2).toBe(expectedSha);
       expect(child_process.spawn).not.toHaveBeenCalled();
@@ -145,7 +145,7 @@ describe("GitResolver", () => {
     });
 
     it("should handle ambiguous refs", async () => {
-      (child_process.spawn as jest.Mock).mockImplementation((cmd: string, args: string[]) => {
+      (child_process.spawn as vi.Mock).mockImplementation((cmd: string, args: string[]) => {
         if (cmd === "git" && args[0] === "rev-parse" && args[1] === "--verify" && args[2] === "abc") {
           return createMockGitProcess({ 
             command: "rev-parse", 
@@ -162,7 +162,7 @@ describe("GitResolver", () => {
     });
 
     it("should handle non-existent refs", async () => {
-      (child_process.spawn as jest.Mock).mockImplementation((cmd: string, args: string[]) => {
+      (child_process.spawn as vi.Mock).mockImplementation((cmd: string, args: string[]) => {
         if (cmd === "git" && args[0] === "rev-parse" && args[1] === "--verify" && args[2] === "nonexistent") {
           return createMockGitProcess({ 
             command: "rev-parse", 
@@ -188,7 +188,7 @@ describe("GitResolver", () => {
         "a1b2c3d4e5f6789012345678901234567890abcd",
       ];
 
-      (child_process.spawn as jest.Mock).mockImplementation((cmd: string, args: string[]) => {
+      (child_process.spawn as vi.Mock).mockImplementation((cmd: string, args: string[]) => {
         if (cmd === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
           const ref = args[2];
           if (ref === "HEAD") {
@@ -209,7 +209,7 @@ describe("GitResolver", () => {
     });
 
     it("should handle errors in batch resolution", async () => {
-      (child_process.spawn as jest.Mock).mockImplementation((cmd: string, args: string[]) => {
+      (child_process.spawn as vi.Mock).mockImplementation((cmd: string, args: string[]) => {
         if (cmd === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
           const ref = args[2];
           if (ref === "valid") {
@@ -267,7 +267,7 @@ describe("GitResolver", () => {
   describe("cache management", () => {
     it("should clear cache on demand", async () => {
       const expectedSha = "890abcdef0123456789012345678901234567890";
-      (child_process.spawn as jest.Mock).mockImplementation((cmd: string, args: string[]) => {
+      (child_process.spawn as vi.Mock).mockImplementation((cmd: string, args: string[]) => {
         if (cmd === "git" && args[0] === "rev-parse" && args[1] === "--verify" && args[2] === "cached-ref") {
           return createMockGitProcess({ 
             command: "rev-parse", 
@@ -283,7 +283,7 @@ describe("GitResolver", () => {
 
       // Clear cache
       resolver.clearCache();
-      jest.clearAllMocks();
+      vi.clearAllMocks();
 
       // Should call git again
       await resolver.resolveRef("cached-ref");
@@ -298,7 +298,7 @@ describe("GitResolver", () => {
       });
 
       const expectedSha = "bcdef0123456789012345678901234567890abcd";
-      (child_process.spawn as jest.Mock).mockImplementation((cmd: string, args: string[]) => {
+      (child_process.spawn as vi.Mock).mockImplementation((cmd: string, args: string[]) => {
         if (cmd === "git" && args[0] === "rev-parse" && args[1] === "--verify" && args[2] === "ttl-test") {
           return createMockGitProcess({ 
             command: "rev-parse", 
@@ -314,7 +314,7 @@ describe("GitResolver", () => {
 
       // Wait for cache to expire
       await new Promise(resolve => setTimeout(resolve, 150));
-      jest.clearAllMocks();
+      vi.clearAllMocks();
 
       // Should call git again
       await resolver.resolveRef("ttl-test");
@@ -328,7 +328,7 @@ describe("GitResolver", () => {
       });
 
       const expectedSha = "cdef0123456789012345678901234567890abcde";
-      (child_process.spawn as jest.Mock).mockImplementation((cmd: string, args: string[]) => {
+      (child_process.spawn as vi.Mock).mockImplementation((cmd: string, args: string[]) => {
         if (cmd === "git" && args[0] === "rev-parse" && args[1] === "--verify" && args[2] === "no-cache") {
           return createMockGitProcess({ 
             command: "rev-parse", 

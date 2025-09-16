@@ -3,41 +3,41 @@
  * [TEST:JEST:API_MOCKING] ★★★★★ - Mock API calls in tests
  */
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ContextPackService } from '../../src/intelligence/context-pack-service.js';
 import { TaskRepository } from '../../src/storage/repositories/task-repository.js';
 import { PatternRepository } from '../../src/storage/repository.js';
 
 // Mock dependencies
-jest.mock('../../src/storage/repositories/task-repository.js');
-jest.mock('../../src/storage/repository.js');
+vi.mock('../../src/storage/repositories/task-repository.js');
+vi.mock('../../src/storage/repository.js');
 
 describe('ContextPackService', () => {
   let service: ContextPackService;
-  let mockTaskRepo: jest.Mocked<TaskRepository>;
-  let mockPatternRepo: jest.Mocked<PatternRepository>;
+  let mockTaskRepo: vi.Mocked<TaskRepository>;
+  let mockPatternRepo: vi.Mocked<PatternRepository>;
   let mockDb: any;
 
   beforeEach(() => {
     // Create mock database
     mockDb = {
-      prepare: jest.fn().mockReturnValue({
-        get: jest.fn().mockReturnValue({
+      prepare: vi.fn().mockReturnValue({
+        get: vi.fn().mockReturnValue({
           completed_count: 100,
           success_count: 85,
           avg_duration: 180000,
           count: 5,
         }),
-        all: jest.fn().mockReturnValue([]),
+        all: vi.fn().mockReturnValue([]),
       }),
     };
 
     // Create mocked repositories
-    mockTaskRepo = new TaskRepository(mockDb as any) as jest.Mocked<TaskRepository>;
-    mockPatternRepo = new PatternRepository({ dbPath: ':memory:' }) as jest.Mocked<PatternRepository>;
+    mockTaskRepo = new TaskRepository(mockDb as any) as vi.Mocked<TaskRepository>;
+    mockPatternRepo = new PatternRepository({ dbPath: ':memory:' }) as vi.Mocked<PatternRepository>;
 
     // Mock task repository methods
-    mockTaskRepo.findByStatus = jest.fn().mockReturnValue([
+    mockTaskRepo.findByStatus = vi.fn().mockReturnValue([
       {
         id: 'T001',
         title: 'Test Task 1',
@@ -59,7 +59,7 @@ describe('ContextPackService', () => {
     ]);
 
     // Mock TaskSearchEngine
-    jest.mocked(TaskSearchEngine).prototype.findSimilar = jest.fn().mockResolvedValue([
+    vi.mocked(TaskSearchEngine).prototype.findSimilar = vi.fn().mockResolvedValue([
       {
         task: {
           id: 'T999',
@@ -76,8 +76,8 @@ describe('ContextPackService', () => {
   });
 
   afterEach(() => {
-    jest.clearAllTimers(); // Clear any pending timers
-    jest.clearAllMocks();  // Clear again for safety
+    vi.clearAllTimers(); // Clear any pending timers
+    vi.clearAllMocks();  // Clear again for safety
   });
 
   describe('getContextPack', () => {
@@ -104,7 +104,7 @@ describe('ContextPackService', () => {
     });
 
     it('should truncate long titles', async () => {
-      mockTaskRepo.findByStatus = jest.fn().mockReturnValue([
+      mockTaskRepo.findByStatus = vi.fn().mockReturnValue([
         {
           id: 'T003',
           title: 'A'.repeat(300), // Very long title
@@ -139,7 +139,7 @@ describe('ContextPackService', () => {
         files_touched: ['file1.ts', 'file2.ts'],
       }));
 
-      mockTaskRepo.findByStatus = jest.fn().mockReturnValue(manyTasks);
+      mockTaskRepo.findByStatus = vi.fn().mockReturnValue(manyTasks);
 
       const result = await service.getContextPack({ maxSizeBytes: 5000 });
 
@@ -148,7 +148,7 @@ describe('ContextPackService', () => {
     });
 
     it('should handle empty database gracefully', async () => {
-      mockTaskRepo.findByStatus = jest.fn().mockReturnValue([]);
+      mockTaskRepo.findByStatus = vi.fn().mockReturnValue([]);
       mockDb.prepare().get.mockReturnValue({
         completed_count: 0,
         success_count: 0,

@@ -3,7 +3,7 @@
  * Tests all DatabaseAdapter interface methods across all adapters
  */
 
-import { describe, test, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import { DatabaseAdapterFactory } from "../../src/storage/database-adapter.js";
 import fs from "fs-extra";
 import path from "path";

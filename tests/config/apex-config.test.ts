@@ -1,15 +1,15 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from "@jest/globals";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs-extra";
 import path from "path";
 import os from "os";
 import Database from "better-sqlite3";
 
 // [FIX:TEST:ES_MODULE_MOCK_ORDER] ★★★☆☆ - Define mock functions externally
-const mockGetDatabasePaths = jest.fn();
-const mockGetIdentifier = jest.fn();
+const mockGetDatabasePaths = vi.fn();
+const mockGetIdentifier = vi.fn();
 
 // Mock RepoIdentifier before any imports that use it
-jest.unstable_mockModule("../../src/utils/repo-identifier.js", () => ({
+vi.unstable_mockModule("../../src/utils/repo-identifier.js", () => ({
   RepoIdentifier: {
     getDatabasePaths: mockGetDatabasePaths,
     getIdentifier: mockGetIdentifier,
@@ -22,7 +22,7 @@ describe("ApexConfig Database Path Resolution", () => {
   
   beforeEach(async () => {
     // Clear all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Save original cwd
     originalCwd = process.cwd();
@@ -144,7 +144,7 @@ describe("ApexConfig Database Path Resolution", () => {
       const { ApexConfig } = await import("../../src/config/apex-config.js");
       
       // Spy on console to verify message
-      const consoleSpy = jest.spyOn(console, "log").mockImplementation();
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation();
       
       // Run migration
       const migrated = await ApexConfig.migrateLegacyDatabase();
@@ -178,7 +178,7 @@ describe("ApexConfig Database Path Resolution", () => {
       const { ApexConfig } = await import("../../src/config/apex-config.js");
       
       // Spy on console.error
-      const errorSpy = jest.spyOn(console, "error").mockImplementation();
+      const errorSpy = vi.spyOn(console, "error").mockImplementation();
       
       // Run migration
       const migrated = await ApexConfig.migrateLegacyDatabase();

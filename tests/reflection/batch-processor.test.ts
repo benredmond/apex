@@ -3,14 +3,14 @@
  * [PAT:TEST:SCHEMA] ★★★★☆ (45 uses, 88% success) - From cache
  */
 
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BatchProcessor } from '../../src/reflection/batch-processor.js';
 import type { BatchPattern, EvidenceRef } from '../../src/reflection/types.js';
 
 describe('BatchProcessor', () => {
   beforeEach(() => {
     // Clear console mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('expandBatchPatterns', () => {
@@ -101,8 +101,8 @@ describe('BatchProcessor', () => {
     });
 
     it('should handle duplicate patterns with last-wins behavior', () => {
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-      const infoSpy = jest.spyOn(console, 'info').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation();
+      const infoSpy = vi.spyOn(console, 'info').mockImplementation();
 
       const batch: BatchPattern[] = [
         {
@@ -139,7 +139,7 @@ describe('BatchProcessor', () => {
     });
 
     it('should warn for large batch sizes', () => {
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation();
 
       const largeBatch: BatchPattern[] = Array(101).fill(null).map((_, i) => ({
         pattern: `pattern-${i}`,

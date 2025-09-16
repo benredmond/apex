@@ -3,7 +3,7 @@
  * [PAT:TEST:JEST_ESM_CONFIG] ★★★★☆ (8 uses, 87% success) - Jest ES module configuration
  */
 
-import { jest } from "@jest/globals";
+import { vi } from "vitest";
 import { SnippetMatcher } from "../../src/reflection/snippet-matcher.js";
 
 describe("SnippetMatcher", () => {

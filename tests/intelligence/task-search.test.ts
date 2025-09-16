@@ -4,7 +4,7 @@
  * [TEST:PERF:BENCHMARK] ★★★★☆ - Performance benchmarking for <50ms requirement
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { TaskSearchEngine } from "../../src/intelligence/task-search.js";
 import { TaskRepository } from "../../src/storage/repositories/task-repository.js";

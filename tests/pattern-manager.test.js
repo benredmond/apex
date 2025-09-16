@@ -1,3 +1,4 @@
+import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import { PatternManager } from "../src/intelligence/pattern-manager.js";
 import fs from "fs-extra";
 import path from "path";

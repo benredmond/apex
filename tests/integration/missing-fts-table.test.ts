@@ -1,10 +1,11 @@
 /**
  * Integration test for database initialization with missing FTS table
- * 
+ *
  * This test ensures the critical early return bug is fixed and that
  * database initialization completes even when FTS table is missing.
  */
 
+import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { PatternDatabase } from "../../src/storage/database.js";
 import fs from "fs";

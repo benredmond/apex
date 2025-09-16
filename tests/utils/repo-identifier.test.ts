@@ -1,14 +1,14 @@
 // [PAT:TEST:STRUCTURE] - Standard test structure with setup/teardown
-import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import path from "path";
 import fs from "fs-extra";
 import os from "os";
 
 // Create mock spawn function
-const mockSpawn = jest.fn();
+const mockSpawn = vi.fn();
 
 // Use unstable_mockModule for ESM
-jest.unstable_mockModule("child_process", () => ({
+vi.unstable_mockModule("child_process", () => ({
   spawn: mockSpawn,
 }));
 
@@ -29,7 +29,7 @@ describe("RepoIdentifier", () => {
     process.chdir(tempDir);
 
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterEach(async () => {
@@ -45,14 +45,14 @@ describe("RepoIdentifier", () => {
       // [PAT:TEST:MOCK] - Mock git command response
       const mockProcess = {
         stdout: {
-          on: jest.fn((event, callback) => {
+          on: vi.fn((event, callback) => {
             if (event === "data") {
               callback(Buffer.from("git@github.com:benredmond/apex.git\n"));
             }
           }),
         },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, callback) => {
+        stderr: { on: vi.fn() },
+        on: vi.fn((event, callback) => {
           if (event === "close") {
             callback(0);
           }
@@ -72,14 +72,14 @@ describe("RepoIdentifier", () => {
     it("should handle git HTTPS URLs correctly", async () => {
       const mockProcess = {
         stdout: {
-          on: jest.fn((event, callback) => {
+          on: vi.fn((event, callback) => {
             if (event === "data") {
               callback(Buffer.from("https://github.com/user/project.git\n"));
             }
           }),
         },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, callback) => {
+        stderr: { on: vi.fn() },
+        on: vi.fn((event, callback) => {
           if (event === "close") {
             callback(0);
           }
@@ -97,9 +97,9 @@ describe("RepoIdentifier", () => {
 
       // Mock git command to fail (no remote)
       const mockProcess = {
-        stdout: { on: jest.fn() },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, callback) => {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn((event, callback) => {
           if (event === "close") {
             callback(1); // Non-zero exit code
           }
@@ -114,9 +114,9 @@ describe("RepoIdentifier", () => {
     it("should handle non-git projects", async () => {
       // No .git directory, git command fails
       const mockProcess = {
-        stdout: { on: jest.fn() },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, callback) => {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn((event, callback) => {
           if (event === "close") {
             callback(1);
           }
@@ -131,9 +131,9 @@ describe("RepoIdentifier", () => {
     it("should handle git spawn errors gracefully", async () => {
       // Simulate git not being installed
       const mockProcess = {
-        stdout: { on: jest.fn() },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, callback) => {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn((event, callback) => {
           if (event === "error") {
             callback(new Error("spawn git ENOENT"));
           }
@@ -164,14 +164,14 @@ describe("RepoIdentifier", () => {
         // Mock the git command to return the test URL
         const mockProcess = {
           stdout: {
-            on: jest.fn((event, callback) => {
+            on: vi.fn((event, callback) => {
               if (event === "data") {
                 callback(Buffer.from(input));
               }
             }),
           },
-          stderr: { on: jest.fn() },
-          on: jest.fn((event, callback) => {
+          stderr: { on: vi.fn() },
+          on: vi.fn((event, callback) => {
             if (event === "close") {
               callback(0);
             }
@@ -196,14 +196,14 @@ describe("RepoIdentifier", () => {
       for (const input of maliciousInputs) {
         const mockProcess = {
           stdout: {
-            on: jest.fn((event, callback) => {
+            on: vi.fn((event, callback) => {
               if (event === "data") {
                 callback(Buffer.from(input));
               }
             }),
           },
-          stderr: { on: jest.fn() },
-          on: jest.fn((event, callback) => {
+          stderr: { on: vi.fn() },
+          on: vi.fn((event, callback) => {
             if (event === "close") {
               callback(0);
             }
@@ -226,14 +226,14 @@ describe("RepoIdentifier", () => {
     it("should return correct database paths", async () => {
       const mockProcess = {
         stdout: {
-          on: jest.fn((event, callback) => {
+          on: vi.fn((event, callback) => {
             if (event === "data") {
               callback(Buffer.from("git@github.com:test/project.git"));
             }
           }),
         },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, callback) => {
+        stderr: { on: vi.fn() },
+        on: vi.fn((event, callback) => {
           if (event === "close") {
             callback(0);
           }
@@ -255,9 +255,9 @@ describe("RepoIdentifier", () => {
       await fs.writeFile(legacyPath, "test");
 
       const mockProcess = {
-        stdout: { on: jest.fn() },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, callback) => {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn((event, callback) => {
           if (event === "close") {
             callback(1);
           }
@@ -278,9 +278,9 @@ describe("RepoIdentifier", () => {
     it("should generate consistent hashes for the same path", async () => {
       // No git, so it will use path hashing
       const mockProcess = {
-        stdout: { on: jest.fn() },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, callback) => {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn((event, callback) => {
           if (event === "close") {
             callback(1);
           }

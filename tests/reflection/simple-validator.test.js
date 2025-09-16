@@ -2,19 +2,19 @@
  * Simple tests for evidence validator
  */
 
-import { jest } from "@jest/globals";
+import { vi } from "vitest";
 import { EvidenceValidator } from "../../src/reflection/validator.js";
 import { ValidationErrorCode } from "../../src/reflection/types.js";
 
 describe("EvidenceValidator - Simple Tests", () => {
   let validator;
   const mockRepository = {
-    get: jest.fn(),
-    getByIdOrAlias: jest.fn(), // [FIX:TEST:ES_MODULE_MOCK_ORDER] ★★★☆☆ - Add missing method
+    get: vi.fn(),
+    getByIdOrAlias: vi.fn(), // [FIX:TEST:ES_MODULE_MOCK_ORDER] ★★★☆☆ - Add missing method
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockRepository.get.mockResolvedValue({
       id: "TEST:PATTERN",
       trust_score: 0.8,

@@ -4,7 +4,7 @@
  * [BUILD:MODULE:ESM] ★★★☆☆ - ES module with .js extensions
  */
 
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 import { 
   TAG_RELATIONSHIPS, 
   getRelatedTags, 

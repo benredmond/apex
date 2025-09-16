@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { MigrationLock } from "../../src/migrations/migration-lock.js";
 import fs from "fs-extra";
 import path from "path";
@@ -252,7 +252,7 @@ describe("MigrationLock", () => {
   describe("Process cleanup handlers", () => {
     it("should register cleanup handlers on lock acquisition", () => {
       const lock = new MigrationLock(dbPath);
-      const processOnSpy = jest.spyOn(process, 'on');
+      const processOnSpy = vi.spyOn(process, 'on');
       
       lock.tryAcquire();
       
@@ -266,7 +266,7 @@ describe("MigrationLock", () => {
 
     it("should unregister cleanup handlers on release", () => {
       const lock = new MigrationLock(dbPath);
-      const removeListenerSpy = jest.spyOn(process, 'removeListener');
+      const removeListenerSpy = vi.spyOn(process, 'removeListener');
       
       lock.tryAcquire();
       lock.release();

@@ -1,6 +1,6 @@
 /**
  * Database Compatibility Test Suite
- * 
+ *
  * Tests that the system can handle databases in various states:
  * - Different schema versions
  * - Partially migrated databases
@@ -8,7 +8,7 @@
  * - Corrupted or inconsistent states
  */
 
-// Using Jest which is configured for this project
+import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";

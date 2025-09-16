@@ -3,6 +3,7 @@
  * These tests would have caught the disk I/O errors we encountered
  */
 
+import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { PatternDatabase } from "../../src/storage/database.js";
 import { TaskRepository } from "../../src/storage/repositories/task-repository.js";

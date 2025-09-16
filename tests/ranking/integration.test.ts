@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeAll, afterAll } from "@jest/globals";
+import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import { createPatternRepository } from "../../src/storage/index.js";
 import { createRankerFromRepository } from "../../src/ranking/storage-adapter.ts";
 import { Pattern } from "../../src/storage/types.ts";
@@ -10,7 +10,7 @@ import * as os from "os";
 // This is a known limitation with Jest's experimental VM modules
 // when importing from index files that re-export modules.
 // See: https://github.com/nodejs/node/issues/35889
-describe.skip("Ranking + Storage Integration - SKIPPED: Jest ESM module linking issue", () => {
+describe("Ranking + Storage Integration - SKIPPED: Jest ESM module linking issue", () => {
   let tempDir: string;
   let repository: any;
   let ranker: any;

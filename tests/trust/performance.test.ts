@@ -2,7 +2,7 @@
  * Performance tests for Beta-Bernoulli Trust Model
  */
 
-import { describe, it, expect, beforeEach } from "@jest/globals";
+import { describe, it, expect, beforeEach } from "vitest";
 import { BetaBernoulliTrustModel } from "../../src/trust/beta-bernoulli.js";
 import { MemoryStorageAdapter } from "../../src/trust/storage-adapter.js";
 import { TrustUpdate } from "../../src/trust/types.js";

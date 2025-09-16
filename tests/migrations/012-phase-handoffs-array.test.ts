@@ -2,7 +2,7 @@
  * Tests for phase_handoffs array migration
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import * as migration from "../../src/migrations/migrations/012-phase-handoffs-array.js";
 

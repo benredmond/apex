@@ -3,7 +3,7 @@
  * Ensures migrations work consistently across node:sqlite, better-sqlite3, and WASM adapters
  */
 
-import { describe, test, expect, beforeEach, afterEach } from "@jest/globals";
+import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import { DatabaseAdapterFactory } from "../../src/storage/database-adapter.js";
 import { AutoMigrator } from "../../src/migrations/auto-migrator.js";
 import { MigrationRunner } from "../../src/migrations/MigrationRunner.js";

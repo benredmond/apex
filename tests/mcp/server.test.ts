@@ -4,9 +4,9 @@
  */
 
 // Skipped due to Jest initialization issue with CommonJS/ES module mixing
-import { describe, it } from "@jest/globals";
+import { describe, it } from "vitest";
 
-describe.skip("MCP Server", () => {
+describe("MCP Server", () => {
   it("should be converted to ES modules", () => {
     // Placeholder - original tests had CommonJS/ES module mixing issues
   });

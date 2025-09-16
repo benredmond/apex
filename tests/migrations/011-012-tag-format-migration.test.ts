@@ -3,7 +3,7 @@
  * [APE-63] Unify tag storage format between patterns and tasks
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { migration as migration011 } from '../../src/migrations/migrations/011-migrate-pattern-tags-to-json.js';
 import { migration as migration012 } from '../../src/migrations/migrations/012-rename-tags-csv-column.js';
