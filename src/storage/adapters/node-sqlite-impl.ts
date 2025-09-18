@@ -14,11 +14,21 @@ import type {
  * Statement wrapper for node:sqlite
  */
 class NodeSqliteStatement implements Statement {
-  constructor(private stmt: any) {}
+  constructor(private stmt: any | null, private deferredError?: Error) {}
+
+  private ensureExecutable(): void {
+    if (this.deferredError) {
+      throw this.deferredError;
+    }
+    if (!this.stmt) {
+      throw new Error("Invalid SQLite statement");
+    }
+  }
 
   run(...params: any[]): StatementResult {
-    // node:sqlite returns { changes, lastInsertRowid }
-    const result = this.stmt.run(...params);
+    this.ensureExecutable();
+
+    const result = this.stmt!.run(...params);
     return {
       changes: result.changes || 0,
       lastInsertRowid: result.lastInsertRowid || 0,
@@ -26,11 +36,13 @@ class NodeSqliteStatement implements Statement {
   }
 
   get(...params: any[]): any {
-    return this.stmt.get(...params);
+    this.ensureExecutable();
+    return this.stmt!.get(...params);
   }
 
   all(...params: any[]): any[] {
-    return this.stmt.all(...params);
+    this.ensureExecutable();
+    return this.stmt!.all(...params);
   }
 }
 
@@ -39,7 +51,7 @@ class NodeSqliteStatement implements Statement {
  * Provides SEA binary compatibility without native dependencies
  */
 export class NodeSqliteAdapter implements DatabaseAdapter {
-  private db: any; // DatabaseSync instance
+  private db: any | null; // DatabaseSync instance
   private transactionDepth: number = 0;
 
   constructor(dbPath: string) {
@@ -51,20 +63,41 @@ export class NodeSqliteAdapter implements DatabaseAdapter {
     });
   }
 
+  private getDb(): any {
+    if (!this.db) {
+      throw new Error("node:sqlite adapter has been closed");
+    }
+    return this.db;
+  }
+
   prepare(sql: string): Statement {
-    const stmt = this.db.prepare(sql);
-    return new NodeSqliteStatement(stmt);
+    try {
+      const stmt = this.getDb().prepare(sql);
+      return new NodeSqliteStatement(stmt);
+    } catch (error: any) {
+      const message = error?.message || "";
+      const isValidationError =
+        typeof message === "string" &&
+        (message.includes("columns but") || message.includes("values for"));
+
+      if (isValidationError) {
+        // Defer throwing until execution to match better-sqlite3 behavior
+        return new NodeSqliteStatement(null, error);
+      }
+
+      throw error;
+    }
   }
 
   exec(sql: string): void {
     // node:sqlite's DatabaseSync.exec() natively handles multiple SQL statements
     // No need to split - it properly handles complex SQL with CHECK constraints, triggers, etc.
-    this.db.exec(sql);
+    this.getDb().exec(sql);
   }
 
   pragma(pragmaString: string): any {
     // node:sqlite handles pragmas as regular SQL
-    const stmt = this.db.prepare(`PRAGMA ${pragmaString}`);
+    const stmt = this.getDb().prepare(`PRAGMA ${pragmaString}`);
     try {
       // [FIX:API:COMPATIBILITY] ★★★★★ - Handle table_info and similar pragmas that return multiple rows
       if (
@@ -121,8 +154,14 @@ export class NodeSqliteAdapter implements DatabaseAdapter {
   }
 
   close(): void {
-    if (this.db) {
+    if (!this.db) {
+      return;
+    }
+
+    try {
       this.db.close();
+    } finally {
+      this.db = null;
     }
   }
 
@@ -131,7 +170,7 @@ export class NodeSqliteAdapter implements DatabaseAdapter {
   }
 
   getInstance(): any {
-    return this.db;
+    return this.getDb();
   }
 
   /**
@@ -148,6 +187,6 @@ export class NodeSqliteAdapter implements DatabaseAdapter {
    * Used for implementation-specific optimizations
    */
   get instance(): any {
-    return this.db;
+    return this.getDb();
   }
 }
