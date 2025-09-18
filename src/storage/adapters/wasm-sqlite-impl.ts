@@ -22,10 +22,57 @@ class WasmSqliteStatement implements Statement {
     private adapter: WasmSqliteAdapter,
   ) {}
 
+  /**
+   * Normalize incoming parameters so sql.js accepts them
+   */
+  private normalizeParams(params: any[]): any {
+    if (params.length === 0) {
+      return undefined;
+    }
+
+    const [first] = params;
+
+    if (
+      params.length === 1 &&
+      first !== null &&
+      typeof first === "object" &&
+      !Array.isArray(first) &&
+      !(first instanceof Uint8Array)
+    ) {
+      const sanitized: Record<string, any> = {};
+      for (const [key, value] of Object.entries(first)) {
+        const normalized = value === undefined ? null : value;
+        sanitized[key] = normalized;
+
+        if (!key.startsWith("@") && !key.startsWith(":") && !key.startsWith("$")) {
+          sanitized[`@${key}`] = normalized;
+          sanitized[`:${key}`] = normalized;
+          sanitized[`$${key}`] = normalized;
+        }
+      }
+      return sanitized;
+    }
+
+    if (params.length === 1) {
+      if (Array.isArray(first)) {
+        return first.map((value) => (value === undefined ? null : value));
+      }
+
+      if (first instanceof Uint8Array) {
+        return [first];
+      }
+
+      return [first === undefined ? null : first];
+    }
+
+    return params.map((value) => (value === undefined ? null : value));
+  }
+
   run(...params: any[]): StatementResult {
     // Bind parameters and run statement
-    if (params.length > 0) {
-      this.stmt.bind(params);
+    const bindParams = this.normalizeParams(params);
+    if (bindParams !== undefined) {
+      this.stmt.bind(bindParams);
     }
 
     const success = this.stmt.step(); // Returns true if there were results
@@ -44,8 +91,9 @@ class WasmSqliteStatement implements Statement {
   }
 
   get(...params: any[]): any {
-    if (params.length > 0) {
-      this.stmt.bind(params);
+    const bindParams = this.normalizeParams(params);
+    if (bindParams !== undefined) {
+      this.stmt.bind(bindParams);
     }
 
     const hasResult = this.stmt.step();
@@ -60,8 +108,9 @@ class WasmSqliteStatement implements Statement {
   }
 
   all(...params: any[]): any[] {
-    if (params.length > 0) {
-      this.stmt.bind(params);
+    const bindParams = this.normalizeParams(params);
+    if (bindParams !== undefined) {
+      this.stmt.bind(bindParams);
     }
 
     const results: any[] = [];
@@ -76,8 +125,9 @@ class WasmSqliteStatement implements Statement {
   *iterate(...params: any[]): IterableIterator<any> {
     // Generator function for iterating over results
     // [FIX:API:COMPATIBILITY] ★★★★★ (28 uses, 98% success) - Complete better-sqlite3 interface
-    if (params.length > 0) {
-      this.stmt.bind(params);
+    const bindParams = this.normalizeParams(params);
+    if (bindParams !== undefined) {
+      this.stmt.bind(bindParams);
     }
 
     try {
