@@ -6,6 +6,8 @@
 import {
   DatabaseAdapterFactory,
   type DatabaseAdapter,
+  type Statement,
+  type StatementResult,
 } from "../storage/database-adapter.js";
 import { MigrationRunner } from "./MigrationRunner.js";
 import { MigrationLoader } from "./MigrationLoader.js";
@@ -26,12 +28,29 @@ export class AutoMigrator {
   private runner: MigrationRunner;
   private loader: MigrationLoader;
   private initialized: boolean = false;
+  private externalAdapter?: DatabaseAdapter;
+  private usingExternalAdapter: boolean = false;
 
-  constructor(dbPath?: string) {
-    // Use provided path or fall back to legacy sync method
-    this.dbPath = dbPath || ApexConfig.getDbPath();
-    // Defer database initialization to allow async factory pattern
+  constructor(dbPathOrAdapter?: string | DatabaseAdapter | any) {
     this.loader = new MigrationLoader();
+
+    if (dbPathOrAdapter && typeof dbPathOrAdapter !== "string") {
+      const adapter = this.normalizeAdapter(dbPathOrAdapter);
+      this.externalAdapter = adapter;
+      this.adapter = adapter;
+      this.db = adapter.getInstance();
+      this.runner = new MigrationRunner(adapter);
+      this.initialized = true;
+      this.usingExternalAdapter = true;
+      // Default path only used when lock needed; skip for external adapters
+      this.dbPath = ApexConfig.getDbPath();
+    } else {
+      // Use provided path or fall back to legacy sync method
+      this.dbPath =
+        typeof dbPathOrAdapter === "string"
+          ? dbPathOrAdapter
+          : ApexConfig.getDbPath();
+    }
   }
 
   /**
@@ -39,6 +58,14 @@ export class AutoMigrator {
    */
   private async ensureInitialized(): Promise<void> {
     if (this.initialized) return;
+
+    if (this.externalAdapter) {
+      this.adapter = this.externalAdapter;
+      this.db = this.externalAdapter.getInstance();
+      this.runner = new MigrationRunner(this.externalAdapter);
+      this.initialized = true;
+      return;
+    }
 
     // [PAT:ADAPTER:DELEGATION] ★★★★☆ (12 uses, 92% success) - Use factory for database creation
     this.adapter = await DatabaseAdapterFactory.create(this.dbPath);
@@ -57,40 +84,43 @@ export class AutoMigrator {
 
     // Get database path for lock file
     const finalPath = this.dbPath;
-    const lock = new MigrationLock(finalPath);
+    const useLock = !this.usingExternalAdapter && finalPath !== ":memory:";
+    const lock = useLock ? new MigrationLock(finalPath) : null;
 
-    // Try to acquire migration lock
-    if (!lock.tryAcquire()) {
-      if (!options.silent) {
-        console.log("Another process is running migrations, waiting...");
-      }
-
-      // Wait for lock to be available (max 30 seconds)
-      const lockAvailable = await lock.waitForLock(30000);
-
-      if (!lockAvailable) {
-        const lockInfo = lock.getLockInfo();
-        if (!options.silent) {
-          console.error(chalk.red("Failed to acquire migration lock"));
-          if (lockInfo) {
-            console.error(
-              chalk.yellow(
-                `Lock held by process ${lockInfo.pid} for ${Math.floor(lockInfo.age / 1000)}s`,
-              ),
-            );
-          }
-        }
-        return false;
-      }
-
-      // Try to acquire again after waiting
+    if (lock) {
+      // Try to acquire migration lock
       if (!lock.tryAcquire()) {
         if (!options.silent) {
-          console.error(
-            chalk.red("Failed to acquire migration lock after waiting"),
-          );
+          console.log("Another process is running migrations, waiting...");
         }
-        return false;
+
+        // Wait for lock to be available (max 30 seconds)
+        const lockAvailable = await lock.waitForLock(30000);
+
+        if (!lockAvailable) {
+          const lockInfo = lock.getLockInfo();
+          if (!options.silent) {
+            console.error(chalk.red("Failed to acquire migration lock"));
+            if (lockInfo) {
+              console.error(
+                chalk.yellow(
+                  `Lock held by process ${lockInfo.pid} for ${Math.floor(lockInfo.age / 1000)}s`,
+                ),
+              );
+            }
+          }
+          return false;
+        }
+
+        // Try to acquire again after waiting
+        if (!lock.tryAcquire()) {
+          if (!options.silent) {
+            console.error(
+              chalk.red("Failed to acquire migration lock after waiting"),
+            );
+          }
+          return false;
+        }
       }
     }
 
@@ -103,8 +133,8 @@ export class AutoMigrator {
         if (!options.silent) {
           console.log("Fresh database detected - creating schema directly...");
         }
-        this.createFullSchema();
-        this.markAllMigrationsAsApplied();
+        await this.createFullSchema();
+        await this.markAllMigrationsAsApplied();
         return true;
       }
 
@@ -159,11 +189,36 @@ export class AutoMigrator {
       return false;
     } finally {
       // Always release lock and close database
-      lock.release();
-      if (this.db && this.adapter) {
+      lock?.release();
+      if (this.db && this.adapter && !this.usingExternalAdapter) {
         this.adapter.close();
       }
     }
+  }
+
+  /**
+   * Legacy alias maintained for compatibility with Jest-era tests
+   */
+  async migrate(options: { silent?: boolean } = {}): Promise<boolean> {
+    return this.autoMigrate(options);
+  }
+
+  async rollback(
+    targetVersion: number,
+    options: { dryRun?: boolean } = {},
+  ): Promise<void> {
+    await this.ensureInitialized();
+
+    if (!this.runner) {
+      throw new Error("Migration runner not initialized");
+    }
+
+    const migrations = await this.loader.loadMigrations();
+    if (!migrations.length) {
+      console.warn("AutoMigrator: No migrations loaded while marking as applied");
+    }
+    const rollbackTarget = Math.max(targetVersion - 1, 0);
+    await this.runner.rollbackMigrations(migrations, rollbackTarget, options);
   }
 
   /**
@@ -212,7 +267,7 @@ export class AutoMigrator {
    * This avoids running all migrations sequentially
    * [PAT:CLEAN:SINGLE_SOURCE] - Use centralized schema definitions
    */
-  private createFullSchema(): void {
+  private async createFullSchema(): Promise<void> {
     // Create migrations table first
     this.ensureMigrationsTable();
 
@@ -239,111 +294,41 @@ export class AutoMigrator {
   /**
    * Mark all migrations as applied for fresh database
    */
-  private markAllMigrationsAsApplied(): void {
+  private async markAllMigrationsAsApplied(): Promise<void> {
     const now = new Date().toISOString();
+    const migrations = await this.loader.loadMigrations();
 
-    // Get all migration files
-    const migrations = [
-      {
-        version: 1,
-        id: "001-consolidate-patterns",
-        name: "Consolidate pattern drafts into patterns table",
-      },
-      {
-        version: 2,
-        id: "002-pattern-metadata-enrichment",
-        name: "Add pattern metadata enrichment tables",
-      },
-      {
-        version: 3,
-        id: "003-add-pattern-aliases",
-        name: "Add human-readable aliases to patterns",
-      },
-      {
-        version: 4,
-        id: "004-add-pattern-search-fields",
-        name: "Add enhanced search fields to patterns table",
-      },
-      {
-        version: 5,
-        id: "005-add-pattern-provenance",
-        name: "Add provenance tracking to patterns",
-      },
-      {
-        version: 6,
-        id: "006-add-task-system-schema",
-        name: "Add task system database schema",
-      },
-      {
-        version: 7,
-        id: "007-add-evidence-log-table",
-        name: "Add task evidence log table",
-      },
-      {
-        version: 8,
-        id: "008-add-pattern-metadata-fields",
-        name: "Add enhanced metadata fields to patterns table",
-      },
-      {
-        version: 9,
-        id: "009-populate-pattern-search-fields",
-        name: "Populate search fields from json_canonical",
-      },
-      {
-        version: 10,
-        id: "010-add-task-tags",
-        name: "Add tags column to tasks table",
-      },
-      {
-        version: 11,
-        id: "011-migrate-pattern-tags-to-json",
-        name: "Migrate pattern tags from CSV to JSON format",
-      },
-      {
-        version: 12,
-        id: "012-rename-tags-csv-column",
-        name: "Rename tags_csv column to tags",
-      },
-      {
-        version: 13,
-        id: "013-add-quality-metadata",
-        name: "Add quality metadata columns to patterns table",
-      },
-      {
-        version: 14,
-        id: "014-populate-pattern-tags",
-        name: "Populate pattern_tags table from JSON tags data",
-      },
-      {
-        version: 15,
-        id: "015-project-isolation",
-        name: "Add project isolation support",
-      },
-      {
-        version: 16,
-        id: "016-add-missing-schema-tables",
-        name: "Add missing schema tables",
-      },
-      {
-        version: 17,
-        id: "017-fix-fts-rowid-join",
-        name: "Fix FTS join from rowid to id",
-      },
-    ];
-
-    const stmt = this.db.prepare(
-      "INSERT INTO migrations (version, id, name, checksum, applied_at, execution_time_ms) VALUES (?, ?, ?, ?, ?, ?)",
-    );
-
-    for (const migration of migrations) {
-      stmt.run(
-        migration.version,
-        migration.id,
-        migration.name,
-        "fresh-install",
-        now,
-        0,
+    if (!migrations.length) {
+      console.warn(
+        "AutoMigrator: No migrations loaded while marking as applied",
       );
+    }
+
+    if (!this.adapter) {
+      throw new Error("AutoMigrator adapter not initialized");
+    }
+
+    this.adapter.exec("BEGIN");
+    try {
+      const stmt = this.adapter.prepare(
+        "INSERT INTO migrations (version, id, name, checksum, applied_at, execution_time_ms) VALUES (?, ?, ?, ?, ?, ?)",
+      );
+
+      for (const migration of migrations) {
+        stmt.run(
+          migration.version,
+          migration.id,
+          migration.name,
+          migration.checksum ?? "fresh-install",
+          now,
+          0,
+        );
+      }
+
+      this.adapter.exec("COMMIT");
+    } catch (error) {
+      this.adapter.exec("ROLLBACK");
+      throw error;
     }
   }
 
@@ -371,5 +356,81 @@ export class AutoMigrator {
         migrator.db.close();
       }
     }
+  }
+
+  private normalizeAdapter(candidate: any): DatabaseAdapter {
+    if (this.isDatabaseAdapter(candidate)) {
+      return candidate;
+    }
+    if (this.looksLikeLegacyDatabase(candidate)) {
+      return this.createAdapterFromLegacyInstance(candidate);
+    }
+
+    throw new Error(
+      "AutoMigrator: Unsupported database instance provided. Expected DatabaseAdapter or compatible database object.",
+    );
+  }
+
+  private isDatabaseAdapter(value: any): value is DatabaseAdapter {
+    return (
+      value &&
+      typeof value === "object" &&
+      typeof value.prepare === "function" &&
+      typeof value.exec === "function" &&
+      typeof value.transaction === "function" &&
+      typeof value.close === "function" &&
+      typeof value.getInstance === "function"
+    );
+  }
+
+  private looksLikeLegacyDatabase(value: any): boolean {
+    return value && typeof value.prepare === "function";
+  }
+
+  private createAdapterFromLegacyInstance(instance: any): DatabaseAdapter {
+    const wrapStatement = (stmt: any): Statement => ({
+      run: (...params: any[]): StatementResult => {
+        const result = stmt.run(...params) || {};
+        return {
+          changes: result.changes ?? 0,
+          lastInsertRowid: result.lastInsertRowid ?? 0,
+        };
+      },
+      get: (...params: any[]) => stmt.get(...params),
+      all: (...params: any[]) => stmt.all(...params),
+    });
+
+    return {
+      prepare: (sql: string) => wrapStatement(instance.prepare(sql)),
+      exec: (sql: string) => instance.exec(sql),
+      pragma: (pragmaString: string) =>
+        typeof instance.pragma === "function"
+          ? instance.pragma(pragmaString)
+          : undefined,
+      transaction: <T>(fn: () => T) => {
+        if (typeof instance.transaction === "function") {
+          return instance.transaction(fn);
+        }
+        return () => {
+          instance.exec("BEGIN");
+          try {
+            const result = fn();
+            instance.exec("COMMIT");
+            return result;
+          } catch (error) {
+            instance.exec("ROLLBACK");
+            throw error;
+          }
+        };
+      },
+      close: () => {
+        if (typeof instance.close === "function") {
+          instance.close();
+        }
+      },
+      isNodeSqlite: () => false,
+      getInstance: () => instance,
+      supportsFTSTriggers: () => true,
+    };
   }
 }
