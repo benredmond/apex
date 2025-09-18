@@ -66,7 +66,7 @@ export const SCHEMA_SQL = {
     CREATE TABLE IF NOT EXISTS pattern_frameworks (
       pattern_id  TEXT NOT NULL,
       framework   TEXT NOT NULL,
-      version     TEXT,
+      semver      TEXT,
       PRIMARY KEY (pattern_id, framework),
       FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE CASCADE
     )`,
@@ -206,12 +206,12 @@ export const SCHEMA_SQL = {
 
   task_evidence: `
     CREATE TABLE IF NOT EXISTS task_evidence (
-      id            TEXT PRIMARY KEY,
-      task_id       TEXT NOT NULL,
-      type          TEXT NOT NULL,
-      content       TEXT NOT NULL,
-      metadata      TEXT,
-      created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id TEXT NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('file', 'pattern', 'error', 'decision', 'learning')),
+      content TEXT NOT NULL,
+      metadata TEXT,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
     )`,
 
@@ -451,7 +451,9 @@ export const INDICES_SQL = {
     `CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`,
     `CREATE INDEX IF NOT EXISTS idx_tasks_phase ON tasks(phase)`,
     `CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at)`,
-    `CREATE INDEX IF NOT EXISTS idx_task_evidence_task_id ON task_evidence(task_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_evidence_task ON task_evidence(task_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_evidence_task_type ON task_evidence(task_id, type)`,
+    `CREATE INDEX IF NOT EXISTS idx_evidence_timestamp ON task_evidence(timestamp DESC)`,
     `CREATE INDEX IF NOT EXISTS idx_task_checkpoints_task_id ON task_checkpoints(task_id)`,
   ],
 };

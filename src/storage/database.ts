@@ -24,6 +24,11 @@ export class PatternDatabase {
   private fallbackDb?: DatabaseAdapter;
   private statements: Map<string, Statement> = new Map();
   private fallbackStatements: Map<string, Statement> = new Map();
+  private initialized = false;
+  private initializing?: Promise<void>;
+  private managedConnection = true;
+  private pendingDbPath?: string;
+  private externalAdapter?: DatabaseAdapter;
 
   /**
    * Static factory method to create PatternDatabase instances
@@ -36,13 +41,32 @@ export class PatternDatabase {
       enableFallback?: boolean;
     },
   ): Promise<PatternDatabase> {
-    const instance = new PatternDatabase();
-    await instance.initialize(dbPath, options);
+    const instance = new PatternDatabase(dbPath);
+    await instance.init(dbPath, options);
     return instance;
   }
 
   // Getter for database instance (needed for migrations)
   get database(): DatabaseAdapter {
+    if (!this.db) {
+      throw new Error("PatternDatabase not initialized");
+    }
+
+    return this.db;
+  }
+
+  /**
+   * Access the underlying database driver instance when needed
+   */
+  get rawDatabase(): any {
+    if (!this.db) {
+      throw new Error("PatternDatabase not initialized");
+    }
+
+    if (typeof (this.db as any).getInstance === "function") {
+      return (this.db as any).getInstance();
+    }
+
     return this.db;
   }
 
@@ -59,22 +83,139 @@ export class PatternDatabase {
   /**
    * Private constructor - use PatternDatabase.create() instead
    */
-  private constructor() {}
+  constructor(connectionOrPath?: string | DatabaseAdapter | any) {
+    if (
+      connectionOrPath &&
+      typeof connectionOrPath !== "string"
+    ) {
+      this.externalAdapter = this.normalizeAdapter(connectionOrPath);
+      this.managedConnection = false;
+    } else if (typeof connectionOrPath === "string") {
+      this.pendingDbPath = connectionOrPath;
+    }
+  }
 
   /**
    * Initialize the database instance (called by factory method)
    */
-  private async initialize(
-    dbPath: string = ApexConfig.DB_PATH,
+  public async init(
+    dbPathOrOptions?:
+      | string
+      | {
+          fallbackPath?: string;
+          enableFallback?: boolean;
+        },
+    maybeOptions?: {
+      fallbackPath?: string;
+      enableFallback?: boolean;
+    },
+  ): Promise<void> {
+    let dbPath: string | undefined;
+    let options:
+      | {
+          fallbackPath?: string;
+          enableFallback?: boolean;
+        }
+      | undefined;
+
+    if (typeof dbPathOrOptions === "string") {
+      dbPath = dbPathOrOptions;
+      options = maybeOptions;
+    } else if (dbPathOrOptions === undefined) {
+      dbPath = undefined;
+      options = maybeOptions;
+    } else {
+      options = dbPathOrOptions;
+    }
+
+    await this.performInitialization(dbPath, options);
+  }
+
+  /**
+   * Backward-compatible alias for init()
+   */
+  public async initialize(
+    dbPathOrOptions?:
+      | string
+      | {
+          fallbackPath?: string;
+          enableFallback?: boolean;
+        },
+    maybeOptions?: {
+      fallbackPath?: string;
+      enableFallback?: boolean;
+    },
+  ): Promise<void> {
+    await this.init(dbPathOrOptions as any, maybeOptions);
+  }
+
+  private async performInitialization(
+    dbPath: string | undefined,
     options?: {
       fallbackPath?: string;
       enableFallback?: boolean;
     },
   ): Promise<void> {
-    // DEFENSIVE: Warn if using relative path (should always use absolute paths from ~/.apex)
+    if (this.initialized) {
+      return;
+    }
+
+    const targetPath = dbPath ?? this.pendingDbPath ?? ApexConfig.DB_PATH;
+    this.pendingDbPath = targetPath;
+
+    if (!this.initializing) {
+      this.initializing = (async () => {
+        try {
+          if (this.externalAdapter) {
+            this.db = this.externalAdapter;
+          } else {
+            const fullPath = this.resolveDatabasePath(targetPath);
+            this.managedConnection = true;
+            this.db = await DatabaseAdapterFactory.create(fullPath);
+          }
+
+          // Initialize fallback database if requested and not already configured
+          if (options?.fallbackPath && options?.enableFallback !== false) {
+            await this.setupFallbackDatabase(options.fallbackPath);
+          }
+
+          if (!this.db) {
+            throw new Error(
+              "PatternDatabase initialization failed: database adapter not available",
+            );
+          }
+
+          // Apply runtime pragmas for both managed and external adapters
+          setPragma(this.db, "journal_mode", "WAL");
+          setPragma(this.db, "synchronous", "NORMAL");
+          setPragma(this.db, "temp_store", "MEMORY");
+          setPragma(this.db, "read_uncommitted", 1);
+          setPragma(this.db, "busy_timeout", 30000);
+          setPragma(this.db, "wal_autocheckpoint", 1000);
+          setPragma(this.db, "wal_checkpoint", "PASSIVE");
+
+          const cacheSize = process.env.APEX_DB_CACHE_SIZE
+            ? parseInt(process.env.APEX_DB_CACHE_SIZE)
+            : 10000;
+          setPragma(this.db, "cache_size", cacheSize);
+
+          // Initialize schema objects and prepared statements
+          await this.initializeSchema();
+          this.prepareStatements();
+          this.initialized = true;
+        } finally {
+          this.initializing = undefined;
+        }
+      })();
+    }
+
+    if (this.initializing) {
+      await this.initializing;
+    }
+  }
+
+  private resolveDatabasePath(dbPath: string): string {
     if (!path.isAbsolute(dbPath)) {
-      // Check if we're in MCP context (which should always use absolute paths)
-      // MCP is started with: apex mcp serve
       const isMCP =
         process.argv.some((arg) => arg.includes("mcp")) &&
         process.argv.some((arg) => arg.includes("serve"));
@@ -84,7 +225,6 @@ export class PatternDatabase {
             `This would create a local database. Use PatternRepository.createWithProjectPaths() instead.`,
         );
       }
-      // For non-MCP (CLI), warn but allow for backward compatibility
       if (!dbPath.includes(".apex")) {
         console.warn(
           `⚠️  WARNING: Using relative database path '${dbPath}' will create a local database. ` +
@@ -93,66 +233,107 @@ export class PatternDatabase {
       }
     }
 
-    // Use centralized config for database path
     const fullPath = path.isAbsolute(dbPath)
       ? dbPath
       : path.join(process.cwd(), dbPath);
 
-    // Ensure directory exists
     fs.ensureDirSync(path.dirname(fullPath));
+    return fullPath;
+  }
 
-    // Open database using adapter factory for SEA/npm compatibility
-    this.db = await DatabaseAdapterFactory.create(fullPath);
-
-    // Initialize fallback database if path provided
-    if (options?.fallbackPath && options?.enableFallback !== false) {
-      try {
-        const fallbackFullPath = path.isAbsolute(options.fallbackPath)
-          ? options.fallbackPath
-          : path.join(process.cwd(), options.fallbackPath);
-
-        // Only use fallback if it exists (don't create it)
-        if (fs.existsSync(fallbackFullPath)) {
-          this.fallbackDb =
-            await DatabaseAdapterFactory.create(fallbackFullPath);
-          this.initializeFallbackDb();
-        }
-      } catch (error) {
-        // Fallback database is optional, so we can continue without it
-        try {
-          console.error(
-            "Warning: Could not initialize fallback database:",
-            error,
-          );
-        } catch {
-          // Ignore console errors
-        }
-      }
+  private async setupFallbackDatabase(fallbackPath: string): Promise<void> {
+    if (this.fallbackDb) {
+      return; // Already configured
     }
 
-    // Enable WAL mode for better concurrency
-    setPragma(this.db, "journal_mode", "WAL");
-    setPragma(this.db, "synchronous", "NORMAL");
-    setPragma(this.db, "temp_store", "MEMORY");
+    try {
+      const fallbackFullPath = path.isAbsolute(fallbackPath)
+        ? fallbackPath
+        : path.join(process.cwd(), fallbackPath);
 
-    // Optimize for concurrent reads and multiple processes
-    setPragma(this.db, "read_uncommitted", 1);
-    setPragma(this.db, "busy_timeout", 30000); // Increase to 30 seconds for heavy concurrent access
-    setPragma(this.db, "wal_autocheckpoint", 1000); // Auto-checkpoint every 1000 pages
+      if (fs.existsSync(fallbackFullPath)) {
+        this.fallbackDb = await DatabaseAdapterFactory.create(fallbackFullPath);
+        this.initializeFallbackDb();
+      }
+    } catch (error) {
+      try {
+        console.error("Warning: Could not initialize fallback database:", error);
+      } catch {
+        // Ignore console errors
+      }
+    }
+  }
 
-    // Don't truncate WAL on startup - it can cause disk I/O errors with concurrent access
-    // Instead, just do a passive checkpoint
-    setPragma(this.db, "wal_checkpoint", "PASSIVE");
+  private normalizeAdapter(candidate: any): DatabaseAdapter {
+    if (this.isDatabaseAdapter(candidate)) {
+      return candidate;
+    }
+    return this.createAdapterFromLegacyInstance(candidate);
+  }
 
-    // Increase cache size for better performance with large codebases
-    const cacheSize = process.env.APEX_DB_CACHE_SIZE
-      ? parseInt(process.env.APEX_DB_CACHE_SIZE)
-      : 10000;
-    setPragma(this.db, "cache_size", cacheSize);
+  private isDatabaseAdapter(value: any): value is DatabaseAdapter {
+    return (
+      value &&
+      typeof value === "object" &&
+      typeof value.prepare === "function" &&
+      typeof value.exec === "function" &&
+      typeof value.transaction === "function" &&
+      typeof value.close === "function" &&
+      typeof value.getInstance === "function"
+    );
+  }
 
-    // Initialize schema
-    await this.initializeSchema();
-    this.prepareStatements();
+  private createAdapterFromLegacyInstance(instance: any): DatabaseAdapter {
+    if (!instance || typeof instance.prepare !== "function") {
+      throw new Error(
+        "PatternDatabase: Unsupported database instance provided. Expected an object with prepare() method.",
+      );
+    }
+
+    const wrapStatement = (stmt: any): Statement => ({
+      run: (...params: any[]) => {
+        const result = stmt.run(...params) || {};
+        return {
+          changes: result.changes ?? 0,
+          lastInsertRowid: result.lastInsertRowid ?? 0,
+        };
+      },
+      get: (...params: any[]) => stmt.get(...params),
+      all: (...params: any[]) => stmt.all(...params),
+    });
+
+    return {
+      prepare: (sql: string) => wrapStatement(instance.prepare(sql)),
+      exec: (sql: string) => instance.exec(sql),
+      pragma: (pragmaString: string) =>
+        typeof instance.pragma === "function"
+          ? instance.pragma(pragmaString)
+          : undefined,
+      transaction: <T>(fn: () => T) => {
+        if (typeof instance.transaction === "function") {
+          return instance.transaction(fn);
+        }
+        return () => {
+          instance.exec("BEGIN");
+          try {
+            const result = fn();
+            instance.exec("COMMIT");
+            return result;
+          } catch (error) {
+            instance.exec("ROLLBACK");
+            throw error;
+          }
+        };
+      },
+      close: () => {
+        if (typeof instance.close === "function") {
+          instance.close();
+        }
+      },
+      isNodeSqlite: () => false,
+      getInstance: () => instance,
+      supportsFTSTriggers: () => true,
+    };
   }
 
   private async initializeSchema(): Promise<void> {
@@ -313,21 +494,37 @@ export class PatternDatabase {
     ];
 
     for (const idx of indices) {
-      this.db.exec(idx);
+      try {
+        this.db.exec(idx);
+      } catch (error: any) {
+        const message = error?.message || "";
+        if (message.includes("no such column") || message.includes("no such table")) {
+          // Legacy databases may be missing newer columns; skip index creation
+          try {
+            console.warn(
+              `Skipping index creation due to legacy schema mismatch: ${idx.split(" ")[4] ?? idx}`,
+            );
+          } catch {
+            // ignore logging errors
+          }
+          continue;
+        }
+        throw error;
+      }
     }
   }
 
   private prepareStatements(): void {
     // Prepare commonly used statements
-    this.statements.set(
-      "getPattern",
+    this.safeSetStatement("getPattern", () =>
       this.db.prepare("SELECT * FROM patterns WHERE id = ? AND invalid = 0"),
     );
 
     // Both node:sqlite and better-sqlite3 support named parameters with @ syntax
-    this.statements.set(
+    this.safeSetStatement(
       "upsertPattern",
-      this.db.prepare(`
+      () =>
+        this.db.prepare(`
       INSERT INTO patterns (
         id, schema_version, pattern_version, type, title, summary,
         trust_score, created_at, updated_at, source_repo, tags,
@@ -368,32 +565,29 @@ export class PatternDatabase {
     `),
     );
 
-    this.statements.set(
-      "deletePattern",
+    this.safeSetStatement("deletePattern", () =>
       this.db.prepare("DELETE FROM patterns WHERE id = ?"),
     );
 
     // Alias lookup statements (APE-44)
-    this.statements.set(
-      "getPatternByAlias",
+    this.safeSetStatement("getPatternByAlias", () =>
       this.db.prepare("SELECT * FROM patterns WHERE alias = ? AND invalid = 0"),
     );
 
-    this.statements.set(
-      "getPatternByTitle",
+    this.safeSetStatement("getPatternByTitle", () =>
       this.db.prepare(
         "SELECT * FROM patterns WHERE LOWER(title) = LOWER(?) AND invalid = 0",
       ),
     );
 
-    this.statements.set(
-      "checkAliasExists",
+    this.safeSetStatement("checkAliasExists", () =>
       this.db.prepare("SELECT COUNT(*) as count FROM patterns WHERE alias = ?"),
     );
 
-    this.statements.set(
+    this.safeSetStatement(
       "searchPatterns",
-      this.db.prepare(`
+      () =>
+        this.db.prepare(`
       SELECT p.*
       FROM patterns_fts
       JOIN patterns p ON p.rowid = patterns_fts.rowid
@@ -403,6 +597,58 @@ export class PatternDatabase {
       LIMIT ?
     `),
     );
+  }
+
+  private safeSetStatement(
+    name: string,
+    factory: () => Statement,
+  ): void {
+    try {
+      const stmt = factory();
+      this.statements.set(name, stmt);
+    } catch (error: any) {
+      const message = error?.message || "";
+      const isLegacySchema =
+        message.includes("no such column") ||
+        message.includes("no such table") ||
+        message.includes("has no column named");
+
+      if (isLegacySchema) {
+        try {
+          console.warn(
+            `Skipping prepared statement ${name} due to legacy schema mismatch`,
+          );
+        } catch {
+          // ignore logging failures
+        }
+        return;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Retrieve the active database adapter for advanced operations
+   */
+  public getAdapter(): DatabaseAdapter {
+    return this.db;
+  }
+
+  /**
+   * Simple pattern search helper mirroring legacy Jest helpers
+   */
+  public searchPatterns(query: string, limit: number = 20): any[] {
+    return this.getStatement("searchPatterns").all(query, limit);
+  }
+
+  /**
+   * Convenience method used by older tests to fetch all patterns
+   */
+  public getAllPatterns(): any[] {
+    const stmt = this.db.prepare(
+      "SELECT * FROM patterns WHERE invalid = 0 ORDER BY updated_at DESC",
+    );
+    return stmt.all();
   }
 
   /**
@@ -504,10 +750,15 @@ export class PatternDatabase {
   }
 
   public close(): void {
-    this.db.close();
+    if (this.db && this.managedConnection && typeof this.db.close === "function") {
+      this.db.close();
+    }
     if (this.fallbackDb) {
       this.fallbackDb.close();
+      this.fallbackDb = undefined;
     }
+    this.initialized = false;
+    this.initializing = undefined;
   }
 
   // Migration support
