@@ -4,7 +4,7 @@
  * [FIX:MOCK:ESM_IMPORTS] ★★★★★ (12 uses, 100% success) - From cache
  */
 
-import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach, afterAll } from "vitest";
 import { createMockGitProcess } from "../helpers/git-mock.js";
 
 // Mock child_process before ANY other imports
@@ -18,6 +18,10 @@ const child_process = await import("child_process");
 // Now import GitResolver which uses child_process
 const { GitResolver } = await import("../../src/reflection/git-resolver.js");
 
+// Ensure GitResolver picks up the mocked spawn implementation even if the module
+// was imported prior to the mock being applied.
+GitResolver.setSpawnImplementation(child_process.spawn as unknown as typeof import("child_process").spawn);
+
 describe("GitResolver", () => {
   let resolver: GitResolver;
 
@@ -30,6 +34,10 @@ describe("GitResolver", () => {
       cacheTTL: 5000, // 5 seconds for tests
       gitRepoPath: "/test/repo",
     });
+  });
+
+  afterAll(() => {
+    GitResolver.resetSpawnImplementation();
   });
 
   describe("resolveRef", () => {

@@ -24,7 +24,7 @@ describe("git-mock utilities", () => {
   });
 
   describe("createMockGitProcess", () => {
-    it("should create a mock process with default values", (done) => {
+    it("should create a mock process with default values", async () => {
       const proc = createMockGitProcess({ command: "status" });
       
       let stdoutData = "";
@@ -39,16 +39,18 @@ describe("git-mock utilities", () => {
         stderrData += data.toString();
       });
       
-      proc.on("close", (code: number) => {
-        exitCode = code;
-        expect(stdoutData).toBe("");
-        expect(stderrData).toBe("");
-        expect(exitCode).toBe(0);
-        done();
+      await new Promise<void>((resolve) => {
+        proc.on("close", (code: number) => {
+          exitCode = code;
+          expect(stdoutData).toBe("");
+          expect(stderrData).toBe("");
+          expect(exitCode).toBe(0);
+          resolve();
+        });
       });
     });
 
-    it("should emit stdout data", (done) => {
+    it("should emit stdout data", async () => {
       const proc = createMockGitProcess({ 
         command: "log",
         stdout: "commit message" 
@@ -60,13 +62,15 @@ describe("git-mock utilities", () => {
         stdoutData += data.toString();
       });
       
-      proc.on("close", () => {
-        expect(stdoutData).toBe("commit message");
-        done();
+      await new Promise<void>((resolve) => {
+        proc.on("close", () => {
+          expect(stdoutData).toBe("commit message");
+          resolve();
+        });
       });
     });
 
-    it("should emit stderr data", (done) => {
+    it("should emit stderr data", async () => {
       const proc = createMockGitProcess({ 
         command: "status",
         stderr: "error message",
@@ -80,15 +84,17 @@ describe("git-mock utilities", () => {
         stderrData += data.toString();
       });
       
-      proc.on("close", (code: number) => {
-        exitCode = code;
-        expect(stderrData).toBe("error message");
-        expect(exitCode).toBe(1);
-        done();
+      await new Promise<void>((resolve) => {
+        proc.on("close", (code: number) => {
+          exitCode = code;
+          expect(stderrData).toBe("error message");
+          expect(exitCode).toBe(1);
+          resolve();
+        });
       });
     });
 
-    it("should support async delay", (done) => {
+    it("should support async delay", async () => {
       const startTime = Date.now();
       const proc = createMockGitProcess({ 
         command: "status",
@@ -96,10 +102,12 @@ describe("git-mock utilities", () => {
         delay: 50
       });
       
-      proc.on("close", () => {
-        const elapsed = Date.now() - startTime;
-        expect(elapsed).toBeGreaterThanOrEqual(50);
-        done();
+      await new Promise<void>((resolve) => {
+        proc.on("close", () => {
+          const elapsed = Date.now() - startTime;
+          expect(elapsed).toBeGreaterThanOrEqual(50);
+          resolve();
+        });
       });
     });
 
@@ -265,7 +273,7 @@ describe("git-mock utilities", () => {
       });
     });
 
-    it("should work with createMockGitProcess", (done) => {
+    it("should work with createMockGitProcess", async () => {
       const proc = createMockGitProcess({
         ...GIT_COMMAND_PRESETS.revParse,
         stdout: "custom-sha"
@@ -276,9 +284,11 @@ describe("git-mock utilities", () => {
         stdout += data.toString();
       });
       
-      proc.on("close", () => {
-        expect(stdout).toBe("custom-sha");
-        done();
+      await new Promise<void>((resolve) => {
+        proc.on("close", () => {
+          expect(stdout).toBe("custom-sha");
+          resolve();
+        });
       });
     });
   });

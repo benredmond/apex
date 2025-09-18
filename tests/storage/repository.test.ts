@@ -1,132 +1,140 @@
 // Unit tests for PatternRepository
-import { describe, test, expect, beforeEach } from "vitest";
-import { initTestDatabase } from "../helpers/vitest-db.js";
+import fs from "fs-extra";
+import { describe, test, expect } from "vitest";
+import { createTestDbPath } from "../helpers/vitest-db.js";
 import { PatternRepository } from "../../dist/storage/repository.js";
-import { PatternDatabase } from "../../dist/storage/database.js";
+
+function buildPattern(
+  id: string,
+  overrides: Partial<Record<string, any>> = {},
+) {
+  const timestamp = new Date().toISOString();
+  const title = overrides.title ?? `Pattern ${id}`;
+  const summary = overrides.summary ?? `Summary for ${id}`;
+  const base = {
+    id,
+    schema_version: "1.0.0",
+    pattern_version: "1.0.0",
+    type: "TEST",
+    category: overrides.category,
+    subcategory: overrides.subcategory,
+    title,
+    summary,
+    trust_score: 0.6,
+    alpha: 1,
+    beta: 1,
+    created_at: timestamp,
+    updated_at: timestamp,
+    pattern_digest: `digest-${id}`,
+    json_canonical: JSON.stringify({ id, title, summary }),
+    tags: Array.isArray(overrides.tags) ? overrides.tags : [],
+    keywords: Array.isArray(overrides.tags)
+      ? overrides.tags.join(",")
+      : `${title}`,
+    search_index: `${title} ${summary}`,
+    usage_count: 0,
+    success_count: 0,
+  };
+
+  return {
+    ...base,
+    ...overrides,
+    tags: Array.isArray(overrides.tags) ? overrides.tags : base.tags,
+    created_at: overrides.created_at ?? base.created_at,
+    updated_at:
+      overrides.updated_at ?? overrides.created_at ?? base.updated_at,
+    json_canonical: overrides.json_canonical ?? base.json_canonical,
+    keywords: overrides.keywords ?? base.keywords,
+    search_index: overrides.search_index ?? base.search_index,
+  };
+}
+
+async function setupRepository() {
+  const { dbPath, tempDir } = await createTestDbPath("pattern-repo");
+  const repository = await PatternRepository.create({ dbPath });
+  const db: any = (repository as any).db;
+  const adapter = db?.database;
+  if (adapter?.supportsFTSTriggers?.() === false) {
+    (repository as any).ftsManager?.disableTriggers?.("patterns");
+  }
+  return {
+    repository,
+    async cleanup() {
+      try {
+        await repository.shutdown();
+      } catch (error: any) {
+        if (!error || !/not open/i.test(String(error.message))) {
+          throw error;
+        }
+      }
+      await fs.remove(tempDir);
+    },
+  };
+}
 
 describe("PatternRepository Tests", () => {
   describe("Basic CRUD operations", () => {
-    test("should save and retrieve a pattern", async () => {
-      const { dbPath, cleanup } = await initTestDatabase();
+    test("should create and retrieve a pattern", async () => {
+      const { repository, cleanup } = await setupRepository();
 
       try {
-        const db = await PatternDatabase.create(dbPath);
-        const repository = new PatternRepository(db);
+        const pattern = buildPattern("TEST:CRUD:001", {
+          tags: ["crud", "repository"],
+        });
 
-        const pattern = {
-          id: "TEST:CRUD:001",
-          type: "test",
-          title: "Test Pattern",
-          summary: "A test pattern for CRUD operations",
-          content: {
-            description: "This is a test pattern",
-            example: "Example code here",
-            references: ["ref1", "ref2"]
-          },
-          category: "test",
-          subcategory: "crud",
-          metadata: {
-            author: "test-suite",
-            confidence: 0.9,
-            timestamp: new Date().toISOString()
-          }
-        };
+        await repository.create(pattern);
 
-        // Save the pattern
-        await repository.save(pattern);
+        const retrieved = await repository.get(pattern.id);
 
-        // Retrieve the pattern
-        const retrieved = await repository.findById("TEST:CRUD:001");
-
-        expect(retrieved).toBeDefined();
-        expect(retrieved.id).toBe(pattern.id);
-        expect(retrieved.title).toBe(pattern.title);
-        expect(retrieved.summary).toBe(pattern.summary);
-        expect(retrieved.content).toEqual(pattern.content);
-
-        await db.close();
+        expect(retrieved).not.toBeNull();
+        expect(retrieved?.id).toBe(pattern.id);
+        expect(retrieved?.title).toBe(pattern.title);
+        expect(retrieved?.tags).toEqual(pattern.tags);
       } finally {
         await cleanup();
       }
     });
 
     test("should update an existing pattern", async () => {
-      const { dbPath, cleanup } = await initTestDatabase();
+      const { repository, cleanup } = await setupRepository();
 
       try {
-        const db = await PatternDatabase.create(dbPath);
-        const repository = new PatternRepository(db);
-
-        // Create initial pattern
-        const pattern = {
-          id: "TEST:UPDATE:001",
-          type: "test",
-          title: "Original Title",
+        const pattern = buildPattern("TEST:UPDATE:001", {
           summary: "Original summary",
-          content: { test: true },
-          category: "test",
-          subcategory: "update",
-          metadata: { timestamp: new Date().toISOString() }
-        };
+        });
 
-        await repository.save(pattern);
+        await repository.create(pattern);
 
-        // Update the pattern
-        const updated = {
-          ...pattern,
+        await repository.update(pattern.id, {
           title: "Updated Title",
           summary: "Updated summary",
-          content: { test: false, updated: true }
-        };
+          search_index: "Updated summary",
+        });
 
-        await repository.save(updated);
+        const retrieved = await repository.get(pattern.id);
 
-        // Verify the update
-        const retrieved = await repository.findById("TEST:UPDATE:001");
-
-        expect(retrieved.title).toBe("Updated Title");
-        expect(retrieved.summary).toBe("Updated summary");
-        expect(retrieved.content).toEqual({ test: false, updated: true });
-
-        await db.close();
+        expect(retrieved?.title).toBe("Updated Title");
+        expect(retrieved?.summary).toBe("Updated summary");
       } finally {
         await cleanup();
       }
     });
 
     test("should delete a pattern", async () => {
-      const { dbPath, cleanup } = await initTestDatabase();
+      const { repository, cleanup } = await setupRepository();
 
       try {
-        const db = await PatternDatabase.create(dbPath);
-        const repository = new PatternRepository(db);
+        const pattern = buildPattern("TEST:DELETE:001");
 
-        // Create a pattern
-        const pattern = {
-          id: "TEST:DELETE:001",
-          type: "test",
-          title: "Pattern to Delete",
-          summary: "This pattern will be deleted",
-          content: { temporary: true },
-          category: "test",
-          subcategory: "delete",
-          metadata: { timestamp: new Date().toISOString() }
-        };
+        await repository.create(pattern);
 
-        await repository.save(pattern);
+        const exists = await repository.get(pattern.id);
+        expect(exists).not.toBeNull();
 
-        // Verify it exists
-        const exists = await repository.findById("TEST:DELETE:001");
-        expect(exists).toBeDefined();
+        await repository.delete(pattern.id);
 
-        // Delete the pattern
-        await repository.delete("TEST:DELETE:001");
-
-        // Verify it's gone
-        const deleted = await repository.findById("TEST:DELETE:001");
-        expect(deleted).toBeUndefined();
-
-        await db.close();
+        const deleted = await repository.get(pattern.id);
+        expect(deleted).toBeNull();
       } finally {
         await cleanup();
       }
@@ -135,124 +143,94 @@ describe("PatternRepository Tests", () => {
 
   describe("Search functionality", () => {
     test("should search patterns by text", async () => {
-      const { dbPath, cleanup } = await initTestDatabase();
+      const { repository, cleanup } = await setupRepository();
 
       try {
-        const db = await PatternDatabase.create(dbPath);
-        const repository = new PatternRepository(db);
-
-        // Insert test patterns
         const patterns = [
-          {
-            id: "TEST:SEARCH:001",
-            type: "test",
+          buildPattern("TEST:SEARCH:001", {
             title: "Authentication Pattern",
             summary: "Handles user authentication",
-            content: { type: "auth" },
-            category: "security",
-            subcategory: "auth",
-            metadata: { timestamp: new Date().toISOString() }
-          },
-          {
-            id: "TEST:SEARCH:002",
-            type: "test",
+            tags: ["security", "auth"],
+          }),
+          buildPattern("TEST:SEARCH:002", {
             title: "Database Pattern",
             summary: "Handles database connections",
-            content: { type: "db" },
-            category: "database",
-            subcategory: "connection",
-            metadata: { timestamp: new Date().toISOString() }
-          },
-          {
-            id: "TEST:SEARCH:003",
-            type: "test",
+            tags: ["database"],
+          }),
+          buildPattern("TEST:SEARCH:003", {
             title: "Authentication Database",
             summary: "Combines auth and database",
-            content: { type: "hybrid" },
-            category: "security",
-            subcategory: "database",
-            metadata: { timestamp: new Date().toISOString() }
-          }
+            tags: ["security", "database"],
+          }),
         ];
 
         for (const pattern of patterns) {
-          await repository.save(pattern);
+          await repository.create(pattern);
         }
 
-        // Search for "authentication"
-        const authResults = await repository.search("authentication");
-        expect(authResults.length).toBe(2);
-        expect(authResults.map(r => r.id)).toContain("TEST:SEARCH:001");
-        expect(authResults.map(r => r.id)).toContain("TEST:SEARCH:003");
+        const authResults = await repository.search({ task: "authentication" });
+        expect(authResults.patterns.length).toBe(2);
+        expect(authResults.patterns.map((p) => p.id)).toContain(
+          "TEST:SEARCH:001",
+        );
+        expect(authResults.patterns.map((p) => p.id)).toContain(
+          "TEST:SEARCH:003",
+        );
 
-        // Search for "database"
-        const dbResults = await repository.search("database");
-        expect(dbResults.length).toBe(2);
-        expect(dbResults.map(r => r.id)).toContain("TEST:SEARCH:002");
-        expect(dbResults.map(r => r.id)).toContain("TEST:SEARCH:003");
-
-        await db.close();
+        const dbResults = await repository.search({ task: "database" });
+        expect(dbResults.patterns.length).toBe(2);
+        expect(dbResults.patterns.map((p) => p.id)).toContain(
+          "TEST:SEARCH:002",
+        );
+        expect(dbResults.patterns.map((p) => p.id)).toContain(
+          "TEST:SEARCH:003",
+        );
       } finally {
         await cleanup();
       }
     });
 
-    test("should filter patterns by category", async () => {
-      const { dbPath, cleanup } = await initTestDatabase();
+    test("should filter patterns by tags", async () => {
+      const { repository, cleanup } = await setupRepository();
 
       try {
-        const db = await PatternDatabase.create(dbPath);
-        const repository = new PatternRepository(db);
-
-        // Insert patterns with different categories
         const patterns = [
-          {
-            id: "TEST:FILTER:001",
-            type: "test",
+          buildPattern("TEST:FILTER:001", {
             title: "Security Pattern 1",
-            summary: "First security pattern",
-            content: {},
-            category: "security",
-            subcategory: "auth",
-            metadata: { timestamp: new Date().toISOString() }
-          },
-          {
-            id: "TEST:FILTER:002",
-            type: "test",
+            tags: ["security", "auth"],
+          }),
+          buildPattern("TEST:FILTER:002", {
             title: "Security Pattern 2",
-            summary: "Second security pattern",
-            content: {},
-            category: "security",
-            subcategory: "encryption",
-            metadata: { timestamp: new Date().toISOString() }
-          },
-          {
-            id: "TEST:FILTER:003",
-            type: "test",
+            tags: ["security", "encryption"],
+          }),
+          buildPattern("TEST:FILTER:003", {
             title: "Database Pattern",
-            summary: "Database pattern",
-            content: {},
-            category: "database",
-            subcategory: "query",
-            metadata: { timestamp: new Date().toISOString() }
-          }
+            tags: ["database"],
+          }),
         ];
 
         for (const pattern of patterns) {
-          await repository.save(pattern);
+          await repository.create(pattern);
         }
 
-        // Filter by category
-        const securityPatterns = await repository.findByCategory("security");
+        const securityPatterns = await repository.list({
+          limit: 10,
+          filter: { tags: ["security"] },
+        });
         expect(securityPatterns.length).toBe(2);
-        expect(securityPatterns.map(p => p.id)).toContain("TEST:FILTER:001");
-        expect(securityPatterns.map(p => p.id)).toContain("TEST:FILTER:002");
+        expect(securityPatterns.map((p) => p.id)).toContain(
+          "TEST:FILTER:001",
+        );
+        expect(securityPatterns.map((p) => p.id)).toContain(
+          "TEST:FILTER:002",
+        );
 
-        const databasePatterns = await repository.findByCategory("database");
+        const databasePatterns = await repository.list({
+          limit: 10,
+          filter: { tags: ["database"] },
+        });
         expect(databasePatterns.length).toBe(1);
         expect(databasePatterns[0].id).toBe("TEST:FILTER:003");
-
-        await db.close();
       } finally {
         await cleanup();
       }
@@ -261,92 +239,68 @@ describe("PatternRepository Tests", () => {
 
   describe("Batch operations", () => {
     test("should handle batch inserts", async () => {
-      const { dbPath, cleanup } = await initTestDatabase();
+      const { repository, cleanup } = await setupRepository();
 
       try {
-        const db = await PatternDatabase.create(dbPath);
-        const repository = new PatternRepository(db);
-
-        // Create batch of patterns
         const patterns = [];
         for (let i = 0; i < 100; i++) {
-          patterns.push({
-            id: `TEST:BATCH:${i.toString().padStart(3, "0")}`,
-            type: "test",
-            title: `Batch Pattern ${i}`,
-            summary: `Batch test pattern number ${i}`,
-            content: { index: i },
-            category: "batch",
-            subcategory: "test",
-            metadata: { timestamp: new Date().toISOString() }
-          });
+          patterns.push(
+            buildPattern(`TEST:BATCH:${i.toString().padStart(3, "0")}`, {
+              title: `Batch Pattern ${i}`,
+              summary: `Batch test pattern number ${i}`,
+              tags: ["batch", "test"],
+            }),
+          );
         }
 
-        // Save all patterns
         for (const pattern of patterns) {
-          await repository.save(pattern);
+          await repository.create(pattern);
         }
 
-        // Verify count
-        const count = await repository.count();
-        expect(count).toBeGreaterThanOrEqual(100);
+        const allPatterns = await repository.list({ limit: 150 });
+        expect(allPatterns.length).toBeGreaterThanOrEqual(100);
 
-        // Verify specific patterns
-        const first = await repository.findById("TEST:BATCH:000");
-        expect(first).toBeDefined();
-        expect(first.title).toBe("Batch Pattern 0");
+        const first = await repository.get("TEST:BATCH:000");
+        expect(first).not.toBeNull();
+        expect(first?.title).toBe("Batch Pattern 0");
 
-        const last = await repository.findById("TEST:BATCH:099");
-        expect(last).toBeDefined();
-        expect(last.title).toBe("Batch Pattern 99");
-
-        await db.close();
+        const last = await repository.get("TEST:BATCH:099");
+        expect(last).not.toBeNull();
+        expect(last?.title).toBe("Batch Pattern 99");
       } finally {
         await cleanup();
       }
     });
 
     test("should handle batch deletes", async () => {
-      const { dbPath, cleanup } = await initTestDatabase();
+      const { repository, cleanup } = await setupRepository();
 
       try {
-        const db = await PatternDatabase.create(dbPath);
-        const repository = new PatternRepository(db);
-
-        // Insert patterns
-        const ids = [];
+        const ids: string[] = [];
         for (let i = 0; i < 10; i++) {
           const id = `TEST:BATCH_DELETE:${i}`;
           ids.push(id);
-          await repository.save({
-            id,
-            type: "test",
-            title: `Delete Pattern ${i}`,
-            summary: `Pattern to be deleted ${i}`,
-            content: {},
-            category: "delete",
-            subcategory: "batch",
-            metadata: { timestamp: new Date().toISOString() }
-          });
+          await repository.create(
+            buildPattern(id, {
+              title: `Delete Pattern ${i}`,
+              tags: ["delete", "batch"],
+            }),
+          );
         }
 
-        // Verify they exist
-        const beforeCount = await repository.count();
-        expect(beforeCount).toBeGreaterThanOrEqual(10);
+        const before = await repository.list({ limit: 50 });
+        expect(before.length).toBeGreaterThanOrEqual(10);
 
-        // Delete them all
         for (const id of ids) {
           await repository.delete(id);
         }
 
-        // Verify they're gone
         for (const id of ids) {
-          const pattern = await repository.findById(id);
-          expect(pattern).toBeUndefined();
+          const pattern = await repository.get(id);
+          expect(pattern).toBeNull();
         }
-
-        await db.close();
       } finally {
+        await repository.shutdown();
         await cleanup();
       }
     });

@@ -7,6 +7,7 @@
 import { fileURLToPath } from "url";
 import path from "path";
 import Database from "better-sqlite3";
+import { vi } from "vitest";
 import { MigrationRunner } from "../../src/migrations/MigrationRunner.js";
 import { MigrationLoader } from "../../src/migrations/MigrationLoader.js";
 
@@ -69,18 +70,20 @@ export function createTestDatabase(): Database.Database {
  * Usage:
  * ```typescript
  * // At the top of test file, BEFORE imports:
- * const mockSetup = createMockSetup(jest);
+ * const mockSetup = createMockSetup();
  * mockSetup.mockModule("../../src/storage/database.js", () => ({
- *   PatternDatabase: jest.fn().mockImplementation(() => mockSetup.getSingleton("database"))
+ *   PatternDatabase: vi.fn().mockImplementation(() => mockSetup.getSingleton("database"))
  * }));
  * ```
  */
-export function createMockSetup(jest: any) {
+type MockApi = Pick<typeof vi, "unstable_mockModule" | "clearAllMocks" | "resetAllMocks">;
+
+export function createMockSetup(mockApi: MockApi = vi) {
   const singletons: Map<string, any> = new Map();
   
   return {
-    mockModule(path: string, factory: () => any) {
-      jest.unstable_mockModule(path, factory);
+    async mockModule(path: string, factory: () => any) {
+      await mockApi.unstable_mockModule(path, factory);
     },
     
     getSingleton(key: string, factory?: () => any): any {
@@ -92,13 +95,13 @@ export function createMockSetup(jest: any) {
     
     clearMocks() {
       // Clear mock calls but DON'T reset singletons
-      jest.clearAllMocks();
+      mockApi.clearAllMocks();
     },
     
     resetAll() {
       // Use sparingly - only when you need fresh instances
       singletons.clear();
-      jest.resetAllMocks();
+      mockApi.resetAllMocks();
     }
   };
 }

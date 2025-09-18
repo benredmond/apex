@@ -169,7 +169,7 @@ describe("Database Compatibility", () => {
   describe("Schema Validation", () => {
     it("should verify all migrations are reversible", async () => {
       const db = new Database(":memory:");
-      const migrator = new AutoMigrator(":memory:");
+      const migrator = new AutoMigrator(db);
       
       // Run all migrations forward
       await migrator.autoMigrate();

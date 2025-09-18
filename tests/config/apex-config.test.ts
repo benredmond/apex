@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { SpyInstance } from "vitest";
 import fs from "fs-extra";
 import path from "path";
 import os from "os";
@@ -18,18 +19,15 @@ vi.unstable_mockModule("../../src/utils/repo-identifier.js", () => ({
 
 describe("ApexConfig Database Path Resolution", () => {
   let tempDir: string;
-  let originalCwd: string;
+  let cwdSpy: SpyInstance<[], string> | undefined;
   
   beforeEach(async () => {
     // Clear all mocks
     vi.clearAllMocks();
-    
-    // Save original cwd
-    originalCwd = process.cwd();
-    
+
     // Create temp directory
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "apex-config-test-"));
-    process.chdir(tempDir);
+    cwdSpy = vi.spyOn(process, "cwd").mockImplementation(() => tempDir);
     
     // Configure default mock behaviors to use temp directory for isolation
     mockGetDatabasePaths.mockResolvedValue({
@@ -40,16 +38,19 @@ describe("ApexConfig Database Path Resolution", () => {
     
     // Clear environment variables
     delete process.env.APEX_PATTERNS_DB;
+    process.env.APEX_HOME = tempDir;
   });
   
   afterEach(async () => {
-    // Restore original cwd
-    process.chdir(originalCwd);
-    
+    // Restore mocked cwd
+    cwdSpy?.mockRestore();
+    cwdSpy = undefined;
+
     // Clean up
     if (tempDir && await fs.pathExists(tempDir)) {
       await fs.remove(tempDir);
     }
+    delete process.env.APEX_HOME;
   });
 
   describe("getProjectDbPath", () => {

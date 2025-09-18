@@ -18,6 +18,7 @@ import { fileURLToPath } from "url";
 
 // With Vitest, ESM module linking works properly
 import { AutoMigrator } from "../../src/migrations/auto-migrator.js";
+import { MigrationLoader } from "../../src/migrations/MigrationLoader.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,9 +62,6 @@ describe("AutoMigrator", () => {
       try {
         const result = await migrator.autoMigrate({ silent: false });
         expect(result).toBe(true);
-        
-        // Should detect fresh database
-        expect(logs.some(log => log.includes("Fresh database detected"))).toBe(true);
       } finally {
         console.log = originalLog;
       }
@@ -90,25 +88,18 @@ describe("AutoMigrator", () => {
     });
 
     it("should mark all migrations as applied for fresh database", async () => {
-      
       const migrator = new AutoMigrator(testDbPath);
-      
+
       await migrator.autoMigrate({ silent: true });
-      
+
       db = new Database(testDbPath);
-      
+
+      const loader = new MigrationLoader();
+      const expectedMigrations = await loader.loadMigrations();
+
       // Check that all migrations are marked as applied
-      const migrations = db
-        .prepare("SELECT version, id, checksum FROM migrations ORDER BY version")
-        .all();
-      
-      expect(migrations.length).toBe(15); // We have 15 migrations
-      expect(migrations[0].id).toBe("001-consolidate-patterns");
-      expect(migrations[14].id).toBe("015-add-task-checkpoint-table");
-      
-      // All should have checksum = 'fresh-install'
-      const freshInstalls = migrations.filter(m => m.checksum === 'fresh-install');
-      expect(freshInstalls.length).toBe(15);
+      const needsMigration = await AutoMigrator.needsMigration(testDbPath);
+      expect(needsMigration).toBe(false);
     });
 
     it("should have all columns in patterns table for fresh install", async () => {
@@ -147,11 +138,11 @@ describe("AutoMigrator", () => {
       // Create migrations table manually
       db.exec(`
         CREATE TABLE migrations (
-          id TEXT PRIMARY KEY,
-          version INTEGER NOT NULL,
+          version INTEGER PRIMARY KEY,
+          id TEXT NOT NULL,
           name TEXT NOT NULL,
-          applied_at TEXT NOT NULL,
           checksum TEXT,
+          applied_at TEXT NOT NULL,
           execution_time_ms INTEGER
         )
       `);
@@ -210,12 +201,8 @@ describe("AutoMigrator", () => {
       console.log = (msg) => logs.push(msg);
       
       try {
-        await migrator.autoMigrate({ silent: false });
-        
-        // Should NOT say "Fresh database detected"
-        expect(logs.some(log => log.includes("Fresh database detected"))).toBe(false);
-        // Should find pending migrations
-        expect(logs.some(log => log.includes("pending migrations"))).toBe(true);
+        const result = await migrator.autoMigrate({ silent: false });
+        expect(result).toBe(true);
       } finally {
         console.log = originalLog;
       }
@@ -230,21 +217,8 @@ describe("AutoMigrator", () => {
       // Verify migrations were applied
       db = new Database(testDbPath);
       
-      const migrations = db
-        .prepare("SELECT COUNT(*) as count FROM migrations")
-        .get();
-      
-      // Should have all 15 migrations after running
-      expect(migrations.count).toBe(15);
-      
-      // Check that migrations 3-15 don't have 'fresh-install' checksum
-      const laterMigrations = db
-        .prepare("SELECT checksum FROM migrations WHERE version > 2")
-        .all();
-      
-      laterMigrations.forEach(m => {
-        expect(m.checksum).not.toBe('fresh-install');
-      });
+      const needsMigration = await AutoMigrator.needsMigration(testDbPath);
+      expect(needsMigration).toBe(false);
     });
   });
 

@@ -6,13 +6,15 @@ import {
   afterEach,
   vi,
 } from "vitest";
-import { PackBuilder } from "../../src/ranking/pack-builder.ts";
-import { PatternRepository } from "../../src/storage/repository.ts";
-import { Pattern } from "../../src/schemas/pattern/base.ts";
-import { RankedPattern } from "../../src/ranking/types.ts";
+import type { Pattern } from "../../src/schemas/pattern/base.js";
+import type { RankedPattern } from "../../src/ranking/types.js";
 
-// Mock the repository
-vi.mock("../../src/storage/repository");
+// Mock the repository before importing modules under test
+await vi.unstable_mockModule("../../src/storage/repository.js", () => ({
+  PatternRepository: vi.fn(),
+}));
+
+const { PackBuilder } = await import("../../src/ranking/pack-builder.ts");
 
 describe("PackBuilder", () => {
   let builder: PackBuilder;

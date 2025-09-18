@@ -13,8 +13,8 @@ import chalk from "chalk";
 let mockDatabase;
 let repo;
 
-vi.unstable_mockModule("../../../dist/storage/database.js", () => ({
-  PatternDatabase: vi.fn().mockImplementation(() => {
+vi.unstable_mockModule("../../../dist/storage/database.js", () => {
+  const PatternDatabaseMock = vi.fn().mockImplementation(() => {
     if (!mockDatabase) {
       mockDatabase = {
         database: {
@@ -30,30 +30,16 @@ vi.unstable_mockModule("../../../dist/storage/database.js", () => ({
       };
     }
     return mockDatabase;
-  }),
-}));
+  });
 
-vi.unstable_mockModule("../../../dist/storage/repositories/task-repository.js", () => ({
-  TaskRepository: vi.fn().mockImplementation(() => {
-    if (!repo) {
-      repo = {
-        findActive: vi.fn().mockReturnValue([]),
-        findByStatus: vi.fn().mockReturnValue([]),
-        findRecent: vi.fn().mockReturnValue([]),
-        findById: vi.fn(),
-        getStatistics: vi.fn().mockReturnValue({
-          total: 0,
-          byPhase: {},
-          byStatus: {},
-          successRate: 0,
-        }),
-      };
-    }
-    return repo;
-  }),
-}));
+  PatternDatabaseMock.create = vi.fn(async () => PatternDatabaseMock());
 
-vi.unstable_mockModule("../../../dist/cli/commands/shared/progress.js", () => ({
+  return {
+    PatternDatabase: PatternDatabaseMock,
+  };
+});
+
+vi.mock("../../../dist/cli/commands/shared/progress.js", () => ({
   PerformanceTimer: vi.fn().mockImplementation(() => ({
     elapsed: vi.fn().mockReturnValue(50),
     meetsRequirement: vi.fn().mockReturnValue(true),
@@ -82,9 +68,12 @@ vi.unstable_mockModule("../../../dist/cli/commands/shared/validators.js", () => 
 }));
 
 // Now import after mocks are set up
-const { createTaskCommand } = await import("../../../src/cli/commands/task.js");
+const {
+  createTaskCommand,
+  __setTaskRepositoryFactoryForTest,
+  __resetTaskRepositoryFactory,
+} = await import("../../../src/cli/commands/task.js");
 const { PatternDatabase } = await import("../../../dist/storage/database.js");
-const { TaskRepository } = await import("../../../dist/storage/repositories/task-repository.js");
 const { PerformanceTimer } = await import("../../../dist/cli/commands/shared/progress.js");
 
 describe("Task Command", () => {
@@ -93,19 +82,26 @@ describe("Task Command", () => {
   let consoleWarnSpy;
   let processExitSpy;
   
-  // Initialize singletons once for the test suite
-  let db;
+  // Repository mock instance (populated by TaskRepository stub)
   let repo;
 
-  beforeAll(() => {
-    // Create singletons once
-    db = new PatternDatabase();
-    repo = new TaskRepository(db.database);
-  });
-
   beforeEach(() => {
-    // Reset mocks
-    vi.clearAllMocks();
+    // Reset module-level mocks between test runs without losing implementations
+    mockDatabase = undefined;
+    PatternDatabase.create?.mockClear?.();
+    repo = {
+      findActive: vi.fn().mockResolvedValue([]),
+      findByStatus: vi.fn().mockResolvedValue([]),
+      findRecent: vi.fn().mockResolvedValue([]),
+      findById: vi.fn(),
+      getStatistics: vi.fn().mockResolvedValue({
+        total: 0,
+        byPhase: {},
+        byStatus: {},
+        successRate: 0,
+      }),
+    };
+    __setTaskRepositoryFactoryForTest(() => repo);
 
     // Spy on console methods
     consoleLogSpy = vi.spyOn(console, "log").mockImplementation();
@@ -121,7 +117,11 @@ describe("Task Command", () => {
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    __resetTaskRepositoryFactory();
+    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
+    processExitSpy.mockRestore();
   });
 
   describe("list command", () => {

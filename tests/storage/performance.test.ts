@@ -1,164 +1,172 @@
 // Performance tests for storage operations
+import fs from "fs-extra";
 import { describe, test, expect } from "vitest";
-import { initTestDatabase } from "../helpers/vitest-db.js";
+import { createTestDbPath } from "../helpers/vitest-db.js";
 import { PatternRepository } from "../../dist/storage/repository.js";
-import { PatternDatabase } from "../../dist/storage/database.js";
+
+function buildPattern(
+  id: string,
+  overrides: Partial<Record<string, any>> = {},
+) {
+  const timestamp = new Date().toISOString();
+  const title = overrides.title ?? `Pattern ${id}`;
+  const summary = overrides.summary ?? `Summary for ${id}`;
+  const base = {
+    id,
+    schema_version: "1.0.0",
+    pattern_version: "1.0.0",
+    type: overrides.type ?? "TEST",
+    category: overrides.category,
+    subcategory: overrides.subcategory,
+    title,
+    summary,
+    trust_score: overrides.trust_score ?? 0.6,
+    alpha: 1,
+    beta: 1,
+    created_at: timestamp,
+    updated_at: timestamp,
+    pattern_digest: overrides.pattern_digest ?? `digest-${id}`,
+    json_canonical: JSON.stringify({ id, title, summary }),
+    tags: Array.isArray(overrides.tags) ? overrides.tags : [],
+    keywords: Array.isArray(overrides.tags)
+      ? overrides.tags.join(",")
+      : `${title}`,
+    search_index: `${title} ${summary}`,
+    usage_count: 0,
+    success_count: 0,
+  };
+
+  return {
+    ...base,
+    ...overrides,
+    tags: Array.isArray(overrides.tags) ? overrides.tags : base.tags,
+    created_at: overrides.created_at ?? base.created_at,
+    updated_at:
+      overrides.updated_at ?? overrides.created_at ?? base.updated_at,
+    json_canonical: overrides.json_canonical ?? base.json_canonical,
+    keywords: overrides.keywords ?? base.keywords,
+    search_index: overrides.search_index ?? base.search_index,
+  };
+}
+
+async function setupRepository() {
+  const { dbPath, tempDir } = await createTestDbPath("pattern-perf");
+  const repository = await PatternRepository.create({ dbPath });
+  const db: any = (repository as any).db;
+  const adapter = db?.database;
+  if (adapter?.supportsFTSTriggers?.() === false) {
+    (repository as any).ftsManager?.disableTriggers?.("patterns");
+  }
+  return {
+    repository,
+    async cleanup() {
+      try {
+        await repository.shutdown();
+      } catch (error: any) {
+        if (!error || !/not open/i.test(String(error.message))) {
+          throw error;
+        }
+      }
+      await fs.remove(tempDir);
+    },
+  };
+}
 
 describe("Storage Performance Tests", () => {
   test("should handle 1000 bulk inserts efficiently", async () => {
-    const { dbPath, cleanup } = await initTestDatabase();
+    const { repository, cleanup } = await setupRepository();
 
     try {
-      const db = await PatternDatabase.create(dbPath);
-      const repository = new PatternRepository(db);
-
-      // Generate test patterns
       const patterns = [];
       for (let i = 0; i < 1000; i++) {
-        patterns.push({
-          id: `PERF:TEST:${i.toString().padStart(4, "0")}`,
-          type: "performance",
-          title: `Test Pattern ${i}`,
-          summary: `Performance test pattern number ${i}`,
-          content: {
-            description: `This is test pattern ${i} for performance testing`,
-            solution: `Solution for pattern ${i}`,
-            references: []
-          },
-          category: "test",
-          subcategory: "performance",
-          metadata: {
-            confidence: 0.8,
-            author: "test",
-            timestamp: new Date().toISOString()
-          }
-        });
+        patterns.push(
+          buildPattern(`PERF:TEST:${i.toString().padStart(4, "0")}`, {
+            title: `Test Pattern ${i}`,
+            summary: `Performance test pattern number ${i}`,
+            tags: ["performance", "bulk"],
+          }),
+        );
       }
 
-      // Measure bulk insert time
       const startTime = Date.now();
-
       for (const pattern of patterns) {
-        await repository.save(pattern);
+        await repository.create(pattern);
       }
+      const duration = Date.now() - startTime;
 
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-
-      // Should complete within 5 seconds
       expect(duration).toBeLessThan(5000);
 
-      // Verify all patterns were inserted
-      const count = await repository.count();
-      expect(count).toBeGreaterThanOrEqual(1000);
-
-      await db.close();
+      const inserted = await repository.list({ limit: 1200 });
+      expect(inserted.length).toBeGreaterThanOrEqual(1000);
     } finally {
       await cleanup();
     }
   });
 
   test("should search 1000 patterns efficiently", async () => {
-    const { dbPath, cleanup } = await initTestDatabase();
+    const { repository, cleanup } = await setupRepository();
 
     try {
-      const db = await PatternDatabase.create(dbPath);
-      const repository = new PatternRepository(db);
-
-      // Insert test patterns first
-      const patterns = [];
       for (let i = 0; i < 1000; i++) {
-        const pattern = {
-          id: `SEARCH:TEST:${i.toString().padStart(4, "0")}`,
-          type: "search",
-          title: `Searchable Pattern ${i}`,
-          summary: i % 2 === 0 ? `Contains keyword alpha ${i}` : `Contains keyword beta ${i}`,
-          content: {
-            description: `Description for pattern ${i}`,
-            keywords: i % 2 === 0 ? ["alpha", "test"] : ["beta", "test"]
-          },
-          category: "search",
-          subcategory: "test",
-          metadata: {
-            confidence: Math.random(),
-            timestamp: new Date().toISOString()
-          }
-        };
-        patterns.push(pattern);
-        await repository.save(pattern);
+        await repository.create(
+          buildPattern(`SEARCH:TEST:${i.toString().padStart(4, "0")}`, {
+            type: "TEST",
+            title: `Searchable Pattern ${i}`,
+            summary:
+              i % 2 === 0
+                ? `Contains keyword alpha ${i}`
+                : `Contains keyword beta ${i}`,
+            tags: i % 2 === 0 ? ["alpha", "test"] : ["beta", "test"],
+          }),
+        );
       }
 
-      // Measure search performance
       const searchStartTime = Date.now();
+      const alphaResult = await repository.search({ task: "alpha", k: 1000 });
+      const searchDuration = Date.now() - searchStartTime;
 
-      // Search for patterns containing "alpha"
-      const results = await repository.search("alpha");
-
-      const searchEndTime = Date.now();
-      const searchDuration = searchEndTime - searchStartTime;
-
-      // Should complete within 500ms
       expect(searchDuration).toBeLessThan(500);
 
-      // Should find roughly half the patterns (those with "alpha")
-      expect(results.length).toBeGreaterThan(400);
-      expect(results.length).toBeLessThan(600);
-
-      await db.close();
+      expect(alphaResult.patterns.length).toBeGreaterThan(400);
+      expect(alphaResult.patterns.length).toBeLessThan(600);
     } finally {
       await cleanup();
     }
   });
 
   test("should handle concurrent operations efficiently", async () => {
-    const { dbPath, cleanup } = await initTestDatabase();
+    const { repository, cleanup } = await setupRepository();
 
     try {
-      const db = await PatternDatabase.create(dbPath);
-      const repository = new PatternRepository(db);
+      const operations: Promise<unknown>[] = [];
 
-      // Create test patterns for concurrent operations
-      const operations = [];
-
-      // Mix of inserts, updates, and searches
       for (let i = 0; i < 100; i++) {
         if (i % 3 === 0) {
-          // Insert operation
-          operations.push(repository.save({
-            id: `CONCURRENT:INSERT:${i}`,
-            type: "concurrent",
-            title: `Concurrent Insert ${i}`,
-            summary: `Testing concurrent insert ${i}`,
-            content: { test: true },
-            category: "concurrent",
-            subcategory: "insert",
-            metadata: { timestamp: new Date().toISOString() }
-          }));
+          operations.push(
+            repository.create(
+              buildPattern(`CONCURRENT:INSERT:${i}`, {
+                type: "TEST",
+                title: `Concurrent Insert ${i}`,
+                summary: `Testing concurrent insert ${i}`,
+                tags: ["concurrency", "insert"],
+              }),
+            ),
+          );
         } else if (i % 3 === 1) {
-          // Search operation
-          operations.push(repository.search(`test`));
+          operations.push(repository.search({ task: "test", k: 10 }));
         } else {
-          // Count operation
-          operations.push(repository.count());
+          operations.push(repository.list({ limit: 10 }));
         }
       }
 
       const startTime = Date.now();
-
-      // Execute all operations concurrently
       await Promise.all(operations);
+      const duration = Date.now() - startTime;
 
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-
-      // Should complete within 2 seconds
       expect(duration).toBeLessThan(2000);
 
-      // Verify inserts succeeded
-      const finalCount = await repository.count();
-      expect(finalCount).toBeGreaterThanOrEqual(33); // At least 33 inserts
-
-      await db.close();
+      const finalPatterns = await repository.list({ limit: 200 });
+      expect(finalPatterns.length).toBeGreaterThanOrEqual(33);
     } finally {
       await cleanup();
     }

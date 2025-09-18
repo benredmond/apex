@@ -34,8 +34,11 @@ describe("EvidenceValidator - Simple Tests", () => {
 
   describe("validateRequest", () => {
     it("should detect missing patterns", async () => {
-      mockRepository.get.mockResolvedValueOnce(null);
-      mockRepository.getByIdOrAlias.mockResolvedValueOnce(null); // [FIX:TEST:ES_MODULE_MOCK_ORDER] ★★★☆☆
+      mockRepository.get.mockResolvedValue(null);
+      mockRepository.getByIdOrAlias.mockResolvedValue(null); // [FIX:TEST:ES_MODULE_MOCK_ORDER] ★★★☆☆
+
+      const originalMode = process.env.APEX_REFLECTION_MODE;
+      process.env.APEX_REFLECTION_MODE = "strict";
 
       const request = {
         task: { id: "TASK-123", title: "Test task" },
@@ -53,6 +56,8 @@ describe("EvidenceValidator - Simple Tests", () => {
       };
 
       const result = await validator.validateRequest(request);
+
+      process.env.APEX_REFLECTION_MODE = originalMode;
 
       expect(result.valid).toBe(false);
       expect(result.errors).toHaveLength(1);

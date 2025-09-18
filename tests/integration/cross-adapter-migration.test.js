@@ -125,7 +125,7 @@ describe("Cross-Adapter Migration Compatibility", () => {
     await migrator1.migrate();
     
     // Check migrations recorded
-    const migrations1 = adapter1.prepare("SELECT * FROM migrations").all();
+    const migrations1 = getMigrationRows(adapter1);
     expect(migrations1.length).toBeGreaterThan(0);
     
     adapter1.close();
@@ -135,7 +135,7 @@ describe("Cross-Adapter Migration Compatibility", () => {
     const adapter2 = await DatabaseAdapterFactory.create(dbPath);
     
     // Should be able to read migrations
-    const migrations2 = adapter2.prepare("SELECT * FROM migrations").all();
+    const migrations2 = getMigrationRows(adapter2);
     
     // Should have same migrations
     expect(migrations2.length).toBe(migrations1.length);
@@ -462,7 +462,7 @@ describe("DatabaseAdapter Interface Compliance", () => {
         } else if (adapterType === "node-sqlite") {
           expect(typeof instance.exec).toBe("function");
         } else if (adapterType === "wasm") {
-          expect(instance.constructor.name).toContain("Database");
+          expect(typeof instance.exec).toBe("function");
         }
         
         // Test close() properly closes database connection
@@ -748,3 +748,13 @@ describe("Adapter-Specific Edge Cases", () => {
     delete process.env.APEX_FORCE_ADAPTER;
   });
 });
+function getMigrationRows(adapter) {
+  const hasVersionsTable = adapter
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='migration_versions'",
+    )
+    .get();
+
+  const tableName = hasVersionsTable ? "migration_versions" : "migrations";
+  return adapter.prepare(`SELECT * FROM ${tableName} ORDER BY version`).all();
+}

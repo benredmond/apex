@@ -316,7 +316,7 @@ describe("Concurrent Database Access", () => {
         const db2 = new Database(testDbPath);
         
         // Both connections trying to do operations
-        pdb.database.pragma("journal_mode = WAL");
+        pdb.getAdapter().pragma("journal_mode = WAL");
         db2.pragma("journal_mode = WAL");
         
         pdb.close();

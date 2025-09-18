@@ -4,7 +4,7 @@
  * Provides reusable mock setups for common modules
  */
 
-import { jest } from "@jest/globals";
+import { vi } from "vitest";
 
 /**
  * Create a mock better-sqlite3 database
@@ -12,28 +12,28 @@ import { jest } from "@jest/globals";
  */
 export function createMockDatabase() {
   return {
-    pragma: jest.fn().mockReturnValue([]),
-    close: jest.fn(),
-    exec: jest.fn(),
-    prepare: jest.fn().mockReturnValue({
-      run: jest.fn().mockReturnValue({ lastInsertRowid: 1, changes: 1 }),
-      get: jest.fn(),
-      all: jest.fn().mockReturnValue([]),
-      pluck: jest.fn().mockReturnThis(),
-      expand: jest.fn().mockReturnThis(),
+    pragma: vi.fn().mockReturnValue([]),
+    close: vi.fn(),
+    exec: vi.fn(),
+    prepare: vi.fn().mockReturnValue({
+      run: vi.fn().mockReturnValue({ lastInsertRowid: 1, changes: 1 }),
+      get: vi.fn(),
+      all: vi.fn().mockReturnValue([]),
+      pluck: vi.fn().mockReturnThis(),
+      expand: vi.fn().mockReturnThis(),
     }),
-    transaction: jest.fn().mockImplementation((fn) => {
+    transaction: vi.fn().mockImplementation((fn) => {
       // [PAT:dA0w9N1I9-4m] ★★★★★ - Synchronous transaction
       return (...args) => fn(...args);
     }),
-    aggregate: jest.fn(),
-    backup: jest.fn(),
-    checkpoint: jest.fn(),
-    function: jest.fn(),
-    loadExtension: jest.fn(),
-    serialize: jest.fn(),
-    table: jest.fn(),
-    unsafeMode: jest.fn(),
+    aggregate: vi.fn(),
+    backup: vi.fn(),
+    checkpoint: vi.fn(),
+    function: vi.fn(),
+    loadExtension: vi.fn(),
+    serialize: vi.fn(),
+    table: vi.fn(),
+    unsafeMode: vi.fn(),
   };
 }
 
@@ -42,8 +42,8 @@ export function createMockDatabase() {
  * Must be called BEFORE any imports that use the database
  */
 export function mockBetterSqlite3() {
-  jest.unstable_mockModule("better-sqlite3", () => ({
-    default: jest.fn().mockImplementation(() => createMockDatabase()),
+  vi.unstable_mockModule("better-sqlite3", () => ({
+    default: vi.fn().mockImplementation(() => createMockDatabase()),
   }));
 }
 
@@ -55,11 +55,11 @@ export function createMockPatternDatabase() {
   return {
     database: mockDb, // Note: This is the getter return value
     // Add other PatternDatabase methods as needed
-    close: jest.fn(),
-    getPattern: jest.fn(),
-    savePattern: jest.fn(),
-    searchPatterns: jest.fn().mockReturnValue([]),
-    getAllPatterns: jest.fn().mockReturnValue([]),
+    close: vi.fn(),
+    getPattern: vi.fn(),
+    savePattern: vi.fn(),
+    searchPatterns: vi.fn().mockReturnValue([]),
+    getAllPatterns: vi.fn().mockReturnValue([]),
   };
 }
 
@@ -67,8 +67,8 @@ export function createMockPatternDatabase() {
  * Setup mock for PatternDatabase
  */
 export function mockPatternDatabase() {
-  jest.unstable_mockModule("../../src/storage/database.js", () => ({
-    PatternDatabase: jest.fn().mockImplementation(() => createMockPatternDatabase()),
+  vi.unstable_mockModule("../../src/storage/database.js", () => ({
+    PatternDatabase: vi.fn().mockImplementation(() => createMockPatternDatabase()),
   }));
 }
 
@@ -77,20 +77,20 @@ export function mockPatternDatabase() {
  */
 export function createMockTaskRepository() {
   return {
-    findActive: jest.fn().mockReturnValue([]),
-    findByStatus: jest.fn().mockReturnValue([]),
-    findRecent: jest.fn().mockReturnValue([]),
-    findById: jest.fn(),
-    getStatistics: jest.fn().mockReturnValue({
+    findActive: vi.fn().mockReturnValue([]),
+    findByStatus: vi.fn().mockReturnValue([]),
+    findRecent: vi.fn().mockReturnValue([]),
+    findById: vi.fn(),
+    getStatistics: vi.fn().mockReturnValue({
       total: 0,
       byPhase: {},
       byStatus: {},
       successRate: 0,
     }),
-    create: jest.fn().mockReturnValue({ id: "test-task-id" }),
-    update: jest.fn(),
-    delete: jest.fn(),
-    search: jest.fn().mockReturnValue([]),
+    create: vi.fn().mockReturnValue({ id: "test-task-id" }),
+    update: vi.fn(),
+    delete: vi.fn(),
+    search: vi.fn().mockReturnValue([]),
   };
 }
 
@@ -98,8 +98,8 @@ export function createMockTaskRepository() {
  * Setup mock for TaskRepository
  */
 export function mockTaskRepository() {
-  jest.unstable_mockModule("../../src/storage/task-repository.js", () => ({
-    TaskRepository: jest.fn().mockImplementation(() => createMockTaskRepository()),
+  vi.unstable_mockModule("../../src/storage/task-repository.js", () => ({
+    TaskRepository: vi.fn().mockImplementation(() => createMockTaskRepository()),
   }));
 }
 
@@ -108,10 +108,10 @@ export function mockTaskRepository() {
  */
 export function createMockPerformanceTimer() {
   return {
-    elapsed: jest.fn().mockReturnValue(50),
-    meetsRequirement: jest.fn().mockReturnValue(true),
-    start: jest.fn(),
-    stop: jest.fn(),
+    elapsed: vi.fn().mockReturnValue(50),
+    meetsRequirement: vi.fn().mockReturnValue(true),
+    start: vi.fn(),
+    stop: vi.fn(),
   };
 }
 
@@ -119,8 +119,8 @@ export function createMockPerformanceTimer() {
  * Setup mock for PerformanceTimer
  */
 export function mockPerformanceTimer() {
-  jest.unstable_mockModule("../../src/utils/performance.js", () => ({
-    PerformanceTimer: jest.fn().mockImplementation(() => createMockPerformanceTimer()),
+  vi.unstable_mockModule("../../src/utils/performance.js", () => ({
+    PerformanceTimer: vi.fn().mockImplementation(() => createMockPerformanceTimer()),
   }));
 }
 
@@ -140,9 +140,9 @@ export function setupCommonMocks() {
  */
 export function createConsoleMocks() {
   return {
-    log: jest.spyOn(console, "log").mockImplementation(),
-    error: jest.spyOn(console, "error").mockImplementation(),
-    warn: jest.spyOn(console, "warn").mockImplementation(),
+    log: vi.spyOn(console, "log").mockImplementation(),
+    error: vi.spyOn(console, "error").mockImplementation(),
+    warn: vi.spyOn(console, "warn").mockImplementation(),
   };
 }
 

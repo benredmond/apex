@@ -21,6 +21,7 @@ const { PatternRepository } = await import("../../src/storage/repository.js");
 const { ReflectRequest, ValidationErrorCode } = await import(
   "../../src/reflection/types.js"
 );
+const { GitResolver } = await import("../../src/reflection/git-resolver.js");
 
 describe("EvidenceValidator", () => {
   let validator: EvidenceValidator;
@@ -29,6 +30,11 @@ describe("EvidenceValidator", () => {
   beforeEach(async () => {
     // Reset mocks
     vi.clearAllMocks();
+
+     // Ensure GitResolver uses the mocked spawn implementation for these tests
+     GitResolver.setSpawnImplementation(
+       child_process.spawn as unknown as typeof import("child_process").spawn,
+     );
 
     // Create mock repository
     mockRepository = {
@@ -49,6 +55,7 @@ describe("EvidenceValidator", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    GitResolver.resetSpawnImplementation();
   });
 
   describe("validateRequest", () => {
@@ -111,8 +118,11 @@ describe("EvidenceValidator", () => {
     });
 
     it("should detect missing patterns", async () => {
-      (mockRepository.get as vi.Mock).mockResolvedValueOnce(null);
-      (mockRepository.getByIdOrAlias as vi.Mock).mockResolvedValueOnce(null); // [FIX:TEST:ES_MODULE_MOCK_ORDER] ★★★☆☆
+      (mockRepository.get as vi.Mock).mockResolvedValue(null);
+      (mockRepository.getByIdOrAlias as vi.Mock).mockResolvedValue(null); // [FIX:TEST:ES_MODULE_MOCK_ORDER] ★★★☆☆
+
+      const originalMode = process.env.APEX_REFLECTION_MODE;
+      process.env.APEX_REFLECTION_MODE = "strict";
 
       const request: ReflectRequest = {
         task: { id: "TASK-123", title: "Test task" },
@@ -130,6 +140,8 @@ describe("EvidenceValidator", () => {
       };
 
       const result = await validator.validateRequest(request);
+
+      process.env.APEX_REFLECTION_MODE = originalMode;
 
       expect(result.valid).toBe(false);
       expect(result.errors).toHaveLength(1);

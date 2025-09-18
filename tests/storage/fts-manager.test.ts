@@ -24,6 +24,7 @@ describe("FTSManager - Unit Tests", () => {
           rowid: 1,
           id: "TEST:FTS:001",
           searchableFields: {
+            id: "TEST:FTS:001",
             title: "Test Pattern",
             summary: "Test summary",
             tags: "test,fts",
@@ -55,19 +56,39 @@ describe("FTSManager - Unit Tests", () => {
 
         const db = await PatternDatabase.create(dbPath);
         const ftsManager = new FTSManager(db);
+        const run = (sql: string, params: any[] = []) =>
+          db.prepare(sql).run(...params);
+        const get = (sql: string, params: any[] = []) =>
+          db.prepare(sql).get(...params);
 
         // First, insert a pattern into the main table
-        await db.database.run(`
+        run(
+          `
           INSERT INTO patterns (id, schema_version, pattern_version, type, title, summary, trust_score, created_at, updated_at, pattern_digest, json_canonical, tags, keywords, search_index)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          "TEST:FTS:002", "0.3", "1.0.0", "TEST", "Test Pattern", "Test summary",
-          0.8, new Date().toISOString(), new Date().toISOString(),
-          "test-digest", "{}", "test,fts", "testing", "test pattern summary"
-        ]);
+        `,
+          [
+            "TEST:FTS:002",
+            "0.3",
+            "1.0.0",
+            "TEST",
+            "Test Pattern",
+            "Test summary",
+            0.8,
+            new Date().toISOString(),
+            new Date().toISOString(),
+            "test-digest",
+            "{}",
+            "test,fts",
+            "testing",
+            "test pattern summary",
+          ],
+        );
 
         // Get the rowid
-        const result = await db.database.get("SELECT rowid FROM patterns WHERE id = ?", ["TEST:FTS:002"]);
+        const result = get("SELECT rowid FROM patterns WHERE id = ?", [
+          "TEST:FTS:002",
+        ]);
 
         // Mock context for FTS operation
         const context = {
@@ -76,6 +97,7 @@ describe("FTSManager - Unit Tests", () => {
           rowid: result.rowid,
           id: "TEST:FTS:002",
           searchableFields: {
+            id: "TEST:FTS:002",
             title: "Test Pattern",
             summary: "Test summary",
             tags: "test,fts",
@@ -88,7 +110,7 @@ describe("FTSManager - Unit Tests", () => {
         ftsManager.syncFTS(context, "insert");
 
         // Verify the FTS entry was created
-        const ftsResult = await db.database.get(
+        const ftsResult = get(
           "SELECT * FROM patterns_fts WHERE id = ?",
           ["TEST:FTS:002"]
         );
@@ -116,43 +138,57 @@ describe("FTSManager - Unit Tests", () => {
         const db = await PatternDatabase.create(dbPath);
         const ftsManager = new FTSManager(db);
 
+        const run = (sql: string, params: any[] = []) =>
+          db.prepare(sql).run(...params);
+        const get = (sql: string, params: any[] = []) =>
+          db.prepare(sql).get(...params);
+
         // Insert initial pattern
-        await db.database.run(`
+        run(
+          `
           INSERT INTO patterns (id, schema_version, pattern_version, type, title, summary, trust_score, created_at, updated_at, pattern_digest, json_canonical, tags, keywords, search_index)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          "TEST:FTS:003", "0.3", "1.0.0", "TEST", "Initial Title", "Initial summary",
-          0.8, new Date().toISOString(), new Date().toISOString(),
-          "test-digest", "{}", "test", "initial", "initial title summary"
+        `,
+          [
+            "TEST:FTS:003",
+            "0.3",
+            "1.0.0",
+            "TEST",
+            "Initial Title",
+            "Initial summary",
+            0.8,
+            new Date().toISOString(),
+            new Date().toISOString(),
+            "test-digest",
+            "{}",
+            "test",
+            "initial",
+            "initial title summary",
+          ],
+        );
+
+        const result = get("SELECT rowid FROM patterns WHERE id = ?", [
+          "TEST:FTS:003",
         ]);
 
-        const result = await db.database.get("SELECT rowid FROM patterns WHERE id = ?", ["TEST:FTS:003"]);
-
-        // Test handleUpsert with savepoint
-        const context = {
-          tableName: "patterns",
-          ftsTableName: "patterns_fts",
-          rowid: result.rowid,
-          id: "TEST:FTS:003",
-          searchableFields: {
+        // Test handleUpsert with savepoint (update path)
+        ftsManager.handleUpsert(
+          "patterns",
+          "TEST:FTS:003",
+          true,
+          result.rowid,
+          {
+            id: "TEST:FTS:003",
             title: "Updated Title",
             summary: "Updated summary",
             tags: "test,updated",
             keywords: "updated",
-            search_index: "updated title summary"
-          }
-        };
-
-        // Get the upsert handler
-        const handler = ftsManager.handleUpsert(context);
-
-        // Execute within a transaction
-        await db.database.run("BEGIN");
-        await handler.execute();
-        await db.database.run("COMMIT");
+            search_index: "updated title summary",
+          },
+        );
 
         // Verify the FTS entry was updated
-        const ftsResult = await db.database.get(
+        const ftsResult = get(
           "SELECT * FROM patterns_fts WHERE id = ?",
           ["TEST:FTS:003"]
         );
@@ -178,17 +214,38 @@ describe("FTSManager - Unit Tests", () => {
         const db = await PatternDatabase.create(dbPath);
         const ftsManager = new FTSManager(db);
 
+        const run = (sql: string, params: any[] = []) =>
+          db.prepare(sql).run(...params);
+        const get = (sql: string, params: any[] = []) =>
+          db.prepare(sql).get(...params);
+
         // Insert pattern and sync to FTS
-        await db.database.run(`
+        run(
+          `
           INSERT INTO patterns (id, schema_version, pattern_version, type, title, summary, trust_score, created_at, updated_at, pattern_digest, json_canonical, tags, keywords, search_index)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          "TEST:FTS:004", "0.3", "1.0.0", "TEST", "Delete Test", "Delete summary",
-          0.8, new Date().toISOString(), new Date().toISOString(),
-          "test-digest", "{}", "test,delete", "delete", "delete test summary"
-        ]);
+        `,
+          [
+            "TEST:FTS:004",
+            "0.3",
+            "1.0.0",
+            "TEST",
+            "Delete Test",
+            "Delete summary",
+            0.8,
+            new Date().toISOString(),
+            new Date().toISOString(),
+            "test-digest",
+            "{}",
+            "test,delete",
+            "delete",
+            "delete test summary",
+          ],
+        );
 
-        const result = await db.database.get("SELECT rowid FROM patterns WHERE id = ?", ["TEST:FTS:004"]);
+        const result = get("SELECT rowid FROM patterns WHERE id = ?", [
+          "TEST:FTS:004",
+        ]);
 
         // Sync to FTS first
         const insertContext = {
@@ -197,6 +254,7 @@ describe("FTSManager - Unit Tests", () => {
           rowid: result.rowid,
           id: "TEST:FTS:004",
           searchableFields: {
+            id: "TEST:FTS:004",
             title: "Delete Test",
             summary: "Delete summary",
             tags: "test,delete",
@@ -208,7 +266,7 @@ describe("FTSManager - Unit Tests", () => {
         ftsManager.syncFTS(insertContext, "insert");
 
         // Verify FTS entry exists
-        const beforeDelete = await db.database.get(
+        const beforeDelete = get(
           "SELECT * FROM patterns_fts WHERE id = ?",
           ["TEST:FTS:004"]
         );
@@ -216,23 +274,10 @@ describe("FTSManager - Unit Tests", () => {
         expect(beforeDelete).toBeDefined();
 
         // Test handleDelete with savepoint
-        const deleteContext = {
-          tableName: "patterns",
-          ftsTableName: "patterns_fts",
-          rowid: result.rowid,
-          id: "TEST:FTS:004",
-          searchableFields: {}
-        };
-
-        const handler = ftsManager.handleDelete(deleteContext);
-
-        // Execute within a transaction
-        await db.database.run("BEGIN");
-        await handler.execute();
-        await db.database.run("COMMIT");
+        ftsManager.handleDelete("patterns", "TEST:FTS:004", result.rowid);
 
         // Verify the FTS entry was deleted
-        const afterDelete = await db.database.get(
+        const afterDelete = get(
           "SELECT * FROM patterns_fts WHERE id = ?",
           ["TEST:FTS:004"]
         );
@@ -256,39 +301,66 @@ describe("FTSManager - Unit Tests", () => {
         const db = await PatternDatabase.create(dbPath);
         const ftsManager = new FTSManager(db);
 
-        // Test savepoint rollback with invalid data
-        const invalidContext = {
-          tableName: "patterns",
-          ftsTableName: "patterns_fts",
-          rowid: 999999, // Non-existent rowid
-          id: "TEST:FTS:INVALID",
-          searchableFields: {
-            title: null, // Invalid null value
-            summary: "Test",
-            tags: "test",
-            keywords: "test",
-            search_index: "test"
-          }
-        };
+        const get = (sql: string, params: any[] = []) =>
+          db.prepare(sql).get(...params);
 
-        // Get the upsert handler
-        const handler = ftsManager.handleUpsert(invalidContext);
+        const warnSpy = vi
+          .spyOn(console, "warn")
+          .mockImplementation(() => {});
+        const execSpy = vi.spyOn(db.database, "exec");
 
-        // Try to execute within a transaction - should handle error gracefully
-        await db.database.run("BEGIN");
+        let prepareSpy: ReturnType<typeof vi.spyOn> | undefined;
 
-        // The handler should handle the error internally or throw
-        // Either way is acceptable for this test
         try {
-          await handler.execute();
-          // If no error, handler handled it gracefully
-          expect(true).toBe(true);
-        } catch (error) {
-          // Expected to fail with constraint violation
-          expect(error.message).toMatch(/constraint|NOT NULL/i);
-        }
+          const originalPrepare = db.database.prepare.bind(db.database);
+          prepareSpy = vi
+            .spyOn(db.database, "prepare")
+            .mockImplementation((sql: string) => {
+              if (
+                sql.includes("INSERT INTO") &&
+                sql.includes("patterns_fts")
+              ) {
+                throw new Error("Simulated FTS insert failure");
+              }
+              return originalPrepare(sql);
+            });
 
-        await db.database.run("ROLLBACK");
+          ftsManager.handleUpsert(
+            "patterns",
+            "TEST:FTS:INVALID",
+            false,
+            999999,
+            {
+              id: "TEST:FTS:INVALID",
+              title: null,
+              summary: "Test",
+              tags: "test",
+              keywords: "test",
+              search_index: "test",
+            },
+          );
+
+          const rollbackCalled = execSpy.mock.calls.some(([sql]) =>
+            typeof sql === "string" &&
+            sql.includes("ROLLBACK TO SAVEPOINT fts_operation"),
+          );
+          expect(rollbackCalled).toBe(true);
+
+          const warned = warnSpy.mock.calls.some(([message]) =>
+            typeof message === "string" && message.includes("FTS sync failed"),
+          );
+          expect(warned).toBe(true);
+
+          const manualEntry = get(
+            "SELECT * FROM patterns_fts WHERE id = ?",
+            ["TEST:FTS:INVALID"],
+          );
+          expect(manualEntry).toBeUndefined();
+        } finally {
+          prepareSpy?.mockRestore();
+          execSpy.mockRestore();
+          warnSpy.mockRestore();
+        }
 
         await db.close();
         delete process.env.APEX_FORCE_ADAPTER;

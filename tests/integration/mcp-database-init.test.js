@@ -166,17 +166,19 @@ describe("MCP Database Initialization Integration", () => {
             );
             
             CREATE TABLE migrations (
-              id TEXT PRIMARY KEY,
-              version INTEGER NOT NULL,
+              version INTEGER PRIMARY KEY,
+              id TEXT NOT NULL,
               name TEXT NOT NULL,
-              applied_at TEXT NOT NULL
+              checksum TEXT,
+              applied_at TEXT NOT NULL,
+              execution_time_ms INTEGER
             );
             
             -- Mark some migrations as already applied (but not the task_evidence one)
-            INSERT INTO migrations (id, version, name, applied_at)
+            INSERT INTO migrations (version, id, name, checksum, applied_at, execution_time_ms)
             VALUES 
-              ('001-initial', 1, 'Initial schema', datetime('now')),
-              ('002-add-drafts', 2, 'Add drafts table', datetime('now'));
+              (1, '001-initial', 'Initial schema', NULL, datetime('now'), NULL),
+              (2, '002-add-drafts', 'Add drafts table', NULL, datetime('now'), NULL);
           \`);
           
           // Verify task_evidence doesn't exist yet

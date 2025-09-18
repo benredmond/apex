@@ -10,23 +10,23 @@ import os from "os";
 
 describe("MCP Database Path Bug Fix", () => {
   let tempDir;
-  let originalCwd;
+  let cwdSpy;
   
   beforeEach(async () => {
-    // Save original cwd and env
-    originalCwd = process.cwd();
-    
     // Create temp directory
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "apex-test-"));
-    process.chdir(tempDir);
+    cwdSpy = vi.spyOn(process, "cwd").mockImplementation(() => tempDir);
     
     // Clear environment
     delete process.env.APEX_PATTERNS_DB;
   });
   
   afterEach(async () => {
-    // Restore
-    process.chdir(originalCwd);
+    // Restore mocked cwd
+    if (cwdSpy) {
+      cwdSpy.mockRestore();
+      cwdSpy = undefined;
+    }
     
     // Clean up
     if (tempDir) {

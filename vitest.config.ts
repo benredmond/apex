@@ -24,12 +24,13 @@ export default defineConfig({
         '*.config.js'
       ]
     },
-    setupFiles: [],
+    setupFiles: ['tests/setup/vitest-polyfills.ts'],
     testTimeout: 30000,
     pool: 'threads',  // Better isolation than Jest
     poolOptions: {
       threads: {
-        singleThread: true  // For database tests
+        singleThread: true,  // For database tests
+        isolate: false       // Allow process.chdir in shared worker context
       }
     }
   },

@@ -1,8 +1,9 @@
 // [FIX:MOCK:ESM_IMPORTS] ★★★★★ (12 uses, 100% success) - From cache
 // [PAT:TEST:MOCK] ★★★★★ (156 uses, 95% success) - From cache
-import { jest, expect } from "@jest/globals";
+import { vi, expect } from "vitest";
 import { EventEmitter } from "events";
 import type { ChildProcess } from "child_process";
+import type { Mock } from "vitest";
 
 export interface GitMockOptions {
   command: string;           // Git subcommand: "status", "log", "show", etc.
@@ -24,7 +25,7 @@ export const GIT_COMMAND_PRESETS = {
   showFile: { command: "show", args: [], stdout: "" }
 };
 
-let mockSpawn: jest.Mock | null = null;
+let mockSpawn: Mock | null = null;
 let childProcessModule: any = null;
 
 // Main factory function - enhanced from validator.test.ts:266-279
@@ -37,7 +38,7 @@ export function createMockGitProcess(options: GitMockOptions): EventEmitter {
   (proc as any).stderr = new EventEmitter();
   (proc as any).stdin = new EventEmitter();
   (proc as any).pid = Math.floor(Math.random() * 10000);
-  (proc as any).kill = jest.fn();
+  (proc as any).kill = vi.fn();
 
   // [ASYNC_TIMING prevention] - Use process.nextTick pattern
   const emitData = () => {
@@ -65,15 +66,15 @@ export function createMockGitProcess(options: GitMockOptions): EventEmitter {
 // Setup function for git mocks
 export async function setupGitMocks(): Promise<void> {
   // [MOCK_ISOLATION prevention] - Clear any existing mocks
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   
   // [FIX:MOCK:ESM_IMPORTS] - Mock child_process before import
-  jest.unstable_mockModule("child_process", () => ({
-    spawn: jest.fn(),
+  await vi.unstable_mockModule("child_process", () => ({
+    spawn: vi.fn(),
   }));
   
   childProcessModule = await import("child_process");
-  mockSpawn = childProcessModule.spawn as jest.Mock;
+  mockSpawn = childProcessModule.spawn as Mock;
 }
 
 // Teardown function to prevent mock pollution
@@ -82,7 +83,7 @@ export function teardownGitMocks(): void {
   if (mockSpawn) {
     mockSpawn.mockReset();
   }
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   mockSpawn = null;
   childProcessModule = null;
 }
@@ -159,7 +160,7 @@ export function mockGitCommands(commands: Record<string, Partial<GitMockOptions>
 }
 
 // Get the mock spawn function for direct manipulation
-export function getMockSpawn(): jest.Mock | null {
+export function getMockSpawn(): Mock | null {
   return mockSpawn;
 }
 

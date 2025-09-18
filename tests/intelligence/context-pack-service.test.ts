@@ -4,18 +4,15 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { Mocked } from 'vitest';
 import { ContextPackService } from '../../src/intelligence/context-pack-service.js';
-import { TaskRepository } from '../../src/storage/repositories/task-repository.js';
-import { PatternRepository } from '../../src/storage/repository.js';
-
-// Mock dependencies
-vi.mock('../../src/storage/repositories/task-repository.js');
-vi.mock('../../src/storage/repository.js');
+import type { TaskRepository } from '../../src/storage/repositories/task-repository.js';
+import type { PatternRepository } from '../../src/storage/repository.js';
 
 describe('ContextPackService', () => {
   let service: ContextPackService;
-  let mockTaskRepo: vi.Mocked<TaskRepository>;
-  let mockPatternRepo: vi.Mocked<PatternRepository>;
+  let mockTaskRepo: Mocked<TaskRepository>;
+  let mockPatternRepo: Mocked<PatternRepository>;
   let mockDb: any;
 
   beforeEach(() => {
@@ -33,11 +30,17 @@ describe('ContextPackService', () => {
     };
 
     // Create mocked repositories
-    mockTaskRepo = new TaskRepository(mockDb as any) as vi.Mocked<TaskRepository>;
-    mockPatternRepo = new PatternRepository({ dbPath: ':memory:' }) as vi.Mocked<PatternRepository>;
+    mockTaskRepo = {
+      findByStatus: vi.fn(),
+      findSimilar: vi.fn(),
+    } as unknown as Mocked<TaskRepository>;
+
+    mockPatternRepo = {
+      // Add methods as needed for future assertions
+    } as unknown as Mocked<PatternRepository>;
 
     // Mock task repository methods
-    mockTaskRepo.findByStatus = vi.fn().mockReturnValue([
+    mockTaskRepo.findByStatus.mockReturnValue([
       {
         id: 'T001',
         title: 'Test Task 1',
@@ -58,8 +61,7 @@ describe('ContextPackService', () => {
       },
     ]);
 
-    // Mock TaskSearchEngine
-    vi.mocked(TaskSearchEngine).prototype.findSimilar = vi.fn().mockResolvedValue([
+    mockTaskRepo.findSimilar.mockResolvedValue([
       {
         task: {
           id: 'T999',

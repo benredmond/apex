@@ -39,14 +39,16 @@ describe('AutoMigrator.markAllMigrationsAsApplied', () => {
     const result = await autoMigrator.migrate();
     expect(result).toBe(true);
     
-    // Verify migrations were recorded
-    const stmt = adapter.prepare('SELECT * FROM migrations ORDER BY version');
-    const migrations = stmt.all();
-    
-    expect(migrations.length).toBeGreaterThan(0);
-    
+    // Verify migrations were recorded via migration_versions table
+    const appliedStmt = adapter.prepare(
+      'SELECT * FROM migration_versions ORDER BY version'
+    );
+    const appliedMigrations = appliedStmt.all();
+
+    expect(appliedMigrations.length).toBeGreaterThan(0);
+
     // Verify each migration has all expected fields
-    migrations.forEach(migration => {
+    appliedMigrations.forEach((migration) => {
       expect(migration).toHaveProperty('version');
       expect(migration).toHaveProperty('id');
       expect(migration).toHaveProperty('name');
@@ -87,19 +89,16 @@ describe('AutoMigrator.markAllMigrationsAsApplied', () => {
     expect(result.sql).toBeDefined();
     
     // Parse column count from CREATE TABLE statement
-    const columnMatches = result.sql.match(/^\s*(\w+)\s+\w+/gm);
-    const columnCount = columnMatches ? columnMatches.length : 0;
-    
-    // Should have exactly 6 columns
-    expect(columnCount).toBe(6);
-    
-    // Verify specific columns exist
-    expect(result.sql).toContain('version');
-    expect(result.sql).toContain('id');
-    expect(result.sql).toContain('name');
-    expect(result.sql).toContain('checksum');
-    expect(result.sql).toContain('applied_at');
-    expect(result.sql).toContain('execution_time_ms');
+    const columnInfo = adapter.pragma('table_info(migrations)');
+    const columnNames = columnInfo.map((column) => column.name);
+
+    expect(columnInfo.length).toBe(6);
+    expect(columnNames).toContain('version');
+    expect(columnNames).toContain('id');
+    expect(columnNames).toContain('name');
+    expect(columnNames).toContain('checksum');
+    expect(columnNames).toContain('applied_at');
+    expect(columnNames).toContain('execution_time_ms');
   });
 
   test('INSERT statement parameter count matches table column count', async () => {

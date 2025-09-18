@@ -1,5 +1,6 @@
 // [PAT:TEST:STRUCTURE] - Standard test structure with setup/teardown
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from "vitest";
+import type { SpyInstance } from "vitest";
 import path from "path";
 import fs from "fs-extra";
 import os from "os";
@@ -17,27 +18,36 @@ const { RepoIdentifier } = await import("../../src/utils/repo-identifier.ts");
 
 describe("RepoIdentifier", () => {
   let tempDir: string;
-  let originalCwd: string;
+  let cwdSpy: SpyInstance<[], string> | undefined;
 
   beforeEach(async () => {
-    // Save original cwd
-    originalCwd = process.cwd();
-
-    // Create temporary directory for tests
+    // Create temporary directory for tests and mock cwd
     tempDir = path.join(os.tmpdir(), `repo-identifier-test-${Date.now()}`);
     await fs.ensureDir(tempDir);
-    process.chdir(tempDir);
+    cwdSpy = vi.spyOn(process, "cwd").mockImplementation(() => tempDir);
+    process.env.APEX_HOME = tempDir;
 
     // Reset mocks
     vi.clearAllMocks();
+
+    // Ensure RepoIdentifier uses the mocked spawn implementation for each test
+    RepoIdentifier.setSpawnImplementation(mockSpawn as unknown as typeof import("child_process").spawn);
   });
 
   afterEach(async () => {
-    // Restore original cwd
-    process.chdir(originalCwd);
-    
-    // Clean up
+    // Restore original cwd implementation
+    cwdSpy?.mockRestore();
+    cwdSpy = undefined;
+    delete process.env.APEX_HOME;
+
+    // Clean up temporary directory
     await fs.remove(tempDir);
+
+    RepoIdentifier.resetSpawnImplementation();
+  });
+
+  afterAll(() => {
+    RepoIdentifier.resetSpawnImplementation();
   });
 
   describe("getIdentifier", () => {

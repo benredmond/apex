@@ -124,7 +124,7 @@ describe("Schema Drift Detection", () => {
   });
   
   describe("Migration Consistency", () => {
-    it("every schema change should have a corresponding migration", () => {
+    it("every schema change should have a corresponding migration", async () => {
       // This test would compare git history of schema files
       // with migration files to ensure they're in sync
       // For now, we'll just check that migration count is reasonable
@@ -138,9 +138,11 @@ describe("Schema Drift Detection", () => {
       `);
       
       // Run migrations
-      const { MigrationLoader } = require("../src/migrations/MigrationLoader.js");
+      const { MigrationLoader } = await import(
+        "../src/migrations/MigrationLoader.ts"
+      );
       const loader = new MigrationLoader();
-      const migrations = loader.loadMigrations();
+      const migrations = await loader.loadMigrations();
       
       // There should be at least one migration for FTS fixes
       const ftsMigrations = migrations.filter(m => 
@@ -152,14 +154,16 @@ describe("Schema Drift Detection", () => {
   });
   
   describe("Defensive Programming Validation", () => {
-    it("should always drop triggers before creating them", () => {
+    it("should always drop triggers before creating them", async () => {
       // Verify our database.ts initialize method drops triggers first
       const initCode = FTS_SCHEMA_SQL.patterns_fts_triggers.insert;
       
       // In real implementation, we'd read database.ts and verify
       // it has DROP TRIGGER statements before CREATE TRIGGER
       // For now, we verify our migration does this
-      const migration018 = require("../src/migrations/018-fix-fts-trigger-schema.js");
+      const migration018 = await import(
+        "../src/migrations/018-fix-fts-trigger-schema.ts"
+      );
       const migrationCode = migration018.migration018FixFtsTriggerSchema.up.toString();
       
       expect(migrationCode).toContain("DROP TRIGGER IF EXISTS");
@@ -170,20 +174,23 @@ describe("Schema Drift Detection", () => {
     
     it("should handle trigger creation failures gracefully", () => {
       const db = new Database(":memory:");
-      
+
       // Create patterns table without required columns
       db.exec(`CREATE TABLE patterns (id TEXT PRIMARY KEY);`);
-      
-      // Try to create trigger that references non-existent columns
+
       const badTrigger = `
         CREATE TRIGGER test_trigger AFTER INSERT ON patterns
         BEGIN
           INSERT INTO some_table(missing_column) VALUES (new.missing_column);
         END;
       `;
-      
-      // Should throw a clear error, not silently fail
-      expect(() => db.exec(badTrigger)).toThrow(/no such column/);
+
+      // Creating the trigger should succeed, but firing it should surface the error
+      db.exec(`CREATE TABLE some_table (existing TEXT);`);
+      db.exec(badTrigger);
+      expect(() => {
+        db.prepare("INSERT INTO patterns (id) VALUES (?)").run("test");
+      }).toThrow(/no column/i);
     });
   });
 });

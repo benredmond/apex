@@ -79,8 +79,14 @@ describe("AutoMigrator Table Creation", () => {
       `);
       
       // Should not throw
+      dbWrite
+        .prepare(
+          `INSERT INTO tasks (id, title) VALUES (?, ?)`
+        )
+        .run("test-task", "Test Task");
+
       expect(() => {
-        stmt.run("test-task", "test", "test content", "{}");
+        stmt.run("test-task", "file", "test content", "{}");
       }).not.toThrow();
       
       dbWrite.close();
@@ -91,40 +97,24 @@ describe("AutoMigrator Table Creation", () => {
   });
 
   it("should add task_evidence to existing database missing it", async () => {
-    // Create database without task_evidence
+    // Start with current schema then simulate missing table by removing migration 7 artefacts
+    const initialMigrator = new AutoMigrator(testDbPath);
+    await initialMigrator.autoMigrate({ silent: true });
+
     const db = new Database(testDbPath);
-    
+
     db.exec(`
-      CREATE TABLE patterns (
-        id TEXT PRIMARY KEY,
-        schema_version TEXT NOT NULL,
-        pattern_version TEXT NOT NULL,
-        type TEXT NOT NULL,
-        title TEXT NOT NULL,
-        summary TEXT NOT NULL,
-        trust_score REAL NOT NULL,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      
-      CREATE TABLE migrations (
-        id TEXT PRIMARY KEY,
-        version INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        applied_at TEXT NOT NULL
-      );
+      DROP TABLE IF EXISTS task_evidence;
+      DROP INDEX IF EXISTS idx_evidence_task;
+      DROP INDEX IF EXISTS idx_evidence_task_type;
+      DROP INDEX IF EXISTS idx_evidence_timestamp;
+      DELETE FROM migration_versions WHERE version = 7;
+      DELETE FROM migrations WHERE version = 7;
     `);
-    
-    // Verify task_evidence doesn't exist
-    const tablesBefore = db.prepare(`
-      SELECT COUNT(*) as count FROM sqlite_master 
-      WHERE type='table' AND name='task_evidence'
-    `).get();
-    expect(tablesBefore.count).toBe(0);
-    
+
     db.close();
-    
-    // Run migrations
+
+    // Run migrations again - should reapply migration 007
     const migrator = new AutoMigrator(testDbPath);
     const success = await migrator.autoMigrate({ silent: true });
     

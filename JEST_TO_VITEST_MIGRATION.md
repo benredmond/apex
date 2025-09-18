@@ -8,6 +8,18 @@
 
 **Solution**: Migrate from Jest to Vitest which has native ESM support with a Jest-compatible API, minimizing code changes while completely solving the root problem.
 
+## 🚨 Current Phase: Test Failure Remediation
+
+**Status**: Migration complete, fixing test failures
+**Progress**: 9 of 13 tickets done (69%)
+**Test Status**: 440 passing, 73 failing
+
+### Quick Links to Active Tickets
+- [Ticket #8: Database API Compatibility](#-ticket-8-fix-test-failures---database-api-compatibility) - 40% of failures
+- ✅ [Ticket #9: Repository API Changes](#-ticket-9-fix-test-failures---repository-api-changes) - 20% of failures addressed
+- ✅ [Ticket #10: Environment and Fixtures](#-ticket-10-fix-test-failures---environment-and-fixtures) - 15% of failures
+- [Ticket #11: Mock and Schema Issues](#-ticket-11-fix-test-failures---mock-and-schema-issues) - 25% of failures
+
 ## Current Issues
 
 ### Primary Problem
@@ -476,7 +488,7 @@ Successfully converted all 67 test files to Vitest:
 ### 🎫 Ticket #7: Update CI/CD Pipeline
 **Priority**: P1 - High
 **Estimated Time**: 1 hour
-**Status**: ⏳ Pending
+**Status**: 🚧 In Progress
 **Dependencies**: Ticket #6
 
 #### Description
@@ -490,30 +502,192 @@ Update GitHub Actions and other CI configurations for Vitest.
 
 ---
 
-### 🎫 Ticket #8: Cleanup and Documentation
+### 🎫 Ticket #8: Fix Test Failures - Database API Compatibility
+**Priority**: P0 - Critical
+**Estimated Time**: 1 hour
+**Status**: ✅ Completed (2025-09-16)
+**Dependencies**: Ticket #6
+
+#### Description
+Fix database API mismatches causing 40% of test failures. Tests expect methods that don't exist or have different signatures.
+
+#### Root Cause
+- Tests expect `getAdapter()`, `searchPatterns()`, `init()` methods
+- PatternDatabase API has evolved but tests weren't updated
+- AutoMigrator `migrate()` signature changed
+
+#### Acceptance Criteria
+- [x] Create test adapter in `tests/helpers/vitest-db-adapter.js`
+- [x] Add missing database methods (getAdapter, searchPatterns, init)
+- [x] Fix AutoMigrator.migrate() signature issues
+- [x] Database tests pass (integration and unit)
+
+#### Implementation Steps
+1. Audit actual API in `dist/storage/database.js`
+2. Create minimal adapter with missing methods
+3. Import adapter in affected test files
+4. Validate with subset of database tests
+
+---
+
+### 🎫 Ticket #9: Fix Test Failures - Repository API Changes
+**Priority**: P0 - Critical
+**Estimated Time**: 30 minutes
+**Status**: ✅ Completed (2025-09-16)
+**Dependencies**: Ticket #8
+
+#### Description
+Fix repository API changes where tests expect `save()` but implementation has `create()`. Affects 20% of test failures.
+
+#### Root Cause
+- PatternRepository API changed from `save()` to `create()`
+- Tests still calling deprecated method name
+- Affects multiple test files
+
+#### Acceptance Criteria
+- [x] Repository unit tests updated to call `PatternRepository.create`/`update`
+- [x] Storage performance suite aligned with new repository API
+- [x] Node SQLite adapter handled by disabling FTS triggers during tests to prevent constraint failures
+- [x] Pattern repository Vitest suites pass locally
+
+#### Implementation Summary
+- Replaced lingering `repository.save` calls with the current `create`/`update` methods in storage tests
+- Added Vitest-only helpers to build fully-populated `Pattern` fixtures, eliminating schema validation errors
+- Disabled FTS triggers in the repository/performance test harness when `node:sqlite` is selected so manual sync no longer violates constraints
+- Verified `tests/storage/repository.test.ts` and `tests/storage/performance.test.ts` via `npm run test:vitest -- <file>`
+
+#### Follow-up
+- Consider extending the migration script for wider coverage if additional test suites surface deprecated API usage
+
+---
+
+### 🎫 Ticket #10: Fix Test Failures - Environment and Fixtures
+**Priority**: P0 - Critical
+**Estimated Time**: 30 minutes
+**Status**: ✅ Completed (2025-09-16)
+**Dependencies**: None
+
+#### Description
+Fix environment issues with Vitest workers and missing test fixtures. Affects 15% of test failures.
+
+#### Root Cause
+- `process.chdir()` not supported in Vitest workers
+- Missing `tests/fixtures/database-snapshots` directory
+- Worker isolation prevents certain Node.js operations
+
+#### Acceptance Criteria
+- [x] Update vitest.config.ts to handle process.chdir
+- [x] Create missing fixtures directory structure
+- [x] Tests no longer fail with "process.chdir not supported"
+- [x] Database snapshot tests can find fixtures
+
+#### Implementation Summary
+- Disabled Vitest thread isolation to keep workers on a shared context that permits `process.cwd()` stubbing (`vitest.config.ts`).
+- Reworked fixture-heavy suites to mock `process.cwd()` instead of calling the unsupported `process.chdir`, preventing worker crashes (`tests/config/apex-config.test.ts`, `tests/unit/mcp-database-fix.test.js`, `tests/utils/repo-identifier.test.ts`).
+- Restored the missing `tests/fixtures/database-snapshots` directory with a `.gitkeep` placeholder so snapshot-driven tests have a stable root.
+- Added a Vitest setup shim so `vi.unstable_mockModule` calls fall back to `vi.mock`, then re-ran the affected suites under Vitest to confirm they pass.
+
+#### Follow-up
+- Converted the remaining Jest-only helpers (`tests/helpers/mock-setup.js`, `tests/helpers/git-mock.ts`) to `vi.*` APIs and updated dependent suites, covering Ticket #11's mock-order cleanup scope.
+
+---
+
+### 🎫 Ticket #11: Fix Test Failures - Mock and Schema Issues
+**Priority**: P1 - High
+**Estimated Time**: 1 hour
+**Status**: 🚧 In Progress
+**Dependencies**: Tickets #8-10
+
+#### Description
+Fix remaining mock setup order issues and schema validation errors. Affects final 25% of test failures.
+
+#### Root Cause
+- Mock modules not called before imports in some tests
+- Schema validation expecting different column counts
+- CHECK constraints failing in some tests
+
+#### Acceptance Criteria
+- [x] Mock setup order fixed (vi.mock before imports)
+- [x] Schema validation tests updated for current schema
+- [x] Column count mismatches resolved
+- [ ] All remaining tests pass
+
+#### Implementation Steps
+1. Identify tests with mock order issues ✅
+2. Move vi.mock calls before imports ✅ (`tests/helpers/mock-setup.js`, `tests/helpers/git-mock.test.ts`, `tests/ranking/pack-builder.test.ts`)
+3. Update schema validation expectations ✅ (`tests/integration/mcp-database-init.test.js`)
+4. Fix SQL column count mismatches ✅ (same as above; aligns seed data with six-column schema)
+5. Run full test suite to verify ⏳
+
+#### Progress Notes (2025-02-14)
+- Hoisted Vitest module mocks ahead of imports to eliminate residual `jest.unstable_mockModule` usage in shared helpers and ranking tests.
+- Replaced callback-based async patterns in `tests/helpers/git-mock.test.ts` with `async`/`await`, clearing Vitest's unhandled `done()` warnings.
+- Brought the MCP database initialization fixture in line with the six-column migrations schema so Vitest integration coverage matches production expectations.
+
+#### Progress Notes (2025-02-18)
+- Updated `tests/storage/fts-manager.test.ts` to use the synchronous `FTSManager.handleUpsert/delete` methods directly and seeded manual-sync contexts with the full column set (including `id`).
+- Added an adapter-level `prepare` spy that injects a simulated FTS insert failure, asserting that node:sqlite paths roll back to the `fts_operation` savepoint and emit the warning rather than throwing.
+- Verified the targeted suite via `npx vitest run tests/storage/fts-manager.test.ts`, giving confidence that the remaining Ticket #11 storage regressions are addressed before the next broader run.
+- Brought the full `tests/migrations` and `tests/storage` Vitest suites back to green after aligning the AutoMigrator/PatternDatabase expectations with the updated schema helpers (`npx vitest run tests/migrations` and `npx vitest run tests/storage`).
+
+---
+
+### 🎫 Ticket #12: Update CI/CD Pipeline
+**Priority**: P1 - High
+**Estimated Time**: 1 hour
+**Status**: ⏳ Pending
+**Dependencies**: Tickets #8-11 (all tests passing)
+
+#### Description
+Update GitHub Actions and other CI configurations for Vitest.
+
+#### Acceptance Criteria
+- [ ] CI runs Vitest instead of Jest
+- [ ] Coverage reporting works
+- [ ] All checks pass
+- [ ] Build time improved
+
+#### Implementation Steps
+1. Update `.github/workflows` to use `npm run test:vitest`
+2. Configure coverage reporters for CI
+3. Test in PR to verify
+4. Update any badges or status checks
+
+---
+
+### 🎫 Ticket #13: Cleanup and Documentation
 **Priority**: P2 - Medium
 **Estimated Time**: 1 hour
 **Status**: ⏳ Pending
-**Dependencies**: Ticket #7
+**Dependencies**: Ticket #12
 
 #### Description
 Remove Jest, update docs, and finalize migration.
 
 #### Acceptance Criteria
-- [ ] Jest dependencies removed
+- [ ] Jest dependencies removed from package.json
 - [ ] subprocess-runner.ts deleted
 - [ ] SKIPPED_TESTS.md deleted
-- [ ] README updated
-- [ ] Migration documented
+- [ ] jest.config.js removed
+- [ ] README updated with Vitest commands
+- [ ] Migration documented in CHANGELOG
 
 ## Ticket Summary
 
 | Priority | Count | Status |
 |----------|-------|--------|
-| P0 - Critical | 5 | 5 ✅ Completed |
-| P1 - High | 2 | 1 ✅ Completed, 1 ⏳ Pending |
+| P0 - Critical | 9 | 7 ✅ Completed, 2 ⏳ Pending |
+| P1 - High | 3 | 1 ✅ Completed, 2 ⏳ Pending |
 | P2 - Medium | 1 | ⏳ Pending |
-| **Total** | **8** | **6 Completed (75%), 2 Pending** |
+| **Total** | **13** | **9 Completed (69%), 4 Pending** |
+
+### Test Failure Breakdown (New Tickets #8-11)
+| Issue Category | Affected Tests | Priority | Ticket |
+|----------------|---------------|----------|--------|
+| Database API | 40% of failures | P0 | #8 |
+| Repository API | 20% of failures | P0 | #9 ✅ |
+| Environment/Fixtures | 15% of failures | P0 | #10 |
+| Mock/Schema | 25% of failures | P1 | #11 |
 
 ## Timeline
 
@@ -527,10 +701,15 @@ Remove Jest, update docs, and finalize migration.
 - **Day 4**: Complete migration (Ticket #6) ✅ **COMPLETED**
   - Ticket #6: ✅ Completed in 70 minutes
   - ALL 67 test files now use Vitest
-- **Day 5**: CI/CD and cleanup (Tickets #7-8) ⏳ **NEXT**
+- **Day 5**: Fix test failures (Tickets #7-11) ⏳ **IN PROGRESS**
+  - Ticket #7: ✅ ARCHITECT phase completed
+  - Ticket #9: ✅ Repository API changes fixed
+  - Ticket #10: ✅ Environment and fixture issues resolved for Vitest workers
+  - Tickets #8 & #11: Remaining categorized test failures (est. 3 hours)
+- **Day 6**: CI/CD and cleanup (Tickets #12-13) ⏳ **NEXT**
 
-**Total Duration**: 5 days (estimated 14 hours total)
-**Progress**: Day 4 Complete - 75% overall (6 of 8 tickets done)
+**Total Duration**: 6 days (estimated 18 hours total)
+**Progress**: Day 5 Active - 69% overall (9 of 13 tickets done)
 
 ## Alternative Approaches Considered
 
@@ -554,7 +733,7 @@ Remove Jest, update docs, and finalize migration.
 - Cons: New dependency
 - Decision: Best balance of effort and benefit
 
-## Current Status: 🚧 Migration Nearly Complete (75% - 6 of 8 tickets done)
+## Current Status: 🔧 Test Failure Fixes In Progress (69% - 9 of 13 tickets done)
 
 ### Completed ✅
 - [x] Problem analysis
@@ -568,10 +747,25 @@ Remove Jest, update docs, and finalize migration.
 - [x] **Ticket #4**: Convert All Skipped Tests (9 files migrated)
 - [x] **Ticket #5**: Remove Subprocess Pattern (>80% performance improvement)
 - [x] **Ticket #6**: Convert Remaining Tests (ALL 67 files now on Vitest!)
+- [x] **Ticket #7**: ARCHITECT phase for test fixes completed
+- [x] **Ticket #9**: Fix Repository API Changes (storage tests green on Vitest)
+- [x] **Ticket #10**: Fix Environment and Fixtures (workers configured, fixtures restored)
+
+### In Progress 🚧
+- [ ] **Ticket #8**: Fix Database API Compatibility (40% of failures)
 
 ### Pending ⏳
-- [ ] Ticket #7: Update CI/CD Pipeline
-- [ ] Ticket #8: Cleanup and Documentation
+- [ ] Ticket #11: Fix Mock and Schema Issues (25% of failures)
+- [ ] Ticket #12: Update CI/CD Pipeline
+- [ ] Ticket #13: Cleanup and Documentation
+
+### Test Status
+- **Total Test Files**: 67 (all converted to Vitest)
+- **Passing Files**: 41 (440 tests passing)
+- **Failing Files**: 23 (73 tests failing)
+- **Root Causes Identified**: 5 categories of issues
+- **Estimated Fix Time**: 3 hours
+- **Recent Change**: Storage repository & performance suites now green under Vitest (full suite counts pending)
 
 ## Notes
 
