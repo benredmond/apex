@@ -2,6 +2,21 @@ import { z } from "zod";
 import fs from "fs-extra";
 import yaml from "js-yaml";
 import { PatternSchema, Pattern } from "./index.js";
+import {
+  PatternIdSchema,
+  TrustScoreSchema,
+  SemverSchema,
+  EvidenceRefSchema,
+  SnippetSchema,
+} from "./base.js";
+
+export {
+  PatternIdSchema,
+  TrustScoreSchema,
+  SemverSchema,
+  EvidenceRefSchema,
+  SnippetSchema,
+};
 
 // Validation result types
 export interface ValidationError {

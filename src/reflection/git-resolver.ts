@@ -4,16 +4,17 @@
  * [PAT:CACHING:TTL] ★★★★☆ (3 uses, 100% success) - From cache
  */
 
-import { spawn } from "child_process";
-import { promisify } from "util";
+import { spawn as childProcessSpawn } from "child_process";
 
 export interface GitResolverConfig {
   cacheTTL: number; // milliseconds
   gitRepoPath: string; // repository path
   cacheEnabled: boolean; // enable/disable caching
+  spawn?: typeof childProcessSpawn; // dependency injection for testing
 }
 
 export class GitResolver {
+  private static spawnImplementation: typeof childProcessSpawn = childProcessSpawn;
   private refCache: Map<string, { sha: string; timestamp: number }>;
   private config: GitResolverConfig;
 
@@ -25,6 +26,28 @@ export class GitResolver {
       ...config,
     };
     this.refCache = new Map();
+  }
+
+  /**
+   * Override the spawn implementation used by all GitResolver instances.
+   * Useful for test environments where child_process.spawn is mocked after module load.
+   */
+  static setSpawnImplementation(spawnFn: typeof childProcessSpawn): void {
+    this.spawnImplementation = spawnFn;
+  }
+
+  /**
+   * Reset spawn implementation back to the Node default.
+   */
+  static resetSpawnImplementation(): void {
+    this.spawnImplementation = childProcessSpawn;
+  }
+
+  /**
+   * Resolve the spawn implementation for this instance, preferring per-instance overrides.
+   */
+  private getSpawn(): typeof childProcessSpawn {
+    return this.config.spawn ?? GitResolver.spawnImplementation;
   }
 
   /**
@@ -65,18 +88,21 @@ export class GitResolver {
 
       return sha;
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
       // Handle ambiguous refs - check for specific ambiguous error
       if (
-        error.message.includes("is ambiguous") ||
-        (error.message.includes("ambiguous argument") &&
-          !error.message.includes("unknown revision"))
+        message.includes("is ambiguous") ||
+        (message.includes("ambiguous argument") &&
+          !message.includes("unknown revision"))
       ) {
         throw new Error(
           `Ambiguous git reference '${ref}'. Please use a longer SHA or more specific ref.`,
         );
       }
+
       throw new Error(
-        `Failed to resolve git reference '${ref}': ${error.message}`,
+        `Failed to resolve git reference '${ref}': ${message}`,
       );
     }
   }
@@ -159,22 +185,32 @@ export class GitResolver {
    */
   private async gitCommand(args: string[]): Promise<string> {
     return new Promise((resolve, reject) => {
-      const git = spawn("git", args, {
+      const spawnFn = this.getSpawn();
+      const gitProcess = spawnFn("git", args, {
         cwd: this.config.gitRepoPath,
       });
+
+      if (!gitProcess) {
+        reject(
+          new Error(
+            `Failed to spawn git process for command: git ${args.join(" ")}`,
+          ),
+        );
+        return;
+      }
 
       let stdout = "";
       let stderr = "";
 
-      git.stdout?.on("data", (data) => {
+      gitProcess.stdout?.on("data", (data) => {
         stdout += data.toString();
       });
 
-      git.stderr?.on("data", (data) => {
+      gitProcess.stderr?.on("data", (data) => {
         stderr += data.toString();
       });
 
-      git.on("close", (code) => {
+      gitProcess.on("close", (code) => {
         if (code === 0) {
           resolve(stdout.trim());
         } else {
@@ -184,7 +220,7 @@ export class GitResolver {
         }
       });
 
-      git.on("error", (error) => {
+      gitProcess.on("error", (error) => {
         reject(new Error(`Failed to spawn git process: ${error.message}`));
       });
     });

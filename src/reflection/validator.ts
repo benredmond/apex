@@ -113,6 +113,13 @@ export class EvidenceValidator {
             message: isValid.message || "Invalid evidence",
           });
         }
+        if (isValid.warning) {
+          warnings.push({
+            path: `claims.patterns_used[${index}].evidence[${evidenceIndex}]`,
+            code: ValidationErrorCode.MALFORMED_EVIDENCE,
+            message: isValid.warning,
+          });
+        }
       }
     }
 
@@ -180,7 +187,16 @@ export class EvidenceValidator {
           errors.push({
             path: `artifacts.commits[${index}]`,
             code: ValidationErrorCode.MALFORMED_EVIDENCE,
-            message: `Commit ${sha} not found in repository`,
+            message:
+              commitValid.message ||
+              `Commit ${sha} not found in repository`,
+          });
+        }
+        if (commitValid.warning) {
+          warnings.push({
+            path: `artifacts.commits[${index}]`,
+            code: ValidationErrorCode.MALFORMED_EVIDENCE,
+            message: commitValid.warning,
           });
         }
       }
@@ -209,6 +225,8 @@ export class EvidenceValidator {
     valid: boolean;
     code?: string;
     message?: string;
+    warning?: string;
+    confidence?: number;
   }> {
     const cacheKey = this.getEvidenceCacheKey(evidence);
 
@@ -220,7 +238,13 @@ export class EvidenceValidator {
       }
     }
 
-    let result: { valid: boolean; code?: string; message?: string };
+    let result: {
+      valid: boolean;
+      code?: string;
+      message?: string;
+      warning?: string;
+      confidence?: number;
+    };
 
     switch (evidence.kind) {
       case "git_lines":
@@ -451,16 +475,79 @@ export class EvidenceValidator {
     valid: boolean;
     code?: string;
     message?: string;
+    warning?: string;
+    confidence?: number;
   }> {
-    // Resolve git ref to full SHA
-    let resolvedSha: string;
+    const isPermissive = process.env.APEX_REFLECTION_MODE !== "strict";
+
+    const looksLikeFlexibleRef = (() => {
+      const ref = sha.trim();
+      if (ref.length === 0) return false;
+      if (/^HEAD/.test(ref)) return true;
+      if (ref.includes("/")) return true;
+      if (ref.includes("@")) return true;
+      const commonRefs = new Set([
+        "main",
+        "master",
+        "develop",
+        "development",
+        "dev",
+        "release",
+        "staging",
+        "feature",
+        "bugfix",
+        "hotfix",
+      ]);
+      if (commonRefs.has(ref)) return true;
+      if (/^[vV]\d/.test(ref)) return true; // semantic version-style tags (e.g., v1.2.3)
+      return false;
+    })();
+
+    // Resolve git ref to full SHA when possible
+    let resolvedSha = sha;
     try {
       resolvedSha = await this.gitResolver.resolveRef(sha);
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      // Security-sensitive refs should always be rejected
+      if (message.includes("Invalid git reference format")) {
+        return {
+          valid: false,
+          code: ValidationErrorCode.MALFORMED_EVIDENCE,
+          message,
+        };
+      }
+
+      // Ambiguous refs should surface a clear error regardless of mode
+      if (message.includes("Ambiguous git reference")) {
+        return {
+          valid: false,
+          code: ValidationErrorCode.MALFORMED_EVIDENCE,
+          message,
+        };
+      }
+
+      const isUnknownRevision = /unknown revision|needed a single revision|bad revision|did not match any file/i.test(
+        message,
+      );
+      const isGitUnavailable =
+        message.includes("Failed to spawn git process") ||
+        message.includes("not a git repository") ||
+        message.includes("spawn git ENOENT");
+
+      if (isPermissive && looksLikeFlexibleRef && (isUnknownRevision || isGitUnavailable)) {
+        return {
+          valid: true,
+          warning: `Unable to resolve commit reference '${sha}': ${message}. Continuing in permissive mode without verification.`,
+          confidence: 0.5,
+        };
+      }
+
       return {
         valid: false,
         code: ValidationErrorCode.MALFORMED_EVIDENCE,
-        message: error.message,
+        message,
       };
     }
 
@@ -469,7 +556,22 @@ export class EvidenceValidator {
       return {
         valid: true,
       };
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      const gitUnavailableMessage =
+        message.includes("Failed to spawn git process") ||
+        message.includes("not a git repository") ||
+        message.includes("spawn git ENOENT");
+
+      if (isPermissive && (looksLikeFlexibleRef || gitUnavailableMessage)) {
+        return {
+          valid: true,
+          warning: `Unable to verify commit '${resolvedSha}': ${message}. Continuing in permissive mode without confirmation.`,
+          confidence: 0.5,
+        };
+      }
+
       return {
         valid: false,
         code: ValidationErrorCode.MALFORMED_EVIDENCE,

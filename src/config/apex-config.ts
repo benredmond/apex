@@ -5,9 +5,8 @@
 
 import path from "path";
 import os from "os";
-import fs from "fs";
+import fs from "fs-extra";
 import { fileURLToPath } from "url";
-import { RepoIdentifier } from "../utils/repo-identifier.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -90,6 +89,7 @@ export class ApexConfig {
     }
 
     // Get all possible database paths
+    const RepoIdentifier = await this.loadRepoIdentifier();
     const paths = await RepoIdentifier.getDatabasePaths();
 
     // Return project-specific path (will be created if doesn't exist)
@@ -100,6 +100,7 @@ export class ApexConfig {
    * Get global/shared patterns database path
    */
   static async getGlobalDbPath(): Promise<string> {
+    const RepoIdentifier = await this.loadRepoIdentifier();
     const paths = await RepoIdentifier.getDatabasePaths();
     return paths.fallback;
   }
@@ -112,6 +113,7 @@ export class ApexConfig {
     fallback: string;
     legacy?: string;
   }> {
+    const RepoIdentifier = await this.loadRepoIdentifier();
     return await RepoIdentifier.getDatabasePaths();
   }
 
@@ -142,6 +144,7 @@ export class ApexConfig {
       return false; // No legacy database to migrate
     }
 
+    const RepoIdentifier = await this.loadRepoIdentifier();
     const paths = await RepoIdentifier.getDatabasePaths();
 
     if (fs.existsSync(paths.primary)) {
@@ -208,5 +211,13 @@ export class ApexConfig {
     // Check new project-specific location
     const projectDb = await ApexConfig.getProjectDbPath();
     return fs.existsSync(projectDb);
+  }
+
+  /**
+   * Lazy load RepoIdentifier to improve testability (supports Vitest module mocks)
+   */
+  private static async loadRepoIdentifier() {
+    const module = await import("../utils/repo-identifier.js");
+    return module.RepoIdentifier;
   }
 }

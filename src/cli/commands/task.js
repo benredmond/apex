@@ -16,13 +16,27 @@ import { PerformanceTimer } from "../../../dist/cli/commands/shared/progress.js"
 // [APEX.SYSTEM:PAT:AUTO:gRp2Ji6F] - MCP Tool Registry Pattern
 
 let repository = null;
+let repositoryFactory = (database) => new TaskRepository(database);
+
+export function __setTaskRepositoryFactoryForTest(factory) {
+  repository = null;
+  repositoryFactory = factory;
+}
+
+export function __resetTaskRepositoryFactory() {
+  repository = null;
+  repositoryFactory = (database) => new TaskRepository(database);
+}
+
 async function getRepository() {
   if (!repository) {
     // Use centralized config for database path
     const { ApexConfig } = await import("../../config/apex-config.js");
     const dbPath = await ApexConfig.getProjectDbPath();
-    const database = new PatternDatabase(dbPath);
-    repository = new TaskRepository(database.database); // Use the getter
+
+    // Ensure the PatternDatabase is fully initialized before creating the repository
+    const database = await PatternDatabase.create(dbPath);
+    repository = repositoryFactory(database.database); // Use the getter
   }
   return repository;
 }

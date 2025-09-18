@@ -3,13 +3,30 @@
  * Generates unique, stable identifiers for projects
  */
 
-import { spawn } from "child_process";
+import { spawn as childProcessSpawn } from "child_process";
 import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
 
 export class RepoIdentifier {
+  private static apexHomeDir: string | null = null;
+  private static spawnImplementation: typeof childProcessSpawn = childProcessSpawn;
+
+  /**
+   * Override the spawn implementation (primarily for testing with module mocks).
+   */
+  static setSpawnImplementation(spawnFn: typeof childProcessSpawn): void {
+    this.spawnImplementation = spawnFn;
+  }
+
+  /**
+   * Reset spawn implementation back to the Node default.
+   */
+  static resetSpawnImplementation(): void {
+    this.spawnImplementation = childProcessSpawn;
+  }
+
   /**
    * Get a unique identifier for the current repository/project
    * Priority order:
@@ -18,6 +35,10 @@ export class RepoIdentifier {
    * 3. Non-git project → hash of absolute path
    */
   static async getIdentifier(): Promise<string> {
+    if (process.env.APEX_PROJECT_ID) {
+      return process.env.APEX_PROJECT_ID;
+    }
+
     try {
       // Try to get git remote URL first
       const remoteUrl = await this.getGitRemoteUrl();
@@ -45,12 +66,25 @@ export class RepoIdentifier {
    */
   private static async getGitRemoteUrl(): Promise<string | null> {
     return new Promise((resolve) => {
-      const git = spawn("git", ["config", "--get", "remote.origin.url"], {
+      const git = this.spawnImplementation("git", ["config", "--get", "remote.origin.url"], {
         cwd: process.cwd(),
       });
 
+      if (!git) {
+        resolve(null);
+        return;
+      }
+
       let stdout = "";
       let stderr = "";
+      let finished = false;
+
+      const settle = (value: string | null) => {
+        if (!finished) {
+          finished = true;
+          resolve(value);
+        }
+      };
 
       git.stdout?.on("data", (data) => {
         stdout += data.toString();
@@ -60,17 +94,17 @@ export class RepoIdentifier {
         stderr += data.toString();
       });
 
-      git.on("close", (code) => {
+      git.on("close", (code: number | null) => {
         if (code === 0 && stdout.trim()) {
-          resolve(stdout.trim());
+          settle(stdout.trim());
         } else {
-          resolve(null);
+          settle(null);
         }
       });
 
       git.on("error", () => {
         // Git not available or other spawn error
-        resolve(null);
+        settle(null);
       });
     });
   }
@@ -146,7 +180,7 @@ export class RepoIdentifier {
     primary: string;
     fallback: string;
   }> {
-    const homeDir = os.homedir();
+    const homeDir = this.resolveApexHomeDir();
     const identifier = await this.getIdentifier();
 
     // Primary: project-specific database
@@ -159,5 +193,80 @@ export class RepoIdentifier {
       primary,
       fallback,
     };
+  }
+
+  /**
+   * Resolve APEX home directory with sandbox-aware fallbacks
+   */
+  private static resolveApexHomeDir(): string {
+    if (this.apexHomeDir) {
+      return this.apexHomeDir;
+    }
+
+    const candidates: string[] = [];
+
+    if (process.env.APEX_HOME && process.env.APEX_HOME.trim().length > 0) {
+      candidates.push(path.resolve(process.env.APEX_HOME));
+    }
+
+    candidates.push(os.homedir());
+    candidates.push(path.join(os.tmpdir(), "apex-home"));
+    candidates.push(path.join(process.cwd(), ".apex-home"));
+
+    for (const candidate of candidates) {
+      const writable = this.ensureWritableBase(candidate);
+      if (writable) {
+        this.apexHomeDir = writable;
+        return writable;
+      }
+    }
+
+    // Final fallback - os.tmpdir without checks (should always succeed)
+    const fallback = path.join(os.tmpdir(), "apex-home-fallback");
+    fs.mkdirSync(fallback, { recursive: true });
+    this.apexHomeDir = path.resolve(fallback);
+    return this.apexHomeDir;
+  }
+
+  /**
+   * Verify that a directory is writable (creating it if necessary)
+   */
+  private static ensureWritableBase(candidate: string): string | null {
+    const resolved = path.resolve(candidate);
+
+    try {
+      fs.mkdirSync(resolved, { recursive: true });
+      const apexDir = path.join(resolved, ".apex");
+      fs.mkdirSync(apexDir, { recursive: true });
+
+      const testFile = path.join(
+        apexDir,
+        `.write-check-${process.pid}-${Date.now()}`,
+      );
+      fs.writeFileSync(testFile, "");
+      fs.unlinkSync(testFile);
+
+      return resolved;
+    } catch (error: any) {
+      // Ignore permission errors and try next candidate
+      if (error?.code === "EEXIST") {
+        // Directory exists but may not be writable. Try creating test file.
+        try {
+          const apexDir = path.join(resolved, ".apex");
+          fs.mkdirSync(apexDir, { recursive: true });
+          const testFile = path.join(
+            apexDir,
+            `.write-check-${process.pid}-${Date.now()}`,
+          );
+          fs.writeFileSync(testFile, "");
+          fs.unlinkSync(testFile);
+          return resolved;
+        } catch {
+          return null;
+        }
+      }
+
+      return null;
+    }
   }
 }

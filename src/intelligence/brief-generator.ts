@@ -216,6 +216,8 @@ export class BriefGenerator {
           generated_at: new Date().toISOString(),
           sources: [],
           complexity_score: complexity,
+          cache_hit: false,
+          generation_time_ms: Date.now() - startTime,
         },
       };
 
@@ -227,7 +229,6 @@ export class BriefGenerator {
           cacheKey,
         );
       }
-
       return brief;
     }
 
@@ -306,7 +307,6 @@ export class BriefGenerator {
       this.briefCache.set(cacheKey, brief);
       this.statements.cacheBrief.run(task.id, JSON.stringify(brief), cacheKey);
     }
-
     return brief;
   }
 
