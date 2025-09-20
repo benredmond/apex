@@ -150,9 +150,9 @@ export class TaskRepository {
 
     const newTask = {
       id,
-      identifier: task.identifier,
+      identifier: task.identifier ?? null,  // Convert undefined to null for SQLite
       title: oldBrief?.tl_dr || task.intent || "Untitled Task",
-      intent: task.intent,
+      intent: task.intent ?? null,  // Convert undefined to null for SQLite
       task_type: task.task_type || "feature",
       status: "active" as TaskStatus,
       // Store brief components as JSON strings

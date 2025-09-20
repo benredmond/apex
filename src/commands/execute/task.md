@@ -115,19 +115,23 @@ DOCUMENTER: Use all context_pack data for reflection and learning capture
 
 1. Use MCP or similar to fetch details
 2. Extract title, description, type from issue
-3. Call apex_task_create with:
+3. Infer tags from issue labels, components, or content
+4. Call apex_task_create with:
    - intent: Issue title + description
-   - type: Inferred from issue
-   - identifier: The Linear/JIRA ID
+   - type: Inferred from issue (bug, feature, etc.)
+   - identifier: The Linear/JIRA ID (e.g., "APE-59")
+   - tags: Extracted/inferred tags (e.g., ["api", "performance", "critical"])
 
 ### If markdown file path:
 
 1. Use Read tool to get file content
 2. Parse frontmatter and content for task details
-3. Call apex_task_create with:
+3. Extract tags from frontmatter or infer from content
+4. Call apex_task_create with:
    - intent: Parsed content
    - type: From frontmatter or inferred
-   - identifier: Filename without extension
+   - identifier: Filename without extension (e.g., "T026_feature")
+   - tags: From frontmatter or inferred (max 15 tags)
 
 ### If database task ID (long alphanumeric):
 
@@ -137,10 +141,26 @@ DOCUMENTER: Use all context_pack data for reflection and learning capture
 
 ### If text description or empty:
 
-1. Call apex_task_create with:
+1. Analyze the description to infer relevant tags
+2. Call apex_task_create with:
    - intent: The text or user's request
    - type: Inferred from content
-   - identifier: Optional
+   - identifier: Generate a short, descriptive ID (e.g., "dark-mode-toggle")
+   - tags: Inferred from description (e.g., ["ui", "frontend", "settings"])
+
+### Task Creation Best Practices
+
+**Always provide all fields to apex_task_create**:
+- `identifier`: Short, descriptive kebab-case ID (e.g., "auth-fix", "dark-mode")
+- `tags`: Array of relevant categories (max 15, e.g., ["api", "auth", "critical"])
+- `type`: Task classification (bug, feature, test, refactor, docs, perf)
+
+**Smart tag inference** - analyze content for: technology, domain, component, priority
+
+<good-example>
+Intent: "Fix authentication timeout issue in admin dashboard"
+→ identifier: "auth-timeout-fix", type: "bug", tags: ["auth", "admin", "backend"]
+</good-example>
 
 **Result**: Store `taskId` and `brief` for all subsequent operations.
 

@@ -5,8 +5,8 @@ echo "🔍 Running pre-commit checks..."
 # Get list of staged files
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR)
 
-# Check if there are any JS/TS files staged
-JS_TS_FILES=$(echo "$STAGED_FILES" | grep -E '\.(js|ts|jsx|tsx)$' || true)
+# Check if there are any JS files staged (skip TS files since ESLint isn't configured for them)
+JS_TS_FILES=$(echo "$STAGED_FILES" | grep -E '\.js$' || true)
 
 if [ -n "$JS_TS_FILES" ]; then
   echo "📝 Linting staged files..."

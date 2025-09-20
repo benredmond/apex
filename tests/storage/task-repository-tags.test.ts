@@ -375,6 +375,73 @@ describe('TaskRepository Tag Functionality', () => {
     });
   });
 
+  describe('undefined parameter handling', () => {
+    it('should handle undefined identifier parameter without SQLite binding error', () => {
+      // This test would have caught the original bug where undefined
+      // values cannot be bound to SQLite parameters
+      const task = taskRepo.create({
+        intent: 'Test task with undefined identifier',
+        identifier: undefined, // Explicitly pass undefined
+        task_type: 'bug'
+      });
+
+      expect(task).toBeDefined();
+      expect(task.id).toBeDefined();
+      expect(task.identifier).toBeNull(); // Should be null in database, not undefined
+      expect(task.intent).toBe('Test task with undefined identifier');
+      expect(task.task_type).toBe('bug');
+    });
+
+    it('should handle missing optional parameters', () => {
+      // Test with minimal required parameters only
+      const task = taskRepo.create({
+        intent: 'Minimal task'
+        // identifier is optional and not provided
+        // task_type is optional and not provided
+        // tags is optional and not provided
+      });
+
+      expect(task).toBeDefined();
+      expect(task.id).toBeDefined();
+      expect(task.identifier).toBeNull(); // Should be null, not undefined
+      expect(task.intent).toBe('Minimal task');
+      expect(task.task_type).toBe('feature'); // Should use default
+      expect(task.tags).toBeUndefined(); // tags can be undefined since it's not stored directly
+    });
+
+    it('should handle all optional parameters as undefined', () => {
+      // Explicitly test all optional parameters as undefined
+      const task = taskRepo.create({
+        intent: 'Test with all undefined optional params',
+        identifier: undefined,
+        task_type: undefined,
+        tags: undefined
+      }, {
+        tl_dr: 'Test brief',
+        objectives: [],
+        constraints: [],
+        acceptance_criteria: [],
+        plan: [],
+        facts: [],
+        snippets: [],
+        risks_and_gotchas: [],
+        open_questions: [],
+        test_scaffold: ''
+      });
+
+      expect(task).toBeDefined();
+      expect(task.identifier).toBeNull();
+      expect(task.task_type).toBe('feature'); // Should use default
+      expect(task.tags).toBeUndefined();
+
+      // Verify database storage
+      const row = db.prepare('SELECT identifier, task_type, tags FROM tasks WHERE id = ?').get(task.id) as any;
+      expect(row.identifier).toBeNull(); // SQLite NULL, not undefined
+      expect(row.task_type).toBe('feature');
+      expect(row.tags).toBeNull(); // NULL when no tags
+    });
+  });
+
   describe('tag data consistency', () => {
     it('should maintain tag order', () => {
       const tags = ['zebra', 'alpha', 'beta', 'gamma'];

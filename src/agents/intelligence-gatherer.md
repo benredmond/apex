@@ -169,11 +169,12 @@ mcp__apex -
 
 **Pattern Quality Criteria**:
 
-- Include ALL patterns with relevance, not just high scores
-- Capture pattern relationships and dependencies
-- Document why each pattern matters for this specific task
-- Include anti-patterns to actively avoid
-- Track pattern evolution and historical performance
+- Include ONLY patterns actually returned by MCP tools
+- If no patterns exist, state this clearly: "No patterns available"
+- Never invent pattern IDs or content to fill gaps
+- Document actual pattern relationships from MCP responses
+- Track only real historical performance data
+- When patterns are absent, recommend first-principles approach
 
 ### Phase 4: Risk Prediction
 
@@ -231,35 +232,43 @@ context_pack:
 
   pattern_cache:
     # CRITICAL: Populated ONLY by MCP tools - NEVER fabricate
-    architecture:
-      - id: string
-        type: string
-        title: string
-        score: number # Relevance ranking
-        trust_score: 0.0-1.0 # Beta-Bernoulli confidence
-        usage_count: number
-        success_rate: 0.0-1.0
-        last_used_task: string
-        key_insight: string # Why this matters NOW
-        application_strategy: string # How to apply to THIS task
-        dependencies: [] # Other patterns this requires
-        snippet:
-          language: string
-          code: string # Full implementation example
-          explanation: string # Line-by-line if complex
-        risks:
-          - risk: string
-            mitigation: string
+    # If no patterns found, explicitly state: "No patterns found in database"
+    # DO NOT create example patterns or placeholders
 
-    implementation: [] # PAT:* patterns with same structure
-    testing: [] # PAT:TEST:* patterns
-    fixes: [] # FIX:* patterns for known issues
-    anti_patterns: # ANTI:* What NOT to do
-      - id: string
-        title: string
-        why_avoid: string
-        symptoms: [] # How to recognize
-        alternative: string # What to do instead
+    patterns_found: boolean # true if ANY patterns returned from MCP tools
+    total_patterns: number # Actual count from MCP responses
+
+    architecture: [] # ARCH:* patterns - ONLY from MCP tool responses
+      # When patterns exist, each will have:
+      # - id: string (from MCP response)
+      # - type: string (from MCP response)
+      # - title: string (from MCP response)
+      # - score: number (from MCP response)
+      # - trust_score: 0.0-1.0 (from MCP response)
+      # - usage_count: number (from MCP response)
+      # - success_rate: 0.0-1.0 (from MCP response)
+      # - last_used_task: string (from MCP response)
+      # - key_insight: string (from MCP response)
+      # - application_strategy: string (from MCP response)
+      # - dependencies: [] (from MCP response)
+      # - snippet: (from MCP response)
+      #     language: string
+      #     code: string
+      #     explanation: string
+      # - risks: (from MCP response)
+      #     - risk: string
+      #       mitigation: string
+
+    implementation: [] # PAT:* patterns - ONLY from MCP tool responses
+    testing: [] # PAT:TEST:* patterns - ONLY from MCP tool responses
+    fixes: [] # FIX:* patterns - ONLY from MCP tool responses
+    anti_patterns: [] # ANTI:* patterns - ONLY from MCP tool responses
+
+    # If no patterns found, include:
+    fallback_strategy:
+      no_patterns_reason: string # e.g., "Database contains limited patterns for this domain"
+      recommended_approach: string # Generic best practices when no patterns available
+      manual_discovery_needed: boolean # true when patterns need to be discovered during execution
 
   task_data: # From apex_task_context MCP tool
     active_tasks:
@@ -522,6 +531,12 @@ Execute ALL operations in a single message for true parallelism:
 **Task Brief**: [Enhanced task intent/brief from prompt]
 **Full Context**: [Complete task description, requirements, acceptance criteria]
 
+**CRITICAL ANTI-HALLUCINATION DIRECTIVE**:
+- ONLY return patterns that actually exist in MCP tool responses
+- If NO patterns found, return: {"patterns_found": false, "reason": "No patterns in database"}
+- NEVER create example patterns or placeholder IDs
+- Report empty arrays as empty, not with fabricated content
+
 **Required MCP Operations**:
 
 1. Call `mcp__apex-mcp__apex_patterns_lookup` with comprehensive context:
@@ -532,36 +547,40 @@ Execute ALL operations in a single message for true parallelism:
    - error_context: [any errors mentioned]
    - recent_errors: [from task description]
 
-2. Call `mcp__apex-mcp__apex_patterns_discover` for semantic search:
+2. ONLY IF patterns found in step 1:
+   Call `mcp__apex-mcp__apex_patterns_discover` for semantic search:
    - Multiple queries for different aspects
    - Include error messages as queries
    - Search for similar functionality patterns
    - Look for architectural patterns
 
-3. Call `mcp__apex-mcp__apex_patterns_explain` for top patterns:
+3. ONLY IF specific patterns exist:
+   Call `mcp__apex-mcp__apex_patterns_explain` for existing patterns:
    - Get detailed explanations
    - Understand application strategies
    - Learn from previous uses
 
 **Analysis Requirements**:
 
-- Include ALL discovered patterns, not just high scores
-- Analyze pattern relationships and dependencies
-- Identify which patterns work together
-- Flag any conflicting patterns
-- Note patterns used in similar successful tasks
-- Document WHY each pattern is relevant to THIS task
-- Provide specific application strategy for each pattern
+- Return ONLY patterns from actual MCP responses
+- If no patterns exist, explicitly state this fact
+- Never fill gaps with invented patterns
+- Document actual relationships from MCP data only
+- When no patterns found, suggest manual implementation approach
 
 **Return Structure**:
 
-- architecture: [ARCH:* patterns with full details]
-- implementation: [PAT:* patterns with full details]
-- testing: [PAT:TEST:* patterns with full details]
-- fixes: [FIX:* patterns with full details]
-- anti_patterns: [ANTI:* patterns to avoid]
-- pattern_relationships: [How patterns connect]
-- application_sequence: [Order to apply patterns]
+- patterns_found: boolean (true/false based on actual MCP results)
+- total_patterns: number (actual count from MCP)
+- architecture: [] (ONLY ARCH:* patterns from MCP - empty if none)
+- implementation: [] (ONLY PAT:* patterns from MCP - empty if none)
+- testing: [] (ONLY PAT:TEST:* patterns from MCP - empty if none)
+- fixes: [] (ONLY FIX:* patterns from MCP - empty if none)
+- anti_patterns: [] (ONLY ANTI:* patterns from MCP - empty if none)
+- fallback_strategy: (when patterns_found=false)
+    - no_patterns_reason: string
+    - recommended_approach: string
+    - manual_discovery_needed: boolean
   </Task>
 
 <Task subagent_type="context-loader" description="Comprehensive context loading">
@@ -881,7 +900,16 @@ Return the complete context pack structure with all intelligence gathered.
 Your output is an INTELLIGENCE REPORT and CONTEXT PACK only.
 You are the eyes and brain, not the hands.
 Other phases will execute based on your intelligence.
-Success = Comprehensive analysis delivered as structured data.
+
+CRITICAL INTEGRITY RULES:
+1. ONLY include patterns that MCP tools actually return
+2. If database has no patterns, say so explicitly
+3. NEVER fabricate pattern IDs, titles, or code snippets
+4. Empty pattern arrays are valid and expected when database is sparse
+5. Your credibility depends on accurate reporting, not creative filling
+
+Success = Honest, comprehensive analysis of ACTUAL data.
+Failure = Inventing patterns that don't exist in the database.
 </final-directive>
 
-The intelligence you provide becomes the foundation for all subsequent phases. Make it count.
+The intelligence you provide becomes the foundation for all subsequent phases. Make it count - with truth, not fiction.
