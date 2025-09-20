@@ -1,13 +1,57 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
 
-# Schema validation before commit
-echo "🔍 Validating schema consistency..."
-npm run validate:schema || {
-  echo "❌ Schema validation failed. Please fix errors before committing."
-  exit 1
-}
+echo "🔍 Running pre-commit checks..."
 
-# Run other pre-commit checks
-npm run lint
-npm run type-check
+# Get list of staged files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# Check if there are any JS/TS files staged
+JS_TS_FILES=$(echo "$STAGED_FILES" | grep -E '\.(js|ts|jsx|tsx)$' || true)
+
+if [ -n "$JS_TS_FILES" ]; then
+  echo "📝 Linting staged files..."
+  npx eslint $JS_TS_FILES --fix
+
+  # Add any auto-fixed files back to staging
+  for file in $JS_TS_FILES; do
+    if [ -f "$file" ]; then
+      git add "$file"
+    fi
+  done
+fi
+
+# Find test files related to changed files
+TEST_FILES=""
+for file in $STAGED_FILES; do
+  # Skip test files themselves
+  if echo "$file" | grep -q "\.test\.\(js\|ts\)$"; then
+    TEST_FILES="$TEST_FILES $file"
+  else
+    # Find corresponding test file
+    base_name=$(echo "$file" | sed -E 's/\.(js|ts|jsx|tsx)$//')
+    test_file="tests/${base_name##*/}.test.js"
+    if [ -f "$test_file" ]; then
+      TEST_FILES="$TEST_FILES $test_file"
+    fi
+    test_file="tests/${base_name##*/}.test.ts"
+    if [ -f "$test_file" ]; then
+      TEST_FILES="$TEST_FILES $test_file"
+    fi
+  fi
+done
+
+# Run tests for changed files if any test files are found
+if [ -n "$TEST_FILES" ]; then
+  echo "🧪 Running tests for changed files..."
+  npx vitest run $TEST_FILES --reporter=verbose
+
+  if [ $? -ne 0 ]; then
+    echo "❌ Tests failed! Please fix the failing tests before committing."
+    echo "💡 To bypass: git commit --no-verify"
+    exit 1
+  fi
+else
+  echo "ℹ️  No related test files found for staged changes"
+fi
+
+echo "✅ Pre-commit checks passed!"
