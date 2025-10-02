@@ -38,6 +38,7 @@ export function generateToolSchema(zodSchema: ZodSchema, name: string) {
   // Apply aggressive optimizations to reduce token usage
   schema = removeAdditionalProperties(schema);
   schema = simplifyNestedSchemas(schema, 0);
+  schema = stripDescriptions(schema);
 
   return schema;
 }
@@ -138,4 +139,29 @@ function simplifyNestedSchemas(schema: any, depth: number): any {
   }
 
   return simplified;
+}
+
+/**
+ * Strips all description fields from schema to minimize token usage.
+ * Schema structure and types remain, but explanatory text is removed.
+ * AI can still understand the schema from property names and types.
+ */
+function stripDescriptions(schema: any): any {
+  if (typeof schema !== 'object' || schema === null) {
+    return schema;
+  }
+
+  if (Array.isArray(schema)) {
+    return schema.map(stripDescriptions);
+  }
+
+  const stripped: any = {};
+  for (const [key, value] of Object.entries(schema)) {
+    // Remove description and markdownDescription fields
+    if (key === 'description' || key === 'markdownDescription') {
+      continue;
+    }
+    stripped[key] = stripDescriptions(value);
+  }
+  return stripped;
 }
