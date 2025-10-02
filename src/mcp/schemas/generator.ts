@@ -10,12 +10,15 @@ import type { ZodSchema } from 'zod';
  * These are still enforced at runtime by Zod validation.
  * See docs/mcp-schema-constraints.md for details.
  *
- * Optimization: Removes `additionalProperties: false` from all objects to reduce
- * token usage. Runtime validation by Zod still enforces strict object shapes.
+ * Optimization Strategy:
+ * - JSON Schema is ONLY for AI documentation (Claude reads it to understand params)
+ * - Actual validation happens in Zod (runtime, strict)
+ * - We can simplify JSON Schema aggressively without losing validation safety
+ * - Removes additionalProperties, deeply nested schemas, and verbose types
  *
  * @param zodSchema - The Zod schema to convert
  * @param name - The schema name for $schema identifier
- * @returns JSON Schema object compatible with MCP SDK
+ * @returns Simplified JSON Schema optimized for token usage
  */
 export function generateToolSchema(zodSchema: ZodSchema, name: string) {
   const fullSchema = zodToJsonSchema(zodSchema, {
@@ -32,9 +35,11 @@ export function generateToolSchema(zodSchema: ZodSchema, name: string) {
     schema = fullSchema.definitions[refName];
   }
 
-  // Recursively remove additionalProperties to reduce token usage
-  // Zod validation still enforces strict schemas at runtime
-  return removeAdditionalProperties(schema);
+  // Apply aggressive optimizations to reduce token usage
+  schema = removeAdditionalProperties(schema);
+  schema = simplifyNestedSchemas(schema, 0);
+
+  return schema;
 }
 
 /**
@@ -59,4 +64,78 @@ function removeAdditionalProperties(schema: any): any {
     cleaned[key] = removeAdditionalProperties(value);
   }
   return cleaned;
+}
+
+/**
+ * Simplifies deeply nested schemas to reduce token usage.
+ * Strategy: Keep top-level detail, collapse deep nesting into generic types.
+ * This preserves enough info for AI understanding while cutting tokens dramatically.
+ */
+function simplifyNestedSchemas(schema: any, depth: number): any {
+  if (typeof schema !== 'object' || schema === null) {
+    return schema;
+  }
+
+  if (Array.isArray(schema)) {
+    return schema.map(s => simplifyNestedSchemas(s, depth));
+  }
+
+  // At depth 2+, simplify complex structures aggressively
+  if (depth >= 2) {
+    // Collapse anyOf/oneOf unions to generic object
+    if (schema.anyOf || schema.oneOf) {
+      return {
+        type: 'object',
+        description: schema.description || 'Complex union type (see Zod schema for details)',
+      };
+    }
+
+    // Collapse array items to generic object if complex
+    if (schema.type === 'array' && schema.items?.anyOf) {
+      return {
+        type: 'array',
+        items: { type: 'object' },
+        description: schema.description,
+      };
+    }
+
+    // Collapse objects with many properties to generic object
+    if (schema.type === 'object' && schema.properties && Object.keys(schema.properties).length > 5) {
+      return {
+        type: 'object',
+        description: schema.description || `Object with ${Object.keys(schema.properties).length} properties`,
+        required: schema.required,
+      };
+    }
+  }
+
+  // Recurse into structure
+  const simplified: any = {};
+  for (const [key, value] of Object.entries(schema)) {
+    if (key === 'properties' && typeof value === 'object') {
+      // Recurse into properties at next depth level
+      const props: any = {};
+      for (const [propKey, propValue] of Object.entries(value as any)) {
+        props[propKey] = simplifyNestedSchemas(propValue, depth + 1);
+      }
+      simplified[key] = props;
+    } else if (key === 'items') {
+      simplified[key] = simplifyNestedSchemas(value, depth + 1);
+    } else if (key === 'anyOf' || key === 'oneOf') {
+      // Keep union types at top level (depth 0-1), simplify deeper ones
+      if (depth < 2) {
+        simplified[key] = (value as any[]).map(v => simplifyNestedSchemas(v, depth + 1));
+      } else {
+        // Replace with generic object at depth 2+
+        return {
+          type: 'object',
+          description: schema.description || 'Union type (see Zod for details)',
+        };
+      }
+    } else {
+      simplified[key] = value;
+    }
+  }
+
+  return simplified;
 }
