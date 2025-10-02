@@ -22,7 +22,7 @@ import type { PatternPack } from "../../ranking/types.js";
 
 // Request validation schema
 // [PAT:VALIDATION:ZOD_DISCRIMINATED_UNION] ★★★☆☆ (2 uses) - Zod validation pattern
-const LookupRequestSchema = z.object({
+export const LookupRequestSchema = z.object({
   // Core fields
   task: z.string().min(1).max(1000),
   max_size: z.number().min(1024).max(65536).default(8192),
@@ -30,13 +30,6 @@ const LookupRequestSchema = z.object({
   // Pagination fields
   page: z.number().min(1).default(1).optional(),
   pageSize: z.number().min(1).max(50).default(50).optional(),
-
-  // Legacy fields (for backwards compatibility)
-  current_file: z.string().optional(),
-  language: z.string().optional(),
-  framework: z.string().optional(),
-  recent_errors: z.array(z.string()).max(10).optional(),
-  repo_path: z.string().optional(),
 
   // Enhanced context fields
   task_intent: z
@@ -60,8 +53,8 @@ const LookupRequestSchema = z.object({
   error_context: z
     .array(
       z.object({
-        type: z.string(),
-        message: z.string(),
+        type: z.string().min(1),
+        message: z.string().min(1),
         file: z.string().optional(),
         line: z.number().optional(),
         stack_depth: z.number().optional(),
@@ -229,11 +222,6 @@ export class PatternLookupService {
       // Extract signals from request - pass all fields including enhanced ones
       const extracted = extractSignals({
         task: request.task || "",
-        current_file: request.current_file,
-        language: request.language,
-        framework: request.framework,
-        recent_errors: request.recent_errors,
-        repo_path: request.repo_path,
         task_intent: request.task_intent
           ? {
               type: request.task_intent.type || "unknown",
