@@ -35,13 +35,13 @@ IMPORTANT: Subagents MUST NOT create .md files or documentation files in any pha
 
 <phase-execution-template>
 FOR EACH PHASE:
-1. Call apex_task_get_phase(taskId) to check current phase
+1. Call apex_task_context(taskId) to check current phase and context
 2. IF phase matches, execute phase-specific section
 3. Record checkpoint: apex_task_checkpoint(taskId, "Starting {phase}", confidence)
 4. Apply context_pack intelligence per phase mapping (see below)
 5. Execute phase actions (see phase-specific sections)
 6. Record evidence: apex_task_append_evidence per template
-7. Transition: apex_task_set_phase(taskId, nextPhase, handoff)
+7. Transition: apex_task_update({id: taskId, phase: nextPhase, handoff})
 </phase-execution-template>
 
 ### Pattern Application Template
@@ -151,6 +151,7 @@ DOCUMENTER: Use all context_pack data for reflection and learning capture
 ### Task Creation Best Practices
 
 **Always provide all fields to apex_task_create**:
+
 - `identifier`: Short, descriptive kebab-case ID (e.g., "auth-fix", "dark-mode")
 - `tags`: Array of relevant categories (max 15, e.g., ["api", "auth", "critical"])
 - `type`: Task classification (bug, feature, test, refactor, docs, perf)
@@ -459,7 +460,7 @@ apex_task_append_evidence(taskId, "decision", "Intelligence context pack generat
 Set initial phase to ARCHITECT:
 
 ```
-apex_task_set_phase(taskId, "ARCHITECT")
+apex_task_update({id: taskId, phase: "ARCHITECT"})
 apex_task_append_evidence(taskId, "decision", "Task execution started", {execution_strategy, timestamp})
 ```
 
@@ -474,7 +475,7 @@ You are the master planner. Your design decisions ripple through the entire impl
 **Your Mission**: Great architecture prevents problems, not just solves them. Future maintainers should thank you for your foresight.
 
 <phase-execution>
-Check phase: apex_task_get_phase(taskId)
+Check phase via apex_task_context(taskId) - use response.task_data.phase
 If phase is "ARCHITECT", proceed ONLY after completing mandatory artifacts.
 </phase-execution>
 
@@ -813,7 +814,7 @@ Review architectural assumptions from context pack:
 Transition to BUILDER:
 
 ```
-apex_task_set_phase(taskId, "BUILDER", handoff_content)
+apex_task_update({id: taskId, phase: "BUILDER", handoff: handoff_content})
 apex_task_append_evidence(taskId, "pattern", "Architecture artifacts and decisions", {all_artifacts})
 ```
 
@@ -845,7 +846,7 @@ Future developers understanding your intent without documentation.
 Note: If specs are unclear, return to ARCHITECT phase rather than guess.
 
 <phase-execution>
-Check phase: apex_task_get_phase(taskId)
+Check phase via apex_task_context(taskId) - use response.task_data.phase
 If phase is "BUILDER", proceed with implementation.
 </phase-execution>
 
@@ -926,7 +927,7 @@ Document files modified and patterns applied.
 Transition to VALIDATOR:
 
 ```
-apex_task_set_phase(taskId, "VALIDATOR", handoff_content)
+apex_task_update({id: taskId, phase: "VALIDATOR", handoff: handoff_content})
 apex_task_append_evidence(taskId, "pattern", "Implementation patterns applied", {patterns_used})
 ```
 
@@ -955,7 +956,7 @@ failure teaches us something about our assumptions."
 Your thoroughness determines user trust in this software.
 
 <phase-execution>
-Check phase: apex_task_get_phase(taskId)
+Check phase via apex_task_context(taskId) - use response.task_data.phase
 If phase is "VALIDATOR", proceed with validation.
 </phase-execution>
 
@@ -1021,7 +1022,7 @@ Include complete validation report and categorized issues.
 Transition based on results:
 
 ```
-apex_task_set_phase(taskId, next_phase, handoff_content)
+apex_task_update({id: taskId, phase: next_phase, handoff: handoff_content})
 apex_task_append_evidence(taskId, "pattern", "Test patterns and errors", {test_results})
 ```
 
@@ -1048,7 +1049,7 @@ You are the experienced mentor. Your review prevents future regret.
 Your approval means you'd confidently deploy this to production.
 
 <phase-execution>
-Check phase: apex_task_get_phase(taskId)
+Check phase via apex_task_context(taskId) - use response.task_data.phase
 If phase is "REVIEWER", proceed with review.
 </phase-execution>
 
@@ -1109,7 +1110,7 @@ Use gemini-orchestrator for collaborative review:
 Transition:
 
 ```
-apex_task_set_phase(taskId, next_phase, handoff_content)
+apex_task_update({id: taskId, phase: next_phase, handoff: handoff_content})
 apex_task_append_evidence(taskId, "pattern", "Final pattern effectiveness", {pattern_assessment})
 ```
 
@@ -1147,7 +1148,7 @@ Include evidence that would help future tasks avoid our mistakes.
 Your documentation is a gift to future implementers facing similar challenges.
 
 <phase-execution>
-Check phase: apex_task_get_phase(taskId)
+Check phase via apex_task_context(taskId) - use response.task_data.phase
 If phase is "DOCUMENTER", proceed with documentation.
 </phase-execution>
 
@@ -1155,7 +1156,7 @@ Final checkpoint:
 
 ```
 apex_task_checkpoint(taskId, "Completing task and capturing learnings", 0.95)
-apex_task_get_evidence(taskId) # Retrieve all evidence for reflection
+apex_task_context(taskId) - use response.evidence # Retrieve all evidence for reflection
 ```
 
 ### Complete Task and Reflect

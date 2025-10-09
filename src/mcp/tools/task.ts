@@ -33,7 +33,6 @@ import type {
   SimilarTask,
   EvidenceEntry,
   AppendEvidenceRequest,
-  GetEvidenceRequest,
 } from "../../schemas/task/types.js";
 import type { TaskBrief as NewTaskBrief } from "../../schemas/task/brief-types.js";
 import { newToOldTaskBrief } from "../../schemas/task/brief-adapter.js";
@@ -46,7 +45,6 @@ import {
   CheckpointRequestSchema,
   CompleteRequestSchema,
   AppendEvidenceRequestSchema,
-  GetEvidenceRequestSchema,
 } from "../../schemas/task/types.js";
 
 export class TaskService {
@@ -132,6 +130,7 @@ export class TaskService {
 
       return {
         id: task.id,
+        task_id: task.id,
         brief,
       };
     } catch (error) {
@@ -211,20 +210,6 @@ export class TaskService {
       throw new ToolExecutionError(
         "findSimilar",
         `Failed to find similar tasks: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-
-  /**
-   * Get all currently active tasks
-   */
-  async getCurrent(): Promise<Task[]> {
-    try {
-      return this.repository.findActive();
-    } catch (error) {
-      throw new ToolExecutionError(
-        "getCurrent",
-        `Failed to get current tasks: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -598,225 +583,4 @@ export class TaskService {
     }
   }
 
-  /**
-   * Get current phase and handoff for a task
-   * Simple Unix-style tool - just read from database
-   * [FIX:SQLITE:SYNC] ★★★★★ - Synchronous database operations
-   */
-  async getPhase(params: unknown): Promise<{ phase: Phase; handoff?: string }> {
-    // Validate input with simple schema
-    const schema = z.object({
-      task_id: z.string(),
-    });
-
-    const parseResult = schema.safeParse(params);
-    if (!parseResult.success) {
-      throw new InvalidParamsError(
-        `Invalid get phase request: ${parseResult.error.issues
-          .map((i) => i.message)
-          .join(", ")}`,
-      );
-    }
-
-    const { task_id } = parseResult.data;
-
-    try {
-      // Get task from repository
-      const task = this.repository.findById(task_id);
-      if (!task) {
-        throw new InvalidParamsError(`Task ${task_id} not found`);
-      }
-
-      // Get current phase (default to ARCHITECT if not set)
-      const phase = task.phase || "ARCHITECT";
-
-      // Get handoff from previous phase if exists
-      let handoff: string | undefined;
-      if (task.phase_handoffs) {
-        // Support both old Record format and new array format
-        if (Array.isArray(task.phase_handoffs)) {
-          // New array format - find the latest handoff for the previous phase
-          const phases: Phase[] = [
-            "ARCHITECT",
-            "BUILDER",
-            "VALIDATOR",
-            "REVIEWER",
-            "DOCUMENTER",
-          ];
-          const currentIndex = phases.indexOf(phase);
-          if (currentIndex > 0) {
-            const previousPhase = phases[currentIndex - 1];
-            // Find the latest handoff for the previous phase
-            const previousHandoffs = task.phase_handoffs
-              .filter((h) => h.phase === previousPhase)
-              .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-            if (previousHandoffs.length > 0) {
-              handoff = previousHandoffs[0].handoff;
-            }
-          }
-        } else {
-          // Old Record format - direct lookup
-          const phases: Phase[] = [
-            "ARCHITECT",
-            "BUILDER",
-            "VALIDATOR",
-            "REVIEWER",
-            "DOCUMENTER",
-          ];
-          const currentIndex = phases.indexOf(phase);
-          if (currentIndex > 0) {
-            const previousPhase = phases[currentIndex - 1];
-            handoff = task.phase_handoffs[previousPhase];
-          }
-        }
-      }
-
-      return { phase, handoff };
-    } catch (error) {
-      if (error instanceof InvalidParamsError) {
-        throw error;
-      }
-      throw new ToolExecutionError(
-        "getPhase",
-        `Failed to get phase: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-
-  /**
-   * Set phase and optional handoff for a task
-   * Simple Unix-style tool - just write to database
-   * [FIX:SQLITE:SYNC] ★★★★★ - Synchronous database operations
-   */
-  async setPhase(params: unknown): Promise<void> {
-    // Validate input with simple schema
-    const schema = z.object({
-      task_id: z.string(),
-      phase: PhaseEnum,
-      handoff: z.string().optional(),
-    });
-
-    const parseResult = schema.safeParse(params);
-    if (!parseResult.success) {
-      throw new InvalidParamsError(
-        `Invalid set phase request: ${parseResult.error.issues
-          .map((i) => i.message)
-          .join(", ")}`,
-      );
-    }
-
-    const { task_id, phase, handoff } = parseResult.data;
-
-    try {
-      // Check if task exists
-      const task = this.repository.findById(task_id);
-      if (!task) {
-        throw new InvalidParamsError(`Task ${task_id} not found`);
-      }
-
-      // Prepare updates
-      const updates: Partial<Task> = {
-        phase,
-      };
-
-      // Store handoff if provided - append to array
-      if (handoff) {
-        let handoffs: PhaseHandoff[];
-
-        // Handle both old Record format and new array format
-        if (Array.isArray(task.phase_handoffs)) {
-          handoffs = task.phase_handoffs;
-        } else if (
-          task.phase_handoffs &&
-          typeof task.phase_handoffs === "object"
-        ) {
-          // Convert old Record format to array format
-          handoffs = Object.entries(task.phase_handoffs).map(([p, h]) => ({
-            phase: p as Phase,
-            handoff: h,
-            timestamp: task.created_at, // Use task creation time for migrated handoffs
-          }));
-        } else {
-          handoffs = [];
-        }
-
-        // Append new handoff
-        handoffs.push({
-          phase,
-          handoff,
-          timestamp: new Date().toISOString(),
-        });
-
-        updates.phase_handoffs = handoffs;
-      }
-
-      // Update task
-      this.repository.update(task_id, updates);
-    } catch (error) {
-      if (error instanceof InvalidParamsError) {
-        throw error;
-      }
-      throw new ToolExecutionError(
-        "setPhase",
-        `Failed to set phase: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-
-  /**
-   * Get evidence entries for a task
-   * [PAT:MCP:SERVICE] ★★★★☆ - Service class pattern
-   * [PAT:VALIDATION:ZOD] ★★★☆☆ - Validate request with Zod
-   * [FIX:SQLITE:SYNC] ★★★★★ - Synchronous database operations
-   */
-  async getEvidence(params: unknown): Promise<EvidenceEntry[]> {
-    // Validate input
-    const parseResult = GetEvidenceRequestSchema.safeParse(params);
-    if (!parseResult.success) {
-      throw new InvalidParamsError(
-        `Invalid get evidence request: ${parseResult.error.issues
-          .map((i) => i.message)
-          .join(", ")}`,
-      );
-    }
-
-    const request = parseResult.data;
-
-    try {
-      if (!this.db) {
-        throw new InternalError("Database not initialized");
-      }
-
-      // Build query based on whether type filter is provided
-      let query = `SELECT * FROM task_evidence WHERE task_id = ?`;
-      const queryParams: any[] = [request.task_id];
-
-      if (request.type) {
-        query += ` AND type = ?`;
-        queryParams.push(request.type);
-      }
-
-      // Order by timestamp (chronological)
-      query += ` ORDER BY timestamp ASC`;
-
-      // [FIX:SQLITE:SYNC] ★★★★★ - Synchronous query
-      const stmt = this.db.prepare(query);
-      const rows = stmt.all(...queryParams);
-
-      // Transform rows to EvidenceEntry format
-      return rows.map((row: any) => ({
-        id: row.id,
-        task_id: row.task_id,
-        type: row.type,
-        content: row.content,
-        metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
-        timestamp: row.timestamp,
-      }));
-    } catch (error) {
-      throw new ToolExecutionError(
-        "getEvidence",
-        `Failed to get evidence: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
 }

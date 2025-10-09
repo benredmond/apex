@@ -10,6 +10,8 @@ import {
   type ContextPackOptions,
 } from "../../intelligence/context-pack-service.js";
 import { InvalidParamsError } from "../errors.js";
+import type { TaskRepository } from "../../storage/repositories/task-repository.js";
+import type { DatabaseAdapter } from "../../storage/database-adapter.js";
 
 // Input schema for the MCP tool
 export const ContextPackRequestSchema = z.object({
@@ -44,10 +46,15 @@ export const ContextPackRequestSchema = z.object({
 export type ContextPackRequest = z.infer<typeof ContextPackRequestSchema>;
 
 export class ContextTool {
-  constructor(private contextService: ContextPackService) {}
+  constructor(
+    private contextService: ContextPackService,
+    private taskRepository?: TaskRepository,
+    private db?: DatabaseAdapter,
+  ) {}
 
   /**
    * Get task context for AI assistant
+   * Returns context_pack plus task_data and evidence when task_id is provided
    */
   async getTaskContext(params: unknown): Promise<any> {
     // Validate input
@@ -74,10 +81,42 @@ export class ContextTool {
     // Get context pack from service
     const contextPack = await this.contextService.getContextPack(options);
 
-    return {
+    const result: any = {
       success: true,
       context_pack: contextPack,
     };
+
+    // If task_id provided, also return task_data and evidence for backward compatibility
+    if (request.task_id && this.taskRepository && this.db) {
+      const task = this.taskRepository.findById(request.task_id);
+      if (task) {
+        // Add task_data with phase and handoff information
+        result.task_data = {
+          id: task.id,
+          title: task.title,
+          phase: task.phase || "ARCHITECT",
+          intent: task.intent,
+          confidence: task.confidence,
+          phase_handoffs: task.phase_handoffs,
+        };
+
+        // Fetch evidence from task_evidence table
+        const evidenceQuery = `SELECT * FROM task_evidence WHERE task_id = ? ORDER BY timestamp ASC`;
+        const stmt = this.db.prepare(evidenceQuery);
+        const rows = stmt.all(request.task_id);
+
+        result.evidence = rows.map((row: any) => ({
+          id: row.id,
+          task_id: row.task_id,
+          type: row.type,
+          content: row.content,
+          metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+          timestamp: row.timestamp,
+        }));
+      }
+    }
+
+    return result;
   }
 }
 

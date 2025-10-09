@@ -30,14 +30,10 @@ import {
   CreateRequestSchema,
   FindRequestSchema,
   FindSimilarRequestSchema,
-  CurrentRequestSchema,
   UpdateRequestSchema,
   CheckpointRequestSchema,
   CompleteRequestSchema,
   AppendEvidenceRequestSchema,
-  GetEvidenceRequestSchema,
-  GetPhaseRequestSchema,
-  SetPhaseRequestSchema,
 } from "../../schemas/task/types.js";
 import { ContextPackRequestSchema } from "./context.js";
 
@@ -114,7 +110,7 @@ export async function initializeTools(
 
   // Initialize context pack service with shared database instance
   const contextPackService = new ContextPackService(taskRepository, repo, db);
-  contextTool = new ContextTool(contextPackService);
+  contextTool = new ContextTool(contextPackService, taskRepository, db);
 
   initializationToken += 1;
   // Ensure subsequent registerTools calls require this fresh initialization
@@ -125,7 +121,10 @@ export async function initializeTools(
  * Register all tools with the MCP server
  */
 export async function registerTools(server: Server): Promise<void> {
-  if (initializationToken === 0 || initializationToken === lastRegistrationToken) {
+  if (
+    initializationToken === 0 ||
+    initializationToken === lastRegistrationToken
+  ) {
     throw new Error(
       "Tools not initialized for this server. Please call initializeTools first.",
     );
@@ -246,20 +245,6 @@ export async function registerTools(server: Server): Promise<void> {
             ],
           };
 
-        case "apex_task_current":
-          if (!taskService) {
-            throw new Error("Task service not initialized");
-          }
-          const currentResponse = await taskService.getCurrent();
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({ tasks: currentResponse }),
-              },
-            ],
-          };
-
         case "apex_task_update":
           if (!taskService) {
             throw new Error("Task service not initialized");
@@ -330,48 +315,6 @@ export async function registerTools(server: Server): Promise<void> {
             ],
           };
 
-        case "apex_task_get_evidence":
-          if (!taskService) {
-            throw new Error("Task service not initialized");
-          }
-          const evidenceResponse = await taskService.getEvidence(args);
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({ evidence: evidenceResponse }),
-              },
-            ],
-          };
-
-        case "apex_task_get_phase":
-          if (!taskService) {
-            throw new Error("Task service not initialized");
-          }
-          const phaseResponse = await taskService.getPhase(args);
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(phaseResponse),
-              },
-            ],
-          };
-
-        case "apex_task_set_phase":
-          if (!taskService) {
-            throw new Error("Task service not initialized");
-          }
-          await taskService.setPhase(args);
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({ success: true }),
-              },
-            ],
-          };
-
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
@@ -392,27 +335,42 @@ export function getToolsList(): Tool[] {
     {
       name: "apex_patterns_lookup",
       description: "Find relevant code patterns for task",
-      inputSchema: generateToolSchema(LookupRequestSchema, "LookupRequest") as any,
+      inputSchema: generateToolSchema(
+        LookupRequestSchema,
+        "LookupRequest",
+      ) as any,
     },
     {
       name: "apex_reflect",
       description: "Submit task reflection to update pattern trust scores",
-      inputSchema: generateToolSchema(ReflectRequestSchema, "ReflectRequest") as any,
+      inputSchema: generateToolSchema(
+        ReflectRequestSchema,
+        "ReflectRequest",
+      ) as any,
     },
     {
       name: "apex_patterns_discover",
       description: "Discover patterns via semantic search",
-      inputSchema: generateToolSchema(DiscoverRequestSchema, "DiscoverRequest") as any,
+      inputSchema: generateToolSchema(
+        DiscoverRequestSchema,
+        "DiscoverRequest",
+      ) as any,
     },
     {
       name: "apex_patterns_explain",
       description: "Get pattern explanation and usage guidance",
-      inputSchema: generateToolSchema(ExplainRequestSchema, "ExplainRequest") as any,
+      inputSchema: generateToolSchema(
+        ExplainRequestSchema,
+        "ExplainRequest",
+      ) as any,
     },
     {
       name: "apex_task_create",
       description: "Create task with brief",
-      inputSchema: generateToolSchema(CreateRequestSchema, "CreateRequest") as any,
+      inputSchema: generateToolSchema(
+        CreateRequestSchema,
+        "CreateRequest",
+      ) as any,
     },
     {
       name: "apex_task_find",
@@ -422,52 +380,50 @@ export function getToolsList(): Tool[] {
     {
       name: "apex_task_find_similar",
       description: "Find similar tasks",
-      inputSchema: generateToolSchema(FindSimilarRequestSchema, "FindSimilarRequest") as any,
-    },
-    {
-      name: "apex_task_current",
-      description: "Get active tasks",
-      inputSchema: generateToolSchema(CurrentRequestSchema, "CurrentRequest") as any,
+      inputSchema: generateToolSchema(
+        FindSimilarRequestSchema,
+        "FindSimilarRequest",
+      ) as any,
     },
     {
       name: "apex_task_update",
       description: "Update task details",
-      inputSchema: generateToolSchema(UpdateRequestSchema, "UpdateRequest") as any,
+      inputSchema: generateToolSchema(
+        UpdateRequestSchema,
+        "UpdateRequest",
+      ) as any,
     },
     {
       name: "apex_task_checkpoint",
       description: "Add task checkpoint",
-      inputSchema: generateToolSchema(CheckpointRequestSchema, "CheckpointRequest") as any,
+      inputSchema: generateToolSchema(
+        CheckpointRequestSchema,
+        "CheckpointRequest",
+      ) as any,
     },
     {
       name: "apex_task_complete",
       description: "Complete task and reflect",
-      inputSchema: generateToolSchema(CompleteRequestSchema, "CompleteRequest") as any,
+      inputSchema: generateToolSchema(
+        CompleteRequestSchema,
+        "CompleteRequest",
+      ) as any,
     },
     {
       name: "apex_task_context",
       description: "Get task context pack",
-      inputSchema: generateToolSchema(ContextPackRequestSchema, "ContextPackRequest") as any,
+      inputSchema: generateToolSchema(
+        ContextPackRequestSchema,
+        "ContextPackRequest",
+      ) as any,
     },
     {
       name: "apex_task_append_evidence",
       description: "Append task evidence",
-      inputSchema: generateToolSchema(AppendEvidenceRequestSchema, "AppendEvidenceRequest") as any,
-    },
-    {
-      name: "apex_task_get_evidence",
-      description: "Get task evidence",
-      inputSchema: generateToolSchema(GetEvidenceRequestSchema, "GetEvidenceRequest") as any,
-    },
-    {
-      name: "apex_task_get_phase",
-      description: "Get task phase",
-      inputSchema: generateToolSchema(GetPhaseRequestSchema, "GetPhaseRequest") as any,
-    },
-    {
-      name: "apex_task_set_phase",
-      description: "Set task phase",
-      inputSchema: generateToolSchema(SetPhaseRequestSchema, "SetPhaseRequest") as any,
+      inputSchema: generateToolSchema(
+        AppendEvidenceRequestSchema,
+        "AppendEvidenceRequest",
+      ) as any,
     },
   ];
 }

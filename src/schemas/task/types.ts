@@ -233,15 +233,10 @@ export const AppendEvidenceRequestSchema = z.object({
 });
 export type AppendEvidenceRequest = z.infer<typeof AppendEvidenceRequestSchema>;
 
-export const GetEvidenceRequestSchema = z.object({
-  task_id: z.string(),
-  type: EvidenceTypeEnum.optional(),
-});
-export type GetEvidenceRequest = z.infer<typeof GetEvidenceRequestSchema>;
-
 // Response interfaces
 export interface CreateResponse {
   id: string;
+  task_id: string;
   brief: TaskBrief;
 }
 

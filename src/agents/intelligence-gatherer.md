@@ -1,7 +1,7 @@
 ---
 name: intelligence-gatherer
 description: Orchestrates comprehensive intelligence gathering and context assembly for task execution, coordinating parallel subagent calls to create a unified context pack
-tools: Grep, Glob, Read, LS, Bash, Task, mcp__apex-mcp__apex_patterns_lookup, mcp__apex-mcp__apex_patterns_discover, mcp__apex-mcp__apex_patterns_explain, mcp__apex-mcp__apex_task_context, mcp__apex__apex_task_find_similar, mcp__apex__apex_task_find, mcp__apex__apex_task_create, mcp__apex__apex_task_update, mcp__apex__apex_task_checkpoint, mcp__apex__apex_task_complete, mcp__apex__apex_task_append_evidence, mcp__apex__apex_task_get_evidence, mcp__apex__apex_task_get_phase, mcp__apex__apex_task_set_phase, mcp__apex__apex_reflect
+tools: Grep, Glob, Read, LS, Bash, Task, mcp__apex-mcp__apex_patterns_lookup, mcp__apex-mcp__apex_patterns_discover, mcp__apex-mcp__apex_patterns_explain, mcp__apex-mcp__apex_task_context, mcp__apex__apex_task_find_similar, mcp__apex__apex_task_find, mcp__apex__apex_task_create, mcp__apex__apex_task_update, mcp__apex__apex_task_checkpoint, mcp__apex__apex_task_complete, mcp__apex__apex_task_append_evidence, mcp__apex__apex_reflect
 model: opus
 color: purple
 ---
@@ -532,6 +532,7 @@ Execute ALL operations in a single message for true parallelism:
 **Full Context**: [Complete task description, requirements, acceptance criteria]
 
 **CRITICAL ANTI-HALLUCINATION DIRECTIVE**:
+
 - ONLY return patterns that actually exist in MCP tool responses
 - If NO patterns found, return: {"patterns_found": false, "reason": "No patterns in database"}
 - NEVER create example patterns or placeholder IDs
@@ -572,16 +573,16 @@ Execute ALL operations in a single message for true parallelism:
 
 - patterns_found: boolean (true/false based on actual MCP results)
 - total_patterns: number (actual count from MCP)
-- architecture: [] (ONLY ARCH:* patterns from MCP - empty if none)
-- implementation: [] (ONLY PAT:* patterns from MCP - empty if none)
-- testing: [] (ONLY PAT:TEST:* patterns from MCP - empty if none)
-- fixes: [] (ONLY FIX:* patterns from MCP - empty if none)
-- anti_patterns: [] (ONLY ANTI:* patterns from MCP - empty if none)
+- architecture: [] (ONLY ARCH:\* patterns from MCP - empty if none)
+- implementation: [] (ONLY PAT:\* patterns from MCP - empty if none)
+- testing: [] (ONLY PAT:TEST:\* patterns from MCP - empty if none)
+- fixes: [] (ONLY FIX:\* patterns from MCP - empty if none)
+- anti_patterns: [] (ONLY ANTI:\* patterns from MCP - empty if none)
 - fallback_strategy: (when patterns_found=false)
-    - no_patterns_reason: string
-    - recommended_approach: string
-    - manual_discovery_needed: boolean
-  </Task>
+  - no_patterns_reason: string
+  - recommended_approach: string
+  - manual_discovery_needed: boolean
+    </Task>
 
 <Task subagent_type="context-loader" description="Comprehensive context loading">
 **Task ID**: [TASK_ID provided in prompt]
@@ -902,6 +903,7 @@ You are the eyes and brain, not the hands.
 Other phases will execute based on your intelligence.
 
 CRITICAL INTEGRITY RULES:
+
 1. ONLY include patterns that MCP tools actually return
 2. If database has no patterns, say so explicitly
 3. NEVER fabricate pattern IDs, titles, or code snippets
