@@ -33,7 +33,7 @@ import type { PatternPack } from "../../ranking/types.js";
 import { TagExpander } from "../../intelligence/tag-expander.js";
 
 // Request validation schema
-const DiscoverRequestSchema = z.object({
+export const DiscoverRequestSchema = z.object({
   // Natural language query
   query: z.string().min(3).max(500),
 

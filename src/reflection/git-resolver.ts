@@ -14,7 +14,8 @@ export interface GitResolverConfig {
 }
 
 export class GitResolver {
-  private static spawnImplementation: typeof childProcessSpawn = childProcessSpawn;
+  private static spawnImplementation: typeof childProcessSpawn =
+    childProcessSpawn;
   private refCache: Map<string, { sha: string; timestamp: number }>;
   private config: GitResolverConfig;
 
@@ -101,9 +102,7 @@ export class GitResolver {
         );
       }
 
-      throw new Error(
-        `Failed to resolve git reference '${ref}': ${message}`,
-      );
+      throw new Error(`Failed to resolve git reference '${ref}': ${message}`);
     }
   }
 

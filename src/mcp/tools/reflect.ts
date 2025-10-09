@@ -388,6 +388,7 @@ export class ReflectionService {
   async reflect(rawRequest: unknown): Promise<ReflectResponse> {
     const startTime = Date.now();
     const requestId = nanoid(12);
+    let totalCorrections = 0;
 
     try {
       // Preprocess request to fix common AI mistakes
@@ -397,12 +398,11 @@ export class ReflectionService {
       // Record preprocessing metrics
       const corrections = preprocessor.getCorrections();
       this.metrics.recordPreprocessing(corrections);
-
-      // Log corrections if any were made
-      const totalCorrections = Object.values(corrections).reduce(
-        (a, b) => a + b,
+      totalCorrections = Object.values(corrections).reduce(
+        (sum, value) => sum + value,
         0,
       );
+
       if (totalCorrections > 0) {
         console.info(
           `Preprocessor applied ${totalCorrections} corrections:`,
@@ -417,7 +417,6 @@ export class ReflectionService {
         const errors = validationResult.error.issues.map((issue) => {
           let message = issue.message;
 
-          // Enhance error message for invalid outcomes
           if (
             issue.path.join(".").includes("outcome") &&
             issue.code === "invalid_enum_value"
@@ -445,18 +444,22 @@ export class ReflectionService {
           };
         });
 
-        return this.createErrorResponse(errors, startTime);
+        const message = errors
+          .map((error) => `${error.path || "request"}: ${error.message}`)
+          .join(", ");
+
+        throw new InvalidParamsError(`Invalid reflection request: ${message}`, {
+          request_id: requestId,
+          errors,
+        });
       }
 
       let request = validationResult.data;
 
       // Convert batch_patterns to claims format if needed
       if (request.batch_patterns && !request.claims) {
-        // batch_patterns is validated by schema and guaranteed to be BatchPattern[]
-        // Workaround: Zod's type inference issue with optional arrays
-        // Filter and map to ensure proper typing and required properties
         const batchPatterns: BatchPattern[] = request.batch_patterns
-          .filter((p: any) => p.pattern) // Only include items with pattern
+          .filter((p: any) => p.pattern)
           .map((p: any) => ({
             pattern: p.pattern as string,
             outcome: p.outcome as PatternOutcome,
@@ -470,14 +473,41 @@ export class ReflectionService {
         request = {
           ...request,
           claims: expandedClaims,
-          batch_patterns: undefined, // Remove batch_patterns after conversion
+          batch_patterns: undefined,
         };
       }
 
-      // If dry run, only validate
+      let baseResponse: ReflectResponse;
+
       if (request.options.dry_run) {
         const validation = await this.validator.validateRequest(request);
-        return this.createValidationResponse(
+
+        if (!validation.valid) {
+          this.metrics.recordValidationError();
+          const errors = validation.errors.length
+            ? validation.errors
+            : [
+                {
+                  path: "request",
+                  code: ValidationErrorCode.MALFORMED_EVIDENCE,
+                  message: "Reflection validation failed",
+                },
+              ];
+
+          const message = errors
+            .map((error) => `${error.path}: ${error.message}`)
+            .join(", ");
+
+          throw new InvalidParamsError(
+            `Reflection validation failed: ${message}`,
+            {
+              request_id: requestId,
+              errors,
+            },
+          );
+        }
+
+        baseResponse = this.createValidationResponse(
           validation.valid,
           validation.errors,
           startTime,
@@ -485,13 +515,23 @@ export class ReflectionService {
           validation.warnings,
           validation.queued,
         );
+      } else {
+        baseResponse = await this.processReflection(request, startTime);
       }
 
-      // Full processing
-      const response = await this.processReflection(request, startTime);
+      const latency = Date.now() - startTime;
+      const trustUpdatesProcessed =
+        baseResponse.accepted?.trust_updates?.length ?? 0;
 
-      this.metrics.recordRequest(response.ok, Date.now() - startTime);
+      const response: ReflectResponse = {
+        ...baseResponse,
+        request_id: requestId,
+        latency_ms: latency,
+        preprocessing_corrections: totalCorrections,
+        trust_updates_processed: trustUpdatesProcessed,
+      };
 
+      this.metrics.recordRequest(response.ok, response.latency_ms ?? latency);
       return response;
     } catch (error) {
       this.metrics.recordRequest(false, Date.now() - startTime);
@@ -561,19 +601,47 @@ export class ReflectionService {
 
     // Validate evidence
     const validation = await this.validator.validateRequest(request);
-    if (!validation.valid && !isPermissive) {
-      return this.createValidationResponse(
-        false,
-        validation.errors,
-        startTime,
-        false,
-        validation.warnings,
-        validation.queued,
+    const validationWarnings = validation.warnings
+      ? [...validation.warnings]
+      : [];
+    const validationErrors = validation.errors || [];
+
+    if (validationErrors.length > 0) {
+      const softErrorCodes = new Set<ValidationErrorCode>([
+        ValidationErrorCode.LINE_RANGE_NOT_FOUND,
+        ValidationErrorCode.PR_NOT_FOUND,
+        ValidationErrorCode.CI_RUN_NOT_FOUND,
+      ]);
+
+      const softErrors = validationErrors.filter((error) =>
+        softErrorCodes.has(error.code as ValidationErrorCode),
       );
+      const hardErrors = validationErrors.filter(
+        (error) => !softErrorCodes.has(error.code as ValidationErrorCode),
+      );
+
+      if (!isPermissive || hardErrors.length > 0) {
+        this.metrics.recordValidationError();
+
+        const errorsToReport =
+          hardErrors.length > 0 ? hardErrors : validationErrors;
+        const message = errorsToReport
+          .map((error) => `${error.path}: ${error.message}`)
+          .join(", ");
+
+        throw new InvalidParamsError(
+          `Reflection validation failed: ${message}`,
+          {
+            errors: errorsToReport,
+            task_id: request.task?.id,
+          },
+        );
+      }
+
+      // In permissive mode, downgrade soft errors to warnings
+      validationWarnings.push(...softErrors);
     }
 
-    // Store warnings to include in final response
-    const validationWarnings = validation.warnings || [];
     const validationQueued = validation.queued || [];
 
     const validationMs = Date.now() - validatedAt;
@@ -972,26 +1040,6 @@ export class ReflectionService {
     }
 
     return results;
-  }
-
-  /**
-   * Create error response
-   */
-  private createErrorResponse(
-    errors: Array<{ path: string; code: string; message: string }>,
-    startTime: number,
-  ): ReflectResponse {
-    return {
-      ok: false,
-      persisted: false,
-      rejected: errors,
-      drafts_created: [],
-      meta: {
-        received_at: new Date(startTime).toISOString(),
-        validated_in_ms: Date.now() - startTime,
-        schema_version: MCP_SCHEMA_VERSION,
-      },
-    };
   }
 
   /**

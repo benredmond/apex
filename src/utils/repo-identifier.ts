@@ -11,7 +11,8 @@ import path from "path";
 
 export class RepoIdentifier {
   private static apexHomeDir: string | null = null;
-  private static spawnImplementation: typeof childProcessSpawn = childProcessSpawn;
+  private static spawnImplementation: typeof childProcessSpawn =
+    childProcessSpawn;
 
   /**
    * Override the spawn implementation (primarily for testing with module mocks).
@@ -66,9 +67,13 @@ export class RepoIdentifier {
    */
   private static async getGitRemoteUrl(): Promise<string | null> {
     return new Promise((resolve) => {
-      const git = this.spawnImplementation("git", ["config", "--get", "remote.origin.url"], {
-        cwd: process.cwd(),
-      });
+      const git = this.spawnImplementation(
+        "git",
+        ["config", "--get", "remote.origin.url"],
+        {
+          cwd: process.cwd(),
+        },
+      );
 
       if (!git) {
         resolve(null);

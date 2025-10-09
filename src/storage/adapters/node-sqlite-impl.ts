@@ -14,7 +14,10 @@ import type {
  * Statement wrapper for node:sqlite
  */
 class NodeSqliteStatement implements Statement {
-  constructor(private stmt: any | null, private deferredError?: Error) {}
+  constructor(
+    private stmt: any | null,
+    private deferredError?: Error,
+  ) {}
 
   private ensureExecutable(): void {
     if (this.deferredError) {

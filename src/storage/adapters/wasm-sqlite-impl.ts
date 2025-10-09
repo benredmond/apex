@@ -44,7 +44,11 @@ class WasmSqliteStatement implements Statement {
         const normalized = value === undefined ? null : value;
         sanitized[key] = normalized;
 
-        if (!key.startsWith("@") && !key.startsWith(":") && !key.startsWith("$")) {
+        if (
+          !key.startsWith("@") &&
+          !key.startsWith(":") &&
+          !key.startsWith("$")
+        ) {
           sanitized[`@${key}`] = normalized;
           sanitized[`:${key}`] = normalized;
           sanitized[`$${key}`] = normalized;

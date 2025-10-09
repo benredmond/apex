@@ -188,8 +188,7 @@ export class EvidenceValidator {
             path: `artifacts.commits[${index}]`,
             code: ValidationErrorCode.MALFORMED_EVIDENCE,
             message:
-              commitValid.message ||
-              `Commit ${sha} not found in repository`,
+              commitValid.message || `Commit ${sha} not found in repository`,
           });
         }
         if (commitValid.warning) {
@@ -321,21 +320,32 @@ export class EvidenceValidator {
     try {
       resolvedSha = await this.gitResolver.resolveRef(sha);
     } catch (error) {
-      // In permissive mode or for common git refs, continue with warning
-      if (isPermissive || isGitRef) {
-        resolvedSha = sha; // Use original SHA and continue
+      const message = error instanceof Error ? error.message : String(error);
+      const isRepositoryUnavailable =
+        /not a git repository|failed to spawn git process|spawn git ENOENT/i.test(
+          message,
+        );
+      const isKnownMissing =
+        /unknown revision|needed a single revision|did not match any file|bad revision/i.test(
+          message,
+        );
+
+      if (
+        isPermissive &&
+        (isGitRef || isRepositoryUnavailable) &&
+        (isKnownMissing || isRepositoryUnavailable)
+      ) {
         return {
           valid: true,
-          warning: `SHA ${sha} could not be resolved (${error.message}), continuing anyway`,
-          confidence: 0.5, // Lower confidence when we can't verify
+          warning: `SHA ${sha} could not be resolved (${message}); continuing in permissive mode`,
+          confidence: 0.5,
         };
       }
 
-      // Strict mode: fail as before
       return {
         valid: false,
         code: ValidationErrorCode.MALFORMED_EVIDENCE,
-        message: error.message,
+        message,
       };
     }
 
@@ -357,8 +367,15 @@ export class EvidenceValidator {
       // If gitCommand succeeds (doesn't throw), the SHA exists
       try {
         await this.gitCommand(["cat-file", "-e", resolvedSha]);
-        // If we get here, SHA exists
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (isPermissive) {
+          return {
+            valid: true,
+            warning: `SHA ${resolvedSha} could not be verified (${message}); continuing in permissive mode`,
+            confidence: 0.5,
+          };
+        }
         return {
           valid: false,
           code: ValidationErrorCode.LINE_RANGE_NOT_FOUND,
@@ -370,25 +387,56 @@ export class EvidenceValidator {
       const contentCacheKey = `${resolvedSha}:${normalizedPath}`;
       let content: string;
 
+      const loadFileContent = async (): Promise<string> =>
+        this.gitCommand(["show", `${resolvedSha}:${normalizedPath}`]);
+
       if (this.config.cacheEnabled) {
         const cached = this.fileContentCache.get(contentCacheKey);
         if (cached && Date.now() - cached.timestamp < this.config.cacheTTL) {
           content = cached.content;
         } else {
-          content = await this.gitCommand([
-            "show",
-            `${resolvedSha}:${normalizedPath}`,
-          ]);
-          this.fileContentCache.set(contentCacheKey, {
-            content,
-            timestamp: Date.now(),
-          });
+          try {
+            content = await loadFileContent();
+            this.fileContentCache.set(contentCacheKey, {
+              content,
+              timestamp: Date.now(),
+            });
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            if (isPermissive) {
+              return {
+                valid: true,
+                warning: `File ${file} at ${resolvedSha} could not be read (${message}); continuing in permissive mode`,
+                confidence: 0.4,
+              };
+            }
+            return {
+              valid: false,
+              code: ValidationErrorCode.LINE_RANGE_NOT_FOUND,
+              message: `File ${file} not found at SHA ${resolvedSha}`,
+            };
+          }
         }
       } else {
-        content = await this.gitCommand([
-          "show",
-          `${resolvedSha}:${normalizedPath}`,
-        ]);
+        try {
+          content = await loadFileContent();
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          if (isPermissive) {
+            return {
+              valid: true,
+              warning: `File ${file} at ${resolvedSha} could not be read (${message}); continuing in permissive mode`,
+              confidence: 0.4,
+            };
+          }
+          return {
+            valid: false,
+            code: ValidationErrorCode.LINE_RANGE_NOT_FOUND,
+            message: `File ${file} not found at SHA ${resolvedSha}`,
+          };
+        }
       }
       if (!content) {
         return {
@@ -460,10 +508,18 @@ export class EvidenceValidator {
         message: `Invalid line range ${start}-${end} for file with ${lines.length} lines`,
       };
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isPermissive) {
+        return {
+          valid: true,
+          warning: `Git operation failed for ${file}@${sha}: ${message}; continuing in permissive mode`,
+          confidence: 0.4,
+        };
+      }
       return {
         valid: false,
         code: ValidationErrorCode.INTERNAL_ERROR,
-        message: `Git operation failed: ${error}`,
+        message: `Git operation failed: ${message}`,
       };
     }
   }
@@ -528,15 +584,20 @@ export class EvidenceValidator {
         };
       }
 
-      const isUnknownRevision = /unknown revision|needed a single revision|bad revision|did not match any file/i.test(
-        message,
-      );
+      const isUnknownRevision =
+        /unknown revision|needed a single revision|bad revision|did not match any file/i.test(
+          message,
+        );
       const isGitUnavailable =
         message.includes("Failed to spawn git process") ||
         message.includes("not a git repository") ||
         message.includes("spawn git ENOENT");
 
-      if (isPermissive && looksLikeFlexibleRef && (isUnknownRevision || isGitUnavailable)) {
+      if (
+        isPermissive &&
+        looksLikeFlexibleRef &&
+        (isUnknownRevision || isGitUnavailable)
+      ) {
         return {
           valid: true,
           warning: `Unable to resolve commit reference '${sha}': ${message}. Continuing in permissive mode without verification.`,
@@ -559,12 +620,7 @@ export class EvidenceValidator {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
 
-      const gitUnavailableMessage =
-        message.includes("Failed to spawn git process") ||
-        message.includes("not a git repository") ||
-        message.includes("spawn git ENOENT");
-
-      if (isPermissive && (looksLikeFlexibleRef || gitUnavailableMessage)) {
+      if (isPermissive) {
         return {
           valid: true,
           warning: `Unable to verify commit '${resolvedSha}': ${message}. Continuing in permissive mode without confirmation.`,
@@ -588,9 +644,10 @@ export class EvidenceValidator {
     number: number,
   ): Promise<{ valid: boolean; code?: string; message?: string }> {
     // Check if repo URL starts with any allowed pattern
-    const isAllowed = this.config.allowedRepoUrls.some((allowed) =>
-      repo.startsWith(allowed),
-    );
+    const allowedPatterns = this.config.allowedRepoUrls ?? [];
+    const isAllowed =
+      allowedPatterns.length === 0 ||
+      allowedPatterns.some((allowed) => repo.startsWith(allowed));
 
     if (!isAllowed) {
       return {

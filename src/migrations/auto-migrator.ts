@@ -215,7 +215,9 @@ export class AutoMigrator {
 
     const migrations = await this.loader.loadMigrations();
     if (!migrations.length) {
-      console.warn("AutoMigrator: No migrations loaded while marking as applied");
+      console.warn(
+        "AutoMigrator: No migrations loaded while marking as applied",
+      );
     }
     const rollbackTarget = Math.max(targetVersion - 1, 0);
     await this.runner.rollbackMigrations(migrations, rollbackTarget, options);

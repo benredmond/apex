@@ -1,5 +1,5 @@
-import { zodToJsonSchema } from 'zod-to-json-schema';
-import type { ZodSchema } from 'zod';
+import { zodToJsonSchema } from "zod-to-json-schema";
+import type { ZodSchema } from "zod";
 
 /**
  * Generates a JSON Schema from a Zod schema with APEX-specific options.
@@ -23,7 +23,7 @@ import type { ZodSchema } from 'zod';
 export function generateToolSchema(zodSchema: ZodSchema, name: string) {
   const fullSchema = zodToJsonSchema(zodSchema, {
     name,
-    $refStrategy: 'none', // Inline all definitions
+    $refStrategy: "none", // Inline all definitions
     markdownDescription: true, // Preserve .describe() as description
     errorMessages: false, // Don't include error messages in schema
   }) as any;
@@ -31,7 +31,7 @@ export function generateToolSchema(zodSchema: ZodSchema, name: string) {
   // Extract the actual schema from the definitions if it's using $ref
   let schema = fullSchema;
   if (fullSchema.$ref && fullSchema.definitions) {
-    const refName = fullSchema.$ref.replace('#/definitions/', '');
+    const refName = fullSchema.$ref.replace("#/definitions/", "");
     schema = fullSchema.definitions[refName];
   }
 
@@ -48,7 +48,7 @@ export function generateToolSchema(zodSchema: ZodSchema, name: string) {
  * This is safe because Zod validation enforces strict object shapes at runtime.
  */
 function removeAdditionalProperties(schema: any): any {
-  if (typeof schema !== 'object' || schema === null) {
+  if (typeof schema !== "object" || schema === null) {
     return schema;
   }
 
@@ -58,7 +58,7 @@ function removeAdditionalProperties(schema: any): any {
 
   const cleaned: any = {};
   for (const [key, value] of Object.entries(schema)) {
-    if (key === 'additionalProperties') {
+    if (key === "additionalProperties") {
       // Skip additionalProperties to reduce tokens
       continue;
     }
@@ -73,12 +73,12 @@ function removeAdditionalProperties(schema: any): any {
  * This preserves enough info for AI understanding while cutting tokens dramatically.
  */
 function simplifyNestedSchemas(schema: any, depth: number): any {
-  if (typeof schema !== 'object' || schema === null) {
+  if (typeof schema !== "object" || schema === null) {
     return schema;
   }
 
   if (Array.isArray(schema)) {
-    return schema.map(s => simplifyNestedSchemas(s, depth));
+    return schema.map((s) => simplifyNestedSchemas(s, depth));
   }
 
   // At depth 2+, simplify complex structures aggressively
@@ -86,25 +86,33 @@ function simplifyNestedSchemas(schema: any, depth: number): any {
     // Collapse anyOf/oneOf unions to generic object
     if (schema.anyOf || schema.oneOf) {
       return {
-        type: 'object',
-        description: schema.description || 'Complex union type (see Zod schema for details)',
+        type: "object",
+        description:
+          schema.description ||
+          "Complex union type (see Zod schema for details)",
       };
     }
 
     // Collapse array items to generic object if complex
-    if (schema.type === 'array' && schema.items?.anyOf) {
+    if (schema.type === "array" && schema.items?.anyOf) {
       return {
-        type: 'array',
-        items: { type: 'object' },
+        type: "array",
+        items: { type: "object" },
         description: schema.description,
       };
     }
 
     // Collapse objects with many properties to generic object
-    if (schema.type === 'object' && schema.properties && Object.keys(schema.properties).length > 5) {
+    if (
+      schema.type === "object" &&
+      schema.properties &&
+      Object.keys(schema.properties).length > 5
+    ) {
       return {
-        type: 'object',
-        description: schema.description || `Object with ${Object.keys(schema.properties).length} properties`,
+        type: "object",
+        description:
+          schema.description ||
+          `Object with ${Object.keys(schema.properties).length} properties`,
         required: schema.required,
       };
     }
@@ -113,24 +121,26 @@ function simplifyNestedSchemas(schema: any, depth: number): any {
   // Recurse into structure
   const simplified: any = {};
   for (const [key, value] of Object.entries(schema)) {
-    if (key === 'properties' && typeof value === 'object') {
+    if (key === "properties" && typeof value === "object") {
       // Recurse into properties at next depth level
       const props: any = {};
       for (const [propKey, propValue] of Object.entries(value as any)) {
         props[propKey] = simplifyNestedSchemas(propValue, depth + 1);
       }
       simplified[key] = props;
-    } else if (key === 'items') {
+    } else if (key === "items") {
       simplified[key] = simplifyNestedSchemas(value, depth + 1);
-    } else if (key === 'anyOf' || key === 'oneOf') {
+    } else if (key === "anyOf" || key === "oneOf") {
       // Keep union types at top level (depth 0-1), simplify deeper ones
       if (depth < 2) {
-        simplified[key] = (value as any[]).map(v => simplifyNestedSchemas(v, depth + 1));
+        simplified[key] = (value as any[]).map((v) =>
+          simplifyNestedSchemas(v, depth + 1),
+        );
       } else {
         // Replace with generic object at depth 2+
         return {
-          type: 'object',
-          description: schema.description || 'Union type (see Zod for details)',
+          type: "object",
+          description: schema.description || "Union type (see Zod for details)",
         };
       }
     } else {
@@ -147,7 +157,7 @@ function simplifyNestedSchemas(schema: any, depth: number): any {
  * AI can still understand the schema from property names and types.
  */
 function stripDescriptions(schema: any): any {
-  if (typeof schema !== 'object' || schema === null) {
+  if (typeof schema !== "object" || schema === null) {
     return schema;
   }
 
@@ -158,7 +168,7 @@ function stripDescriptions(schema: any): any {
   const stripped: any = {};
   for (const [key, value] of Object.entries(schema)) {
     // Remove description and markdownDescription fields
-    if (key === 'description' || key === 'markdownDescription') {
+    if (key === "description" || key === "markdownDescription") {
       continue;
     }
     stripped[key] = stripDescriptions(value);

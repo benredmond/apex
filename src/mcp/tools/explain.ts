@@ -26,7 +26,7 @@ import type {
 import type { DatabaseAdapter } from "../../storage/database-adapter.js";
 
 // Request validation schema
-const ExplainRequestSchema = z.object({
+export const ExplainRequestSchema = z.object({
   pattern_id: z.string().min(1),
 
   context: z

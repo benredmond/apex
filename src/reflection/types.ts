@@ -51,7 +51,9 @@ export type EvidenceRef = z.infer<typeof EvidenceRefSchema>;
 // Pattern usage claim
 export const PatternUsageSchema = z.object({
   pattern_id: z.string(),
-  evidence: z.array(EvidenceRefSchema),
+  evidence: z
+    .array(EvidenceRefSchema)
+    .min(1, { message: "At least one evidence item is required" }),
   snippet_id: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -184,9 +186,17 @@ export const ReflectRequestSchema = z
         learnings: z.array(LearningSchema).optional(),
         trust_updates: z.array(TrustUpdateSchema),
       })
+      .describe(
+        "Traditional reflection format with patterns_used and trust_updates. Use this OR batch_patterns, not both.",
+      )
       .optional(),
     // Option 2: Batch mode (new)
-    batch_patterns: z.array(BatchPatternSchema).optional(),
+    batch_patterns: z
+      .array(BatchPatternSchema)
+      .describe(
+        "Batch mode for multiple patterns. Use this OR claims, not both.",
+      )
+      .optional(),
     options: z
       .object({
         dry_run: z.boolean().default(false),
@@ -208,6 +218,10 @@ export type ReflectRequest = z.infer<typeof ReflectRequestSchema>;
 
 // Response types
 export interface ReflectResponse {
+  request_id?: string;
+  latency_ms?: number;
+  preprocessing_corrections?: number;
+  trust_updates_processed?: number;
   ok: boolean;
   persisted: boolean;
   outcome?: "success" | "partial" | "failure";

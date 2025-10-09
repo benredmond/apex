@@ -84,10 +84,7 @@ export class PatternDatabase {
    * Private constructor - use PatternDatabase.create() instead
    */
   constructor(connectionOrPath?: string | DatabaseAdapter | any) {
-    if (
-      connectionOrPath &&
-      typeof connectionOrPath !== "string"
-    ) {
+    if (connectionOrPath && typeof connectionOrPath !== "string") {
       this.externalAdapter = this.normalizeAdapter(connectionOrPath);
       this.managedConnection = false;
     } else if (typeof connectionOrPath === "string") {
@@ -257,7 +254,10 @@ export class PatternDatabase {
       }
     } catch (error) {
       try {
-        console.error("Warning: Could not initialize fallback database:", error);
+        console.error(
+          "Warning: Could not initialize fallback database:",
+          error,
+        );
       } catch {
         // Ignore console errors
       }
@@ -498,7 +498,10 @@ export class PatternDatabase {
         this.db.exec(idx);
       } catch (error: any) {
         const message = error?.message || "";
-        if (message.includes("no such column") || message.includes("no such table")) {
+        if (
+          message.includes("no such column") ||
+          message.includes("no such table")
+        ) {
           // Legacy databases may be missing newer columns; skip index creation
           try {
             console.warn(
@@ -521,10 +524,8 @@ export class PatternDatabase {
     );
 
     // Both node:sqlite and better-sqlite3 support named parameters with @ syntax
-    this.safeSetStatement(
-      "upsertPattern",
-      () =>
-        this.db.prepare(`
+    this.safeSetStatement("upsertPattern", () =>
+      this.db.prepare(`
       INSERT INTO patterns (
         id, schema_version, pattern_version, type, title, summary,
         trust_score, created_at, updated_at, source_repo, tags,
@@ -584,10 +585,8 @@ export class PatternDatabase {
       this.db.prepare("SELECT COUNT(*) as count FROM patterns WHERE alias = ?"),
     );
 
-    this.safeSetStatement(
-      "searchPatterns",
-      () =>
-        this.db.prepare(`
+    this.safeSetStatement("searchPatterns", () =>
+      this.db.prepare(`
       SELECT p.*
       FROM patterns_fts
       JOIN patterns p ON p.rowid = patterns_fts.rowid
@@ -599,10 +598,7 @@ export class PatternDatabase {
     );
   }
 
-  private safeSetStatement(
-    name: string,
-    factory: () => Statement,
-  ): void {
+  private safeSetStatement(name: string, factory: () => Statement): void {
     try {
       const stmt = factory();
       this.statements.set(name, stmt);
@@ -750,7 +746,11 @@ export class PatternDatabase {
   }
 
   public close(): void {
-    if (this.db && this.managedConnection && typeof this.db.close === "function") {
+    if (
+      this.db &&
+      this.managedConnection &&
+      typeof this.db.close === "function"
+    ) {
       this.db.close();
     }
     if (this.fallbackDb) {

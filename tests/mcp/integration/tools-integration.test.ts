@@ -395,6 +395,83 @@ describe("MCP Tools Integration", () => {
       expect(result.context_pack).toBeDefined();
     });
 
+    it("should include task_data and evidence when task_id is provided", async () => {
+      const handler = server["_requestHandlers"].get("tools/call");
+      expect(handler).toBeDefined();
+
+      // Create a dedicated task for this test
+      const createRequest: CallToolRequest = {
+        method: "tools/call",
+        params: {
+          name: "apex_task_create",
+          arguments: {
+            intent: "Task context evidence verification",
+            type: "feature",
+          },
+        },
+      };
+
+      const createResponse = await handler!(createRequest);
+      const createResult = JSON.parse(createResponse.content![0].text);
+      const taskId = createResult.task_id;
+      expect(taskId).toBeDefined();
+
+      // Append evidence so the context tool has data to return
+      const appendRequest: CallToolRequest = {
+        method: "tools/call",
+        params: {
+          name: "apex_task_append_evidence",
+          arguments: {
+            task_id: taskId,
+            type: "decision",
+            content: "Recorded via integration test",
+            metadata: {
+              file: "integration-test.md",
+            },
+          },
+        },
+      };
+      const appendResponse = await handler!(appendRequest);
+      const appendResult = JSON.parse(appendResponse.content![0].text);
+      expect(appendResult.success).toBe(true);
+
+      // Fetch context with the specific taskId
+      const contextRequest: CallToolRequest = {
+        method: "tools/call",
+        params: {
+          name: "apex_task_context",
+          arguments: {
+            task_id: taskId,
+          },
+        },
+      };
+
+      const contextResponse = await handler!(contextRequest);
+      const contextResult = JSON.parse(contextResponse.content![0].text);
+
+      expect(contextResult.success).toBe(true);
+      expect(contextResult.context_pack).toBeDefined();
+      expect(contextResult.task_data).toEqual(
+        expect.objectContaining({
+          id: taskId,
+          phase: "ARCHITECT",
+        }),
+      );
+
+      expect(Array.isArray(contextResult.evidence)).toBe(true);
+      expect(contextResult.evidence.length).toBeGreaterThanOrEqual(1);
+      const evidenceEntry = contextResult.evidence.find(
+        (entry: any) => entry.content === "Recorded via integration test",
+      );
+      expect(evidenceEntry).toBeDefined();
+      expect(evidenceEntry.type).toBe("decision");
+      expect(evidenceEntry.metadata).toEqual(
+        expect.objectContaining({
+          file: "integration-test.md",
+        }),
+      );
+    });
+
     it("should successfully invoke apex_task_append_evidence", async () => {
       // Create a task first
       const createRequest: CallToolRequest = {
