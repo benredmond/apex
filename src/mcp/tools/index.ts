@@ -36,6 +36,7 @@ import {
   AppendEvidenceRequestSchema,
 } from "../../schemas/task/types.js";
 import { ContextPackRequestSchema } from "./context.js";
+import { OverviewRequestSchema, PatternOverviewService } from "./overview.js";
 
 let repository: PatternRepository | null = null;
 let lookupService: PatternLookupService | null = null;
@@ -44,6 +45,7 @@ let discoverService: PatternDiscoverer | null = null;
 let explainService: PatternExplainer | null = null;
 let taskService: TaskService | null = null;
 let contextTool: ContextTool | null = null;
+let overviewService: PatternOverviewService | null = null;
 
 let initializationToken = 0;
 let lastRegistrationToken = 0;
@@ -67,6 +69,7 @@ export async function initializeTools(
   });
   discoverService = new PatternDiscoverer(repo);
   explainService = new PatternExplainer(repo);
+  overviewService = new PatternOverviewService(repo);
 
   // Initialize task service with shared database instance
   const taskRepository = new TaskRepository(db);
@@ -196,6 +199,22 @@ export async function registerTools(server: Server): Promise<void> {
               {
                 type: "text",
                 text: JSON.stringify(explainResponse),
+              },
+            ],
+          };
+
+        case "apex_patterns_overview":
+          if (!overviewService) {
+            throw new Error("Pattern overview service not initialized");
+          }
+
+          const overviewResponse = await overviewService.overview(args);
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(overviewResponse),
               },
             ],
           };
@@ -362,6 +381,14 @@ export function getToolsList(): Tool[] {
       inputSchema: generateToolSchema(
         ExplainRequestSchema,
         "ExplainRequest",
+      ) as any,
+    },
+    {
+      name: "apex_patterns_overview",
+      description: "Get filterable, paginated list of patterns with optional statistics",
+      inputSchema: generateToolSchema(
+        OverviewRequestSchema,
+        "OverviewRequest",
       ) as any,
     },
     {

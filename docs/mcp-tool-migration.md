@@ -101,9 +101,10 @@ These tools remain unchanged and should continue to be used:
 - ✅ `apex_patterns_lookup` - Find relevant patterns for current task
 - ✅ `apex_patterns_discover` - Discover patterns via semantic search
 - ✅ `apex_patterns_explain` - Get pattern explanation and usage guidance
+- ✅ `apex_patterns_overview` - Browse/filter all patterns with optional statistics
 - ✅ `apex_reflect` - Submit task reflection to update pattern trust scores
 
-### Task Tools (8 task tools + 4 pattern tools = 12 total)
+### Task Tools (8 task tools + 5 pattern tools = 13 total)
 - ✅ `apex_task_create` - Create task with brief
 - ✅ `apex_task_find` - Find tasks by criteria (replaces apex_task_current)
 - ✅ `apex_task_find_similar` - Semantic search with cached similarity scores (unique algorithm)
