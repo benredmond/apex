@@ -31,8 +31,14 @@ describe("EvidenceValidator", () => {
     // Reset mocks
     vi.clearAllMocks();
 
-     // Ensure GitResolver uses the mocked spawn implementation for these tests
+    // Set strict validation mode for tests
+    process.env.APEX_REFLECTION_MODE = "strict";
+
+     // Ensure both GitResolver and EvidenceValidator use the mocked spawn implementation
      GitResolver.setSpawnImplementation(
+       child_process.spawn as unknown as typeof import("child_process").spawn,
+     );
+     EvidenceValidator.setSpawnImplementation(
        child_process.spawn as unknown as typeof import("child_process").spawn,
      );
 
@@ -56,6 +62,8 @@ describe("EvidenceValidator", () => {
   afterEach(() => {
     vi.clearAllMocks();
     GitResolver.resetSpawnImplementation();
+    EvidenceValidator.resetSpawnImplementation();
+    delete process.env.APEX_REFLECTION_MODE;
   });
 
   describe("validateRequest", () => {

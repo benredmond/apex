@@ -9,8 +9,8 @@ import { getToolsList } from "../../src/mcp/tools/index.js";
 describe("Schema Consistency", () => {
   const tools = getToolsList();
 
-  it("should export all 12 tools", () => {
-    expect(tools).toHaveLength(12);
+  it("should export all 13 tools", () => {
+    expect(tools).toHaveLength(13);
   });
 
   it("should have valid structure for all tools", () => {
@@ -88,6 +88,19 @@ describe("Schema Consistency", () => {
     it("should have pattern_id property defined", () => {
       expect(explain?.inputSchema.properties).toHaveProperty("pattern_id");
       expect(explain?.inputSchema.properties.pattern_id).toHaveProperty("type", "string");
+    });
+  });
+
+  describe("apex_patterns_overview", () => {
+    const overview = tools.find((t) => t.name === "apex_patterns_overview");
+
+    it("should exist in the tool list", () => {
+      expect(overview).toBeDefined();
+    });
+
+    it("should expose pagination constraints", () => {
+      expect(overview?.inputSchema.properties).toHaveProperty("page");
+      expect(overview?.inputSchema.properties).toHaveProperty("page_size");
     });
   });
 

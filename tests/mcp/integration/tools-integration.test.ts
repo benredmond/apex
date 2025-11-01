@@ -61,12 +61,12 @@ describe("MCP Tools Integration", () => {
   });
 
   describe("Tool Registration", () => {
-    it("should advertise all 12 tools", () => {
+    it("should advertise all 13 tools", () => {
       const tools = getToolsList();
 
       expect(tools).toBeDefined();
       expect(Array.isArray(tools)).toBe(true);
-      expect(tools.length).toBe(12);
+      expect(tools.length).toBe(13);
 
       // Verify tool names
       const toolNames = tools.map((t) => t.name);
@@ -74,6 +74,7 @@ describe("MCP Tools Integration", () => {
       expect(toolNames).toContain("apex_reflect");
       expect(toolNames).toContain("apex_patterns_discover");
       expect(toolNames).toContain("apex_patterns_explain");
+      expect(toolNames).toContain("apex_patterns_overview");
       expect(toolNames).toContain("apex_task_create");
       expect(toolNames).toContain("apex_task_find");
       expect(toolNames).toContain("apex_task_find_similar");

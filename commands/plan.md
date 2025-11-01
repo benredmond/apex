@@ -69,19 +69,24 @@ todos = [
 # Spawn agents in parallel for efficiency
 tasks = [
     Task("Find architecture patterns",
-         "Use intelligence-gatherer to find all architectural patterns in the codebase...",
+         "Use intelligence-gatherer to assemble the context pack and architectural patterns...",
          subagent_type="intelligence-gatherer"),
 
-    Task("Analyze similar features",
-         "Use systems-researcher to find similar features and their implementations...",
+    Task("Map system flows",
+         "Use systems-researcher to trace execution flow, dependencies, and integration contracts...",
          subagent_type="systems-researcher"),
 
-    Task("Identify dependencies",
-         "Use general-purpose agent to map all dependencies and integration points..."),
+    Task("Study git history",
+         "Use git-historian to surface timelines, regressions, and ownership hotspots...",
+         subagent_type="apex:git-historian"),
 
     Task("Research failure patterns",
          "Use failure-predictor to identify what could go wrong based on history...",
-         subagent_type="failure-predictor")
+         subagent_type="failure-predictor"),
+
+    Task("Discover forward-looking risks",
+         "Use risk-analyst to enumerate edge cases, mitigations, and monitoring gaps...",
+         subagent_type="apex:risk-analyst")
 ]
 ```
 

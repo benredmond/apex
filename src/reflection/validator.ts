@@ -3,7 +3,7 @@
  * [PAT:VALIDATION:SCHEMA] ★★★★★ (40+ uses) - Comprehensive validation patterns
  */
 
-import { spawn } from "child_process";
+import { spawn as childProcessSpawn } from "child_process";
 import { promisify } from "util";
 import { createHash } from "crypto";
 import * as path from "path";
@@ -19,7 +19,7 @@ import { SnippetMatcher } from "./snippet-matcher.js";
 import { OutcomeProcessor } from "./outcome-processor.js";
 import { GitResolver } from "./git-resolver.js";
 
-const execAsync = promisify(spawn);
+const execAsync = promisify(childProcessSpawn);
 
 // Configuration for allowed PR repositories
 interface ValidatorConfig {
@@ -30,6 +30,8 @@ interface ValidatorConfig {
 }
 
 export class EvidenceValidator {
+  private static spawnImplementation: typeof childProcessSpawn =
+    childProcessSpawn;
   private config: ValidatorConfig;
   private repository: PatternRepository;
   private validationCache: Map<string, { result: boolean; timestamp: number }>;
@@ -60,6 +62,28 @@ export class EvidenceValidator {
       cacheTTL: this.config.cacheTTL,
       gitRepoPath: this.config.gitRepoPath,
     });
+  }
+
+  /**
+   * Override the spawn implementation used by all EvidenceValidator instances.
+   * Useful for test environments where child_process.spawn is mocked after module load.
+   */
+  static setSpawnImplementation(spawnFn: typeof childProcessSpawn): void {
+    this.spawnImplementation = spawnFn;
+  }
+
+  /**
+   * Reset spawn implementation back to the Node default.
+   */
+  static resetSpawnImplementation(): void {
+    this.spawnImplementation = childProcessSpawn;
+  }
+
+  /**
+   * Get the spawn implementation to use.
+   */
+  private getSpawn(): typeof childProcessSpawn {
+    return EvidenceValidator.spawnImplementation;
   }
 
   /**
@@ -675,7 +699,8 @@ export class EvidenceValidator {
    */
   private async gitCommand(args: string[]): Promise<string> {
     return new Promise((resolve, reject) => {
-      const git = spawn("git", args, {
+      const spawnFn = this.getSpawn();
+      const git = spawnFn("git", args, {
         cwd: this.config.gitRepoPath,
       });
 

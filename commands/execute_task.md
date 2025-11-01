@@ -385,7 +385,7 @@ Deploy multiple research agents concurrently for comprehensive intelligence gath
 # Launch these agents in PARALLEL (single message with multiple Task calls):
 
 # 1. APEX Pattern Intelligence - Uses specialized subagent
-<Task subagent_type="intelligence-gatherer" description="APEX pattern discovery and task context">
+<Task subagent_type="apex:intelligence-gatherer" description="APEX pattern discovery and task context">
 # APEX Intelligence Mission
 
 **Task ID**: [TASK_ID from step 2]
@@ -408,7 +408,7 @@ Deploy multiple research agents concurrently for comprehensive intelligence gath
 </Task>
 
 # 2. Web Research - Uses specialized subagent for external validation
-<Task subagent_type="web-researcher" description="Research latest documentation and best practices">
+<Task subagent_type="apex:web-researcher" description="Research latest documentation and best practices">
 # Web Research Mission
 
 **Task Context**: [Brief description from step 3]
@@ -481,7 +481,7 @@ avoid_patterns:
 </Task>
 
 # 3. Implementation Pattern Extraction - Uses specialized subagent for codebase patterns
-<Task subagent_type="implementation-pattern-extractor" description="Extract concrete implementation patterns">
+<Task subagent_type="apex:implementation-pattern-extractor" description="Extract concrete implementation patterns">
 # Pattern Extraction Mission
 
 **Task Context**: [Enhanced brief from step 3]
@@ -521,79 +521,24 @@ avoid_patterns:
 **Deliverable**: Complete YAML with concrete, copy-pasteable examples from THIS codebase.
 </Task>
 
-# 4. Codebase Component Analysis - Generic agent
-<Task description="Analyze relevant code components">
-Research the codebase to understand components involved in this task.
+# 4. Systems Analysis
+<Task subagent_type="apex:systems-researcher" description="Trace component and dependency flow">
+**Scope**: [Components inferred from brief]
 
-Focus on:
-1. Find all files related to [inferred components from brief]
-2. Trace implementation patterns and conventions
-3. Identify existing patterns in the code
-4. Map dependencies and integration points
-5. Return specific file:line references
-
-Look in [directories inferred from task] and analyze how [features mentioned] work.
-Provide detailed findings with concrete code references and architectural insights.
+Map execution paths, data flow, integration points, and hidden dependencies. Provide file:line references and highlight contracts or invariants we must respect.
 </Task>
 
-# 5. Git History Analysis - Generic agent
-<Task description="Analyze git history for similar changes">
-Research git history to find similar changes, evolution patterns, and lessons learned.
-
-Use these git commands:
-- git log --grep="[keywords from task]" --oneline --since="6 months ago"
-- git log -p -- [relevant directories/files]
-- git blame [key files] to understand change history
-- git log --all --oneline to see recent relevant work
-
-Find:
-1. Similar feature implementations or bug fixes
-2. Past approaches to this type of problem
-3. Evolution of related code areas
-4. Lessons from previous attempts (what worked/failed)
-5. Patterns that emerged over time
-
-Return commit SHAs, dates, authors, and key insights about what succeeded/failed.
+# 5. Git History Intelligence
+<Task subagent_type="apex:git-historian" description="Analyze git history for similar changes">
+Scope: [Directories/files]
+Window: [e.g., "9 months"]
+Focus on regressions, reverts, architectural milestones, churn hotspots, and current maintainers.
 </Task>
 
-# 6. Architecture & Dependency Validation - Generic agent
-<Task description="Validate architectural assumptions">
-Verify architectural assumptions and trace system dependencies.
-
-Focus on:
-1. Validate that assumed components/APIs actually exist
-2. Check for breaking changes or deprecated patterns
-3. Identify architectural constraints or requirements
-4. Find hidden dependencies or side effects
-5. Discover edge cases from the architecture
-
-Review:
-- API contracts and interfaces
-- Database schemas if relevant
-- Configuration requirements
-- Integration points and contracts
-
-Return findings with specific references to architectural decisions and constraints.
-</Task>
-
-# 7. Risk & Edge Case Discovery - Generic agent
-<Task description="Discover risks and edge cases">
-Identify potential risks, edge cases, and failure modes for this task.
-
-Analyze:
-1. What could go wrong during implementation?
-2. What edge cases are likely based on the task type?
-3. What are the testing challenges?
-4. What security or performance considerations exist?
-5. What assumptions might be wrong?
-
-Look for:
-- Error handling patterns in similar code
-- Test files for related features
-- Documentation of known issues
-- Comments warning about edge cases
-
-Return specific risks with severity assessment and mitigation strategies.
+# 6. Forward-Looking Risk Analysis - Specialized agent
+<Task subagent_type="apex:risk-analyst" description="Surface upcoming risks and edge cases">
+Inputs: Task brief, context pack snapshot, architecture notes.
+Deliver risk matrix, edge-case scenarios, monitoring gaps, and mitigation recommendations.
 </Task>
 ```
 
@@ -609,10 +554,10 @@ synthesis_approach:
     - APEX patterns and context pack from intelligence-gatherer (abstract cross-project patterns)
     - Web research findings (official docs, best practices, security)
     - Implementation patterns from implementation-pattern-extractor (concrete codebase examples)
-    - Codebase findings from component analysis (architecture, dependencies)
-    - Git history insights from version control analysis (evolution, lessons)
-    - Architecture constraints from validation agent (requirements, constraints)
-    - Risk assessment from edge case discovery (failure modes, mitigations)
+    - Systems intelligence from systems-researcher (architecture, dependencies)
+    - Git history insights from git-historian (evolution, lessons)
+    - Architecture constraints from architecture-validator (requirements, constraints)
+    - Forward-looking risks from risk-analyst (edge cases, mitigations)
 
   prioritize_findings:
     - Live codebase = primary truth source (what actually exists)
@@ -631,6 +576,7 @@ synthesis_approach:
     - Identify gaps between current code and APEX/external patterns
     - Flag inconsistencies between codebase patterns and best practices
     - Note security concerns from web research against actual implementation
+    - Align proactive risk mitigations with historical failure predictions
     - Flag deprecated patterns or breaking changes
     - Resolve contradictions (priority: codebase reality > official docs > APEX patterns > opinions)
     - Build complete picture for implementation with internal and external validation
@@ -1432,7 +1378,7 @@ apex_task_checkpoint(taskId, "Starting validation phase - running tests", 0.7)
 Use test-validator subagent:
 
 ```markdown
-<Task subagent_type="test-validator" description="Execute comprehensive validation">
+<Task subagent_type="apex:test-validator" description="Execute comprehensive validation">
 # Validation Mission - Hunt for Failures
 
 **Task ID**: [TASK_ID]
@@ -1534,7 +1480,7 @@ apex_task_checkpoint(taskId, "Starting review phase", 0.85)
 **MANDATORY**: Use quality-reviewer subagent:
 
 ```markdown
-<Task subagent_type="quality-reviewer" description="Perform code review">
+<Task subagent_type="apex:quality-reviewer" description="Perform code review">
 # Review Mission - The Final Defense
 
 **Task ID**: [TASK_ID]

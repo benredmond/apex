@@ -338,40 +338,30 @@ metadata:
 </Task>
 ```
 
-#### For Codebase Research (Generic Task):
+#### For Deep Systems Analysis (Specialized Agent):
 ```markdown
-<Task description="Analyze [specific component]">
-Research the codebase to understand [component/feature].
+<Task subagent_type="apex:systems-researcher" description="Map component relationships">
+**Focus Area**: [Component or subsystem]
 
-Focus on:
-1. Find all files related to [component]
-2. Trace implementation details
-3. Identify patterns and conventions
-4. Return specific file:line references
-
-Look in [specific directories] and analyze how [feature] works.
-Return detailed findings with concrete code references.
+Please trace execution flow, dependencies, state transitions, and integration points.
+Include file:line references, data flow notes, and any implicit contracts.
 </Task>
 ```
 
-#### For Git History Analysis (Generic Task):
+#### For Git History Intelligence (Specialized Agent):
 ```markdown
-<Task description="Analyze git history for [topic]">
-Research git history to find similar changes and evolution.
+<Task subagent_type="apex:git-historian" description="Analyze git history for [topic]">
+Scope: [files/directories]
+Window: [e.g., "9 months"]
+Highlights needed: regressions, reverts, maintainers, architectural shifts.
+</Task>
+```
 
-Use these git commands:
-- git log --grep="[keyword]" to find related commits
-- git log -p -- [file/directory] to see evolution
-- git blame [file] to understand change history
-- git log --since="6 months ago" --oneline to see recent work
-
-Find:
-1. Similar feature implementations
-2. Past approaches to this problem
-3. Evolution of related code
-4. Lessons from previous attempts
-
-Return commit SHAs, dates, and key insights.
+#### For Forward-Looking Risk Discovery (Specialized Agent):
+```markdown
+<Task subagent_type="apex:risk-analyst" description="Surface forward-looking risks">
+Inputs: Task brief, context pack excerpts, architecture decisions.
+Deliver risk matrix, edge cases, monitoring gaps, and mitigation recommendations.
 </Task>
 ```
 
@@ -385,8 +375,9 @@ synthesis_approach:
     - APEX patterns from intelligence-gatherer (abstract cross-project patterns)
     - Web research from web-researcher (official docs, best practices, security)
     - Implementation patterns from implementation-pattern-extractor (concrete codebase examples)
-    - Codebase findings from research agents (architecture, dependencies)
-    - Git history insights from version control analysis (evolution, lessons)
+    - Systems intelligence from systems-researcher (architecture, dependencies)
+    - Git history insights from git-historian (evolution, lessons)
+    - Forward-looking risks from risk-analyst (edge cases, mitigations)
     - Architecture patterns from validation agents (constraints, requirements)
 
   prioritize_findings:
