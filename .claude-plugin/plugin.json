@@ -1,0 +1,28 @@
+{
+  "name": "apex",
+  "version": "0.4.4",
+  "description": "Pattern discovery, task tracking, and continuous learning for AI coding assistants. Provides 12 MCP tools for intelligent memory, context-aware pattern lookup, and trust-scored recommendations.",
+  "author": {
+    "name": "Ben",
+    "url": "https://github.com/benredmond"
+  },
+  "homepage": "https://github.com/benredmond/apex",
+  "repository": "https://github.com/benredmond/apex",
+  "license": "MIT",
+  "keywords": [
+    "ai",
+    "patterns",
+    "mcp",
+    "intelligence",
+    "learning",
+    "workflow",
+    "automation"
+  ],
+  "mcpServers": {
+    "apex": {
+      "command": "npx",
+      "args": ["@benredmond/apex", "mcp", "serve"],
+      "env": {}
+    }
+  }
+}
