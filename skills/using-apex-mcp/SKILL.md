@@ -1,11 +1,11 @@
 ---
 name: using-apex-mcp
-description: Use when calling APEX MCP tools (apex_patterns_lookup, apex_task_create, apex_reflect, etc.) for pattern intelligence, task tracking, or submitting reflections. Reference guide for all 12 MCP tools with schemas, trust score interpretation (★ ratings), workflow integration, and common error fixes.
+description: Use when calling APEX MCP tools (apex_patterns_lookup, apex_patterns_overview, apex_task_create, apex_reflect, etc.) for pattern intelligence, task tracking, or submitting reflections. Reference guide for all 13 MCP tools with schemas, trust score interpretation (★ ratings), workflow integration, and common error fixes.
 ---
 
 # Using APEX MCP
 
-APEX is an intelligent memory layer for AI coding assistants that provides pattern discovery, task intelligence, and continuous learning through 12 MCP (Model Context Protocol) tools.
+APEX is an intelligent memory layer for AI coding assistants that provides pattern discovery, task intelligence, and continuous learning through 13 MCP (Model Context Protocol) tools.
 
 ## Quick Reference
 
@@ -14,6 +14,7 @@ APEX is an intelligent memory layer for AI coding assistants that provides patte
 | `apex_patterns_lookup` | Find relevant patterns by context | Starting any task, need proven solutions |
 | `apex_patterns_discover` | Semantic pattern search | When lookup insufficient, exploring |
 | `apex_patterns_explain` | Get pattern details | Deep dive on specific pattern |
+| `apex_patterns_overview` | Browse/filter all patterns | Pattern management, exploring catalog |
 | `apex_task_create` | Create task with auto-brief | Beginning any work |
 | `apex_task_find` | Find tasks by criteria | Looking for similar past work |
 | `apex_task_find_similar` | Get similar tasks | Need examples of similar implementations |
@@ -294,6 +295,7 @@ claims: {
 ## Additional Resources
 
 - **Complete Reflection Guide**: See `apex-reflect-guide.md` for deep dive on apex_reflect with all validation rules, evidence types, and error handling
+- **Pattern Overview Guide**: See `apex-patterns-overview-guide.md` for comprehensive guide on browsing and filtering patterns with apex_patterns_overview
 - **Tool Schemas**: Full parameter documentation in MCP server source (`src/mcp/tools/`)
 - **Trust Calculation**: Beta-Bernoulli model in `src/trust/beta-bernoulli.ts`
 

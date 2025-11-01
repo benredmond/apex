@@ -26,22 +26,70 @@
 **Phase Progression**: ARCHITECT → BUILDER → VALIDATOR → REVIEWER → DOCUMENTER
 
 <system-reminder>
+**🚨 PHASE DISCIPLINE IS MANDATORY - NO EXCEPTIONS 🚨**
+
+ALL 5 PHASES MUST BE EXECUTED IN ORDER. YOU CANNOT SKIP PHASES.
+
+**Common Violations (DO NOT DO THESE)**:
+❌ "Tests passing, jumping to apex_task_complete" → VIOLATION: skipped VALIDATOR, REVIEWER, DOCUMENTER
+❌ "Code works, calling apex_task_complete" → VIOLATION: skipped VALIDATOR, REVIEWER, DOCUMENTER
+❌ "Already ran tests during BUILDER" → VIOLATION: running tests ≠ VALIDATOR phase execution
+
+**The Rule**:
+- Each phase has a mandatory checkpoint via apex_task_checkpoint
+- apex_task_complete can ONLY be called from DOCUMENTER phase
+- If current_phase ≠ DOCUMENTER, apex_task_complete is FORBIDDEN
+
+**Why This Matters**:
+- VALIDATOR: Catches regressions and integration issues
+- REVIEWER: Ensures code quality and maintainability
+- DOCUMENTER: Updates documentation and captures learnings
+
+Skipping phases leads to: documentation debt, missed quality issues, and fabricated pattern claims.
+
 IMPORTANT: Subagents MUST NOT create .md files or documentation files in any phase except DOCUMENTER. They should return their analysis as structured text responses only.
 </system-reminder>
 
 ## 🔧 Shared Templates & Patterns
 
+### Phase Gate Validation Template
+
+<phase-gate-template>
+**MANDATORY PHASE GATE CHECK** (applies to ALL phases):
+
+1. Call apex_task_context(taskId) to get current phase from database
+2. Verify response.task_data.phase matches the phase you're about to execute
+3. If mismatch: STOP - you are in wrong phase or skipped required phases
+4. Proceed only if phase matches
+
+**ENFORCEMENT**:
+- Task identification (Step 1-3) must complete before intelligence gathering (Step 4)
+- Intelligence gathering must complete before ARCHITECT
+- ARCHITECT must complete before BUILDER
+- BUILDER must complete before VALIDATOR
+- VALIDATOR must complete before REVIEWER
+- REVIEWER must complete before DOCUMENTER
+- apex_task_complete can ONLY be called from DOCUMENTER
+
+**Phase Check Code Pattern**:
+```
+context = apex_task_context(taskId)
+current_phase = context.task_data.phase
+if current_phase != "EXPECTED_PHASE":
+    STOP - wrong phase, cannot proceed
+```
+</phase-gate-template>
+
 ### Phase Execution Template
 
 <phase-execution-template>
 FOR EACH PHASE:
-1. Call apex_task_context(taskId) to check current phase and context
-2. IF phase matches, execute phase-specific section
-3. Record checkpoint: apex_task_checkpoint(taskId, "Starting {phase}", confidence)
-4. Apply context_pack intelligence per phase mapping (see below)
-5. Execute phase actions (see phase-specific sections)
-6. Record evidence: apex_task_append_evidence per template
-7. Transition: apex_task_update({id: taskId, phase: nextPhase, handoff})
+1. **GATE CHECK**: Use phase-gate-template to verify you're in correct phase
+2. Record checkpoint: apex_task_checkpoint(taskId, "Starting {phase}", confidence)
+3. Apply context_pack intelligence per phase mapping (see below)
+4. Execute phase-specific actions (see individual phase sections)
+5. Record evidence: apex_task_append_evidence per template
+6. Transition: apex_task_update({id: taskId, phase: nextPhase, handoff})
 </phase-execution-template>
 
 ### Pattern Application Template
@@ -90,11 +138,34 @@ Call apex_task_append_evidence with:
 ### Context Pack Intelligence Mapping
 
 <context-pack-mapping>
-ARCHITECT: Use context_pack.pattern_cache.architecture + execution_strategy
-BUILDER: Use context_pack.pattern_cache.implementation + predicted_failures
-VALIDATOR: Use context_pack.pattern_cache.testing + parallelization_opportunities
-REVIEWER: Use context_pack.execution_strategy.recommended_approach + all patterns
+ARCHITECT: Use context_pack.implementation_patterns + web_research + pattern_cache.architecture + execution_strategy
+  - Reference concrete codebase examples from implementation_patterns
+  - Apply project conventions from implementation_patterns
+  - Validate design against official docs and best practices
+  - Apply security considerations from web research
+  - Check for deprecated patterns and breaking changes
+
+BUILDER: Use context_pack.implementation_patterns + pattern_cache.implementation + predicted_failures + web_research.avoid_patterns
+  - Primary reference: concrete code examples from implementation_patterns.reusable_snippets
+  - Follow project_conventions from implementation_patterns
+  - Apply APEX patterns from pattern_cache
+  - Reference official examples from web research
+  - Apply security mitigations from alerts
+
+VALIDATOR: Use context_pack.implementation_patterns.testing_patterns + pattern_cache.testing + parallelization_opportunities
+  - Follow testing patterns discovered in codebase
+  - Validate against testing best practices from web research
+
+REVIEWER: Use context_pack.implementation_patterns + execution_strategy.recommended_approach + all patterns + web_research.gap_analysis
+  - Verify consistency with project_conventions from implementation_patterns
+  - Check for inconsistencies flagged by pattern extractor
+  - Verify alignment with official recommendations
+  - Check for security concerns flagged in web research
+
 DOCUMENTER: Use all context_pack data for reflection and learning capture
+  - Document implementation patterns discovered
+  - Document external validation and sources
+  - Note inconsistencies and resolutions
 </context-pack-mapping>
 
 ## 1 · Analyse scope from argument
@@ -276,6 +347,18 @@ If patterns are relevant, enhance the prompt with pattern context:
 
 ## 4 · Execute Comprehensive Intelligence & Context Assembly
 
+<phase-execution>
+**MANDATORY PREREQUISITE CHECK**:
+
+Before starting intelligence gathering:
+1. Verify taskId exists from Step 2 (task must be in database)
+2. Verify enhanced brief exists from Step 3 (prompt optimization complete)
+3. If either missing, STOP - complete task identification first (Steps 1-3)
+
+Intelligence gathering requires a database task with optimized brief.
+Do NOT proceed without completing Steps 1-3.
+</phase-execution>
+
 Record initial checkpoint:
 
 ```
@@ -324,7 +407,121 @@ Deploy multiple research agents concurrently for comprehensive intelligence gath
 **Return**: Complete context pack with pattern intelligence and execution strategy
 </Task>
 
-# 2. Codebase Component Analysis - Generic agent
+# 2. Web Research - Uses specialized subagent for external validation
+<Task subagent_type="web-researcher" description="Research latest documentation and best practices">
+# Web Research Mission
+
+**Task Context**: [Brief description from step 3]
+**Technologies/Frameworks**: [Inferred from task description]
+
+**Your mission**: Find authoritative, current information to validate our approach.
+
+**Search for**:
+1. **Official Documentation**:
+   - Latest API documentation for relevant frameworks/libraries
+   - Migration guides and breaking changes
+   - Official examples matching our use case
+   - Deprecation notices
+
+2. **Best Practices**:
+   - Recommended patterns for this type of task
+   - Security considerations (especially for auth, API, data handling)
+   - Performance optimization guidelines
+   - Testing strategies
+
+3. **Community Intelligence**:
+   - Recent GitHub issues for similar problems
+   - Stack Overflow solutions (2024-2025, highly-voted)
+   - Known bugs or gotchas in dependencies
+   - Production experience reports
+
+4. **Security & Reliability**:
+   - CVEs or security advisories
+   - Common pitfalls and edge cases
+   - Error handling patterns
+   - Production-ready implementations
+
+**Quality filters**:
+- Prioritize official docs over blog posts
+- Prefer recent content (last 12 months)
+- Verify information across multiple sources
+- Focus on production-ready solutions
+
+**Return format**:
+```yaml
+official_docs:
+  - url: [URL]
+    key_points: [3-5 actionable insights]
+    relevance: [How it applies to our task]
+
+best_practices:
+  - practice: [Description]
+    source: [URL or consensus]
+    why_matters: [Impact on our implementation]
+
+security_alerts:
+  - issue: [Description]
+    severity: [High/Medium/Low]
+    mitigation: [What we should do]
+
+avoid_patterns:
+  - pattern: [What NOT to do]
+    reason: [Why it fails]
+    source: [Documentation or experience]
+```
+
+**Search strategy**:
+1. Official docs for mentioned frameworks/libraries
+2. GitHub repos (issues, discussions, recent commits)
+3. "[technology] best practices 2024/2025"
+4. "[technology] common mistakes production"
+5. Security advisories if applicable
+
+**Deliverable**: Synthesized findings that validate or challenge our approach, with source attribution.
+</Task>
+
+# 3. Implementation Pattern Extraction - Uses specialized subagent for codebase patterns
+<Task subagent_type="implementation-pattern-extractor" description="Extract concrete implementation patterns">
+# Pattern Extraction Mission
+
+**Task Context**: [Enhanced brief from step 3]
+**Task Type**: [Inferred from task - bug|feature|refactor|test]
+**Technologies**: [Inferred from task description]
+
+**Your mission**: Find concrete implementation examples from THIS codebase that directly inform how to implement this task.
+
+**Priorities**:
+1. Find how similar features are CURRENTLY implemented (with file:line references)
+2. Extract reusable patterns specific to this project
+3. Identify project conventions (naming, structure, types, error handling)
+4. Flag inconsistencies or variations in approach
+5. Find testing patterns for similar features
+
+**Search strategy**:
+1. Use Glob to find relevant files (e.g., `**/*auth*.ts`)
+2. Use Grep or ripgrep (via Bash) for pattern searches
+3. Read complete files for full context
+4. Check git history for pattern evolution
+
+**Return format**: Complete YAML with:
+- implementation_patterns (primary + alternatives)
+- project_conventions (naming, structure, types, error_handling)
+- reusable_snippets (with file:line sources and actual code)
+- testing_patterns (how similar features are tested)
+- inconsistencies_detected (flagged variations with recommendations)
+- metadata (confidence, files_analyzed)
+
+**Quality requirements**:
+- Every pattern MUST have file:line references
+- Include actual code snippets (not pseudocode)
+- Identify the dominant/canonical pattern
+- Flag inconsistencies honestly
+- Include testing patterns
+
+**Deliverable**: Complete YAML with concrete, copy-pasteable examples from THIS codebase.
+</Task>
+
+# 4. Codebase Component Analysis - Generic agent
 <Task description="Analyze relevant code components">
 Research the codebase to understand components involved in this task.
 
@@ -339,7 +536,7 @@ Look in [directories inferred from task] and analyze how [features mentioned] wo
 Provide detailed findings with concrete code references and architectural insights.
 </Task>
 
-# 3. Git History Analysis - Generic agent
+# 5. Git History Analysis - Generic agent
 <Task description="Analyze git history for similar changes">
 Research git history to find similar changes, evolution patterns, and lessons learned.
 
@@ -359,7 +556,7 @@ Find:
 Return commit SHAs, dates, authors, and key insights about what succeeded/failed.
 </Task>
 
-# 4. Architecture & Dependency Validation - Generic agent
+# 6. Architecture & Dependency Validation - Generic agent
 <Task description="Validate architectural assumptions">
 Verify architectural assumptions and trace system dependencies.
 
@@ -379,7 +576,7 @@ Review:
 Return findings with specific references to architectural decisions and constraints.
 </Task>
 
-# 5. Risk & Edge Case Discovery - Generic agent
+# 7. Risk & Edge Case Discovery - Generic agent
 <Task description="Discover risks and edge cases">
 Identify potential risks, edge cases, and failure modes for this task.
 
@@ -409,25 +606,35 @@ After all agents complete, synthesize findings:
 ```yaml
 synthesis_approach:
   collect_results:
-    - APEX patterns and context pack from intelligence-gatherer
-    - Codebase findings from component analysis
-    - Git history insights from version control analysis
-    - Architecture constraints from validation agent
-    - Risk assessment from edge case discovery
+    - APEX patterns and context pack from intelligence-gatherer (abstract cross-project patterns)
+    - Web research findings (official docs, best practices, security)
+    - Implementation patterns from implementation-pattern-extractor (concrete codebase examples)
+    - Codebase findings from component analysis (architecture, dependencies)
+    - Git history insights from version control analysis (evolution, lessons)
+    - Architecture constraints from validation agent (requirements, constraints)
+    - Risk assessment from edge case discovery (failure modes, mitigations)
 
   prioritize_findings:
-    - Live codebase = primary truth source
-    - APEX patterns = proven solutions to apply
-    - Git history = evolution understanding and lessons
+    - Live codebase = primary truth source (what actually exists)
+    - Implementation patterns = concrete project conventions and working code
+    - Official documentation = authoritative reference for frameworks/APIs
+    - APEX patterns = proven solutions from cross-project experience
+    - Best practices = industry consensus and validation
+    - Git history = evolution understanding and lessons learned
     - Architecture = design constraints and requirements
     - Risks = preventive measures to implement
 
   connect_insights:
-    - Cross-reference findings across all agents
-    - Identify patterns and commonalities
-    - Resolve contradictions between sources
-    - Build complete picture for implementation
-    - Update context pack with synthesized intelligence
+    - Validate APEX patterns against actual codebase implementations
+    - Cross-reference implementation patterns with official recommendations
+    - Verify best practices are actually used in the codebase
+    - Identify gaps between current code and APEX/external patterns
+    - Flag inconsistencies between codebase patterns and best practices
+    - Note security concerns from web research against actual implementation
+    - Flag deprecated patterns or breaking changes
+    - Resolve contradictions (priority: codebase reality > official docs > APEX patterns > opinions)
+    - Build complete picture for implementation with internal and external validation
+    - Update context pack with synthesized intelligence including implementation patterns
 ```
 
 The synthesized intelligence forms a complete context pack (store as evidence):
@@ -438,6 +645,23 @@ The synthesized intelligence forms a complete context pack (store as evidence):
 context_pack:
   task_analysis:
     id, title, type, complexity, validation_status, current_phase
+
+  web_research:
+    official_docs: [urls with key insights and relevance]
+    best_practices: [practices with sources and reasoning]
+    security_alerts: [issues with severity and mitigation]
+    avoid_patterns: [anti-patterns from external sources]
+    framework_version: [latest versions and breaking changes]
+    gap_analysis: [differences between our code and recommendations]
+
+  implementation_patterns:
+    primary_patterns: [patterns with code examples and file:line refs]
+    project_conventions: [naming, structure, types, error_handling]
+    reusable_snippets: [copy-pasteable code with sources]
+    testing_patterns: [how to test similar features]
+    inconsistencies: [variations flagged with recommendations]
+    confidence: [1-10 based on pattern consistency]
+    files_analyzed: [count]
 
   pattern_cache:
     architecture: [patterns with trust scores]
@@ -458,10 +682,12 @@ context_pack:
   validation_results:
     requirements_complete, missing_requirements
     ambiguities_resolved, assumptions_verified
+    external_validation: [alignment with official docs and best practices]
 
   execution_strategy:
     recommended_approach, gemini_integration
     parallelization_opportunities
+    security_considerations: [from web research]
 
   metadata:
     intelligence_timestamp, confidence_score, cache_hit_rate
@@ -481,6 +707,54 @@ After receiving the context pack, display a comprehensive intelligence report to
 - **Historical Match**: {similar_tasks_count} similar tasks found with {avg_relevance}% relevance
 - **Confidence Score**: {context_pack.metadata.confidence_score}/10 (overall intelligence confidence)
 
+### 🌐 Web Research Intelligence
+
+**Official Documentation Validated**:
+{for each doc in context_pack.web_research.official_docs:}
+- {doc.title}: {doc.key_points[0]} ([source]({doc.url}))
+
+**Best Practices Identified**: {context_pack.web_research.best_practices.length} industry patterns found
+{for top 3 best practices:}
+- {practice.practice} (Source: {practice.source})
+
+**Security Alerts**: {context_pack.web_research.security_alerts.length} security considerations
+{if any high severity:}
+⚠️ **High Priority**: {alert.issue} - {alert.mitigation}
+
+**Gap Analysis**:
+- ✅ **Aligned with standards**: {aligned_count} patterns validated
+- ⚠️ **Needs attention**: {gap_count} areas differ from recommendations
+- 🔄 **Deprecated patterns**: {deprecated_count} patterns to update
+
+**External Validation**: {context_pack.validation_results.external_validation}
+
+### 📝 Implementation Patterns from Codebase
+
+**Primary Pattern Identified**:
+- {context_pack.implementation_patterns.primary_patterns[0].name}
+- Location: `{file:line}`
+- Usage: {usage_frequency} ({confidence}/10 confidence)
+
+**Project Conventions**: {context_pack.implementation_patterns.project_conventions.length} conventions discovered
+{for top conventions:}
+- {convention_category}: {pattern_description}
+
+**Reusable Snippets**: {context_pack.implementation_patterns.reusable_snippets.length} ready-to-use code snippets
+- Snippets available with file:line references for adaptation
+
+**Testing Patterns**: {context_pack.implementation_patterns.testing_patterns.length} testing approaches found
+- Framework: {primary_test_framework}
+- Approach: {testing_pattern_description}
+
+**Inconsistencies Flagged**: {context_pack.implementation_patterns.inconsistencies.length} variations detected
+{if any high-impact inconsistencies:}
+⚠️ **High Impact**: {inconsistency.area} - {inconsistency.recommendation}
+
+**Pattern Analysis**:
+- Files analyzed: {context_pack.implementation_patterns.files_analyzed}
+- Confidence: {context_pack.implementation_patterns.confidence}/10
+- Coverage: {dominant_pattern_coverage}% of files use primary pattern
+
 ### 🎯 Pattern Intelligence
 
 **High-Trust Patterns (★★★★☆+):**
@@ -489,7 +763,7 @@ After receiving the context pack, display a comprehensive intelligence report to
 - {pattern.id} ★{trust_stars} ({pattern.usage_count} uses, {pattern.success_rate}% success)
 
 **Applicable Patterns**: {total_applicable} patterns matched this context
-**Anti-patterns Identified**: {context_pack.pattern_cache.anti_patterns.length} patterns to avoid
+**Anti-patterns Identified**: {context_pack.pattern_cache.anti_patterns.length} internal + {context_pack.web_research.avoid_patterns.length} external patterns to avoid
 **Success Prediction**: Based on {similar_task_count} similar tasks with {avg_success_rate}% average success
 
 ### 📚 Historical Intelligence
@@ -544,11 +818,14 @@ After receiving the context pack, display a comprehensive intelligence report to
 **Implementation Notes for the Intelligence Report**:
 
 1. Extract all metrics from the context_pack returned by intelligence-gatherer
-2. Calculate derived metrics (averages, percentages, counts) from the raw data
-3. Format trust scores as star ratings (★) for visual clarity
-4. Only show sections with meaningful data (skip empty sections)
-5. Highlight critical warnings (validation blocked, high-risk predictions)
-6. Keep the report concise but informative - focus on actionable intelligence
+2. Include web research findings with source attribution (URLs)
+3. Calculate derived metrics (averages, percentages, counts) from the raw data
+4. Format trust scores as star ratings (★) for visual clarity
+5. Highlight security alerts and deprecated patterns from web research
+6. Show gap analysis between codebase and official recommendations
+7. Only show sections with meaningful data (skip empty sections)
+8. Highlight critical warnings (validation blocked, high-risk predictions, security issues)
+9. Keep the report concise but informative - focus on actionable intelligence
 
 <critical-gate>
 VALIDATION GATE: If validation_status is "blocked":
@@ -588,8 +865,9 @@ You are the master planner. Your design decisions ripple through the entire impl
 **Your Mission**: Great architecture prevents problems, not just solves them. Future maintainers should thank you for your foresight.
 
 <phase-execution>
-Check phase via apex_task_context(taskId) - use response.task_data.phase
-If phase is "ARCHITECT", proceed ONLY after completing mandatory artifacts.
+**APPLY**: phase-gate-template with EXPECTED_PHASE = "ARCHITECT"
+
+STOP if current phase ≠ ARCHITECT. Proceed ONLY after completing mandatory artifacts.
 </phase-execution>
 
 Record checkpoint:
@@ -806,9 +1084,16 @@ pattern_selection:
 
 Use intelligence from:
 
-- `context_pack.pattern_cache.architecture`
-- `context_pack.execution_strategy.recommended_approach`
-- `context_pack.historical_intelligence.similar_tasks`
+- `context_pack.implementation_patterns.primary_patterns` - Concrete codebase examples with file:line refs
+- `context_pack.implementation_patterns.project_conventions` - Project naming, structure, types
+- `context_pack.implementation_patterns.reusable_snippets` - Copy-pasteable code from codebase
+- `context_pack.web_research.official_docs` - Official recommendations and examples
+- `context_pack.web_research.best_practices` - Industry-validated patterns
+- `context_pack.web_research.security_alerts` - Security considerations to address
+- `context_pack.web_research.avoid_patterns` - External anti-patterns to avoid
+- `context_pack.pattern_cache.architecture` - APEX cross-project patterns
+- `context_pack.execution_strategy.recommended_approach` - Recommended strategy
+- `context_pack.historical_intelligence.similar_tasks` - Historical patterns
 
 ---
 
@@ -949,7 +1234,7 @@ You are the craftsperson. Your code will be read more than written.
 **While implementing**:
 
 - Start with the hardest, riskiest parts first
-- Check pattern cache before writing each function
+- Reference patterns from context_pack (discovered during intelligence gathering)
 - When something feels wrong, it probably is - investigate
 - Your code explains itself - comments explain why, not what
 
@@ -959,8 +1244,9 @@ Future developers understanding your intent without documentation.
 Note: If specs are unclear, return to ARCHITECT phase rather than guess.
 
 <phase-execution>
-Check phase via apex_task_context(taskId) - use response.task_data.phase
-If phase is "BUILDER", proceed with implementation.
+**APPLY**: phase-gate-template with EXPECTED_PHASE = "BUILDER"
+
+STOP if current phase ≠ BUILDER.
 </phase-execution>
 
 Record checkpoint:
@@ -969,9 +1255,39 @@ Record checkpoint:
 apex_task_checkpoint(taskId, "Starting implementation phase", 0.5)
 ```
 
+### 🚨 MANDATORY PATTERN DISCIPLINE
+
+<critical-requirement>
+**YOU CANNOT FABRICATE PATTERNS - ONLY USE PATTERNS FROM CONTEXT PACK**
+
+Patterns were discovered during intelligence gathering (Step 4) and are in the context_pack:
+- `context_pack.pattern_cache.implementation` - APEX patterns discovered by intelligence-gatherer
+- `context_pack.implementation_patterns` - Codebase patterns extracted by pattern-extractor
+- `context_pack.web_research.best_practices` - External patterns from research
+
+When implementing:
+1. Reference ONLY patterns that exist in the context pack
+2. Document which patterns you applied and where
+3. In apex_task_complete, claim ONLY patterns that were in the context pack
+
+**VIOLATION EXAMPLE**: Claiming patterns like "bottom-up-refactoring", "sequential-test-validation",
+"pydantic-model-first" that were NEVER in the context pack from intelligence gathering
+
+**CONSEQUENCE**: Pattern trust scores become meaningless if patterns are fabricated
+
+**ENFORCEMENT**: Patterns claimed in apex_task_complete must match patterns from context_pack.
+No invented pattern names allowed.
+</critical-requirement>
+
 ### Using Context Pack Intelligence
 
-- Apply patterns from `context_pack.pattern_cache.implementation`
+- **Primary reference**: Concrete code examples from `context_pack.implementation_patterns.reusable_snippets`
+- Follow project conventions from `context_pack.implementation_patterns.project_conventions`
+- Adapt patterns from `context_pack.implementation_patterns.primary_patterns` (with file:line refs)
+- Reference official examples from `context_pack.web_research.official_docs`
+- Apply security mitigations from `context_pack.web_research.security_alerts`
+- Avoid patterns from `context_pack.web_research.avoid_patterns` and `implementation_patterns.inconsistencies`
+- **MUST CALL apex_patterns_lookup**: Apply APEX patterns from `context_pack.pattern_cache.implementation` ONLY after discovering them
 - Use failure predictions from `context_pack.historical_intelligence.predicted_failures`
 - Reference similar implementations from `context_pack.historical_intelligence.similar_tasks`
 
@@ -1031,17 +1347,27 @@ SYNTAX VALIDATION GATE: Before completing BUILDER phase
 - Check for common errors (double async, missing brackets)
 - Fix ALL syntax errors before proceeding
 - Do NOT transition to VALIDATOR with syntax errors
+
+PATTERN EVIDENCE GATE: Before transitioning to VALIDATOR
+- Review all patterns you intend to claim in apex_task_complete
+- Verify each pattern exists in the context_pack from intelligence gathering (Step 4)
+- Document pattern IDs with references to context_pack sections where they appear
+- No fabricated or invented pattern names allowed
 </critical-gate>
 
 ### BUILDER → VALIDATOR Handoff
 
 Document files modified and patterns applied.
 
+**MANDATORY BEFORE TRANSITION**:
+- Verify all claimed patterns exist in context_pack from intelligence gathering
+- Include pattern IDs with context_pack references in handoff documentation
+
 Transition to VALIDATOR:
 
 ```
 apex_task_update({id: taskId, phase: "VALIDATOR", handoff: handoff_content})
-apex_task_append_evidence(taskId, "pattern", "Implementation patterns applied", {patterns_used})
+apex_task_append_evidence(taskId, "pattern", "Implementation patterns applied", {patterns_used_from_context_pack})
 ```
 
 ## 8 · Execute VALIDATOR phase
@@ -1069,9 +1395,25 @@ failure teaches us something about our assumptions."
 Your thoroughness determines user trust in this software.
 
 <phase-execution>
-Check phase via apex_task_context(taskId) - use response.task_data.phase
-If phase is "VALIDATOR", proceed with validation.
+**APPLY**: phase-gate-template with EXPECTED_PHASE = "VALIDATOR"
+
+STOP if current phase ≠ VALIDATOR.
+
+**Critical distinction**:
+- If you came from BUILDER with "all tests passing", that is NOT validation
+- Running pytest during BUILDER ≠ VALIDATOR phase execution
+- Running tests during BUILDER = verifying your changes work
+- Running tests during VALIDATOR = verifying you didn't break anything else
 </phase-execution>
+
+<critical-requirement>
+**VALIDATOR MUST**:
+- Execute full test suite (not individual files)
+- Check for regressions across entire codebase
+- Validate integration between modified components
+- Verify no side effects from changes
+- Run linting, formatting, type checking as separate validation steps
+</critical-requirement>
 
 Record checkpoint:
 
@@ -1162,9 +1504,24 @@ You are the experienced mentor. Your review prevents future regret.
 Your approval means you'd confidently deploy this to production.
 
 <phase-execution>
-Check phase via apex_task_context(taskId) - use response.task_data.phase
-If phase is "REVIEWER", proceed with review.
+**APPLY**: phase-gate-template with EXPECTED_PHASE = "REVIEWER"
+
+STOP if current phase ≠ REVIEWER.
+
+**Critical distinction**:
+- Passing tests = code works correctly
+- Code review = code is production-ready (quality, maintainability, standards)
 </phase-execution>
+
+<critical-requirement>
+**REVIEWER MUST**:
+- Use the superpowers:requesting-code-review skill if available
+- OR use quality-reviewer subagent (see below)
+- Review code quality against project standards
+- Check for technical debt or code smells
+- Verify patterns were applied appropriately
+- Assess maintainability and clarity
+</critical-requirement>
 
 Record checkpoint:
 
@@ -1261,9 +1618,24 @@ Include evidence that would help future tasks avoid our mistakes.
 Your documentation is a gift to future implementers facing similar challenges.
 
 <phase-execution>
-Check phase via apex_task_context(taskId) - use response.task_data.phase
-If phase is "DOCUMENTER", proceed with documentation.
+**APPLY**: phase-gate-template with EXPECTED_PHASE = "DOCUMENTER"
+
+STOP if current phase ≠ DOCUMENTER.
+
+**THIS IS THE ONLY PHASE WHERE apex_task_complete CAN BE CALLED**
 </phase-execution>
+
+<critical-requirement>
+**🚨 APEX_TASK_COMPLETE IS FORBIDDEN IN ALL PHASES EXCEPT DOCUMENTER 🚨**
+
+**BEFORE CALLING apex_task_complete**:
+☐ Current phase is DOCUMENTER (verified via apex_task_context)
+☐ You have checkpoints for: ARCHITECT, BUILDER, VALIDATOR, REVIEWER, DOCUMENTER
+☐ Documentation files updated (if task affected workflow/architecture)
+☐ All patterns claimed exist in context_pack from intelligence gathering
+
+If ANY checkbox is unchecked → DO NOT call apex_task_complete
+</critical-requirement>
 
 Final checkpoint:
 
@@ -1271,6 +1643,49 @@ Final checkpoint:
 apex_task_checkpoint(taskId, "Completing task and capturing learnings", 0.95)
 apex_task_context(taskId) - use response.evidence # Retrieve all evidence for reflection
 ```
+
+### 📋 Documentation Update Checklist
+
+<critical-requirement>
+**SYSTEMATIC DOCUMENTATION COVERAGE**
+
+Before apex_task_complete, identify ALL documentation that needs updates:
+
+**If task modified workflow/architecture/stages**:
+- ☐ CLAUDE.md - Check for references to old phase counts, workflow descriptions
+- ☐ TOKEN_MANAGEMENT.md - Check for stage references, token allocation tables
+- ☐ README.md - Check for workflow summaries, architecture diagrams
+- ☐ docs/WORKFLOW.md - Check for phase descriptions (if exists)
+
+**If task modified API/interfaces**:
+- ☐ API documentation files
+- ☐ OpenAPI/Swagger specs
+- ☐ Client library docs
+
+**If task modified CLI commands**:
+- ☐ CLI help text
+- ☐ docs/COMMANDS.md or similar
+- ☐ README usage examples
+
+**If task modified data schemas**:
+- ☐ Schema documentation
+- ☐ Migration guides
+- ☐ Data model diagrams
+
+**SEARCH STRATEGY**:
+1. Use Grep to search for references to changed components across all .md files
+2. Read each file that mentions the changed component
+3. Update stale references
+4. Document the updates in evidence
+
+**VIOLATION EXAMPLE FROM SESSION**:
+Modified workflow from 5 stages to 4 stages in code, but:
+- CLAUDE.md line 98-101 still says "5-stage workflow"
+- TOKEN_MANAGEMENT.md still references "5 stages"
+- README.md not checked for stale references
+
+**THE FIX**: Systematic grep → read → update → verify cycle
+</critical-requirement>
 
 ### Complete Task and Reflect
 
