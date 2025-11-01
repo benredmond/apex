@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "apex",
-      "source": ".",
+      "source": "./",
       "description": "APEX Intelligence Layer - Pattern discovery, task tracking, and continuous learning for AI coding assistants"
     }
   ]
