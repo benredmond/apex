@@ -139,6 +139,20 @@ if critical_pattern_needs_explanation:
         },
         verbosity="detailed"  # or "examples" for code samples
     )
+
+# If both lookup and discovery return no patterns, fall back to overview for guidance:
+if not patterns_already_found:
+    overview = mcp__apex_patterns_overview(
+        status="active",
+        type=["CODEBASE"],  # adjust to task domain (e.g., include "LANG", "TEST")
+        include_stats=True,
+        page=1,
+        page_size=10,
+        # Optionally pass tags=["auth", "security"] when task-specific domains are known
+    )
+    # Capture highest trust overview patterns (top 5) and key stats for fallback_strategy.overview_snapshot
+    overview_top_patterns = overview.patterns[:5]
+    overview_stats = overview.stats
 ```
 
 **Strategic Pattern Tool Usage:**
@@ -146,6 +160,9 @@ if critical_pattern_needs_explanation:
 - `apex_patterns_lookup` - Primary discovery based on comprehensive context
 - `apex_patterns_discover` - Semantic search when lookup insufficient
 - `apex_patterns_explain` - Deep understanding of critical patterns
+- `apex_patterns_overview` - Fallback snapshot when no task-specific patterns are returned
+
+Only call `apex_patterns_overview` after confirming both lookup and discovery produced zero patterns; use its results to inform the fallback strategy rather than as a replacement for concrete task-aligned patterns.
 
 **PAGINATION STRATEGY** (to prevent context limit errors):
 When calling pattern tools, use pagination to limit results:
@@ -182,7 +199,7 @@ mcp__apex -
 - Never invent pattern IDs or content to fill gaps
 - Document actual pattern relationships from MCP responses
 - Track only real historical performance data
-- When patterns are absent, recommend first-principles approach
+- When patterns are absent, recommend first-principles approach and summarize apex_patterns_overview insights for situational awareness
 
 ### Phase 4: Risk Prediction
 
@@ -590,6 +607,9 @@ Execute ALL operations in a single message for true parallelism:
   - no_patterns_reason: string
   - recommended_approach: string
   - manual_discovery_needed: boolean
+  - overview_snapshot:
+      top_patterns: [] # Up to 5 high-trust patterns from overview response (id, title, trust_score, updated_at)
+      stats: {} # Key stats (totals, avg_trust_score, recently_updated) from overview response
     </Task>
 
 <Task subagent_type="context-loader" description="Comprehensive context loading">
