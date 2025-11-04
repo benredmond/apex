@@ -75,3 +75,4 @@ simple-*
 !simple.js  # Allow legitimate simple.js source files
 sea-*.blob
 sea-prep.blob
+binaries/
