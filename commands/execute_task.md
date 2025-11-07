@@ -377,17 +377,25 @@ This phase is CRITICAL - it prevents costly mistakes by uncovering hidden risks,
 - Read these files yourself in the main context before spawning any sub-tasks
 - This ensures you have full context before decomposing the research
 
-### Parallel Intelligence Operations
+### Intelligence Agent Toolbelt
 
-Deploy multiple research agents concurrently for comprehensive intelligence gathering:
+**Philosophy**: Select the RIGHT intelligence agents for THIS task, not all agents every time.
+
+**MANDATORY BASELINE** (always required):
+- **apex:intelligence-gatherer** - APEX pattern intelligence and task context (always valuable)
+
+**OPTIONAL AGENTS** (select based on task characteristics):
+
+#### 1. apex:intelligence-gatherer (ALWAYS USE)
+**When**: Every task (baseline intelligence)
+**Provides**: APEX patterns, similar tasks, predicted failures, execution strategy
+**Cost**: Medium | **Value**: High
+
+<details>
+<summary>Usage Template</summary>
 
 ```markdown
-# Launch these agents in PARALLEL (single message with multiple Task calls):
-
-# 1. APEX Pattern Intelligence - Uses specialized subagent
 <Task subagent_type="apex:intelligence-gatherer" description="APEX pattern discovery and task context">
-# APEX Intelligence Mission
-
 **Task ID**: [TASK_ID from step 2]
 **Enhanced Brief**: [The optimized brief from step 3]
 
@@ -398,189 +406,241 @@ Deploy multiple research agents concurrently for comprehensive intelligence gath
 4. Generate execution strategy with pattern intelligence
 5. Load relevant context with surgical precision
 
-**Key Questions**:
-- What similar tasks succeeded/failed and why?
-- Which patterns have ★★★★☆+ trust for this context?
-- What anti-patterns must we avoid?
-- What failures were predicted for similar tasks?
-
 **Return**: Complete context pack with pattern intelligence and execution strategy
 </Task>
-
-# 2. Web Research - Uses specialized subagent for external validation
-<Task subagent_type="apex:web-researcher" description="Research latest documentation and best practices">
-# Web Research Mission
-
-**Task Context**: [Brief description from step 3]
-**Technologies/Frameworks**: [Inferred from task description]
-
-**Your mission**: Find authoritative, current information to validate our approach.
-
-**Search for**:
-1. **Official Documentation**:
-   - Latest API documentation for relevant frameworks/libraries
-   - Migration guides and breaking changes
-   - Official examples matching our use case
-   - Deprecation notices
-
-2. **Best Practices**:
-   - Recommended patterns for this type of task
-   - Security considerations (especially for auth, API, data handling)
-   - Performance optimization guidelines
-   - Testing strategies
-
-3. **Community Intelligence**:
-   - Recent GitHub issues for similar problems
-   - Stack Overflow solutions (2024-2025, highly-voted)
-   - Known bugs or gotchas in dependencies
-   - Production experience reports
-
-4. **Security & Reliability**:
-   - CVEs or security advisories
-   - Common pitfalls and edge cases
-   - Error handling patterns
-   - Production-ready implementations
-
-**Quality filters**:
-- Prioritize official docs over blog posts
-- Prefer recent content (last 12 months)
-- Verify information across multiple sources
-- Focus on production-ready solutions
-
-**Return format**:
-```yaml
-official_docs:
-  - url: [URL]
-    key_points: [3-5 actionable insights]
-    relevance: [How it applies to our task]
-
-best_practices:
-  - practice: [Description]
-    source: [URL or consensus]
-    why_matters: [Impact on our implementation]
-
-security_alerts:
-  - issue: [Description]
-    severity: [High/Medium/Low]
-    mitigation: [What we should do]
-
-avoid_patterns:
-  - pattern: [What NOT to do]
-    reason: [Why it fails]
-    source: [Documentation or experience]
 ```
+</details>
 
-**Search strategy**:
-1. Official docs for mentioned frameworks/libraries
-2. GitHub repos (issues, discussions, recent commits)
-3. "[technology] best practices 2024/2025"
-4. "[technology] common mistakes production"
-5. Security advisories if applicable
+#### 2. apex:web-researcher
+**When**: External dependencies, unfamiliar frameworks, security-sensitive tasks, latest API changes
+**Provides**: Official docs, best practices, security advisories, breaking changes
+**Cost**: High (web fetches) | **Value**: High for external tech
 
-**Deliverable**: Synthesized findings that validate or challenge our approach, with source attribution.
+<details>
+<summary>Usage Template</summary>
+
+```markdown
+<Task subagent_type="apex:web-researcher" description="Research [specific technology/framework]">
+**Task Context**: [Brief description from step 3]
+**Technologies/Frameworks**: [Specific tech to research]
+
+**Research Focus**:
+- Official documentation and API changes
+- Security advisories and known issues
+- Best practices and production patterns
+- Breaking changes and migration guides
+
+**Return**: Synthesized findings with source attribution
 </Task>
+```
+</details>
 
-# 3. Implementation Pattern Extraction - Uses specialized subagent for codebase patterns
-<Task subagent_type="apex:implementation-pattern-extractor" description="Extract concrete implementation patterns">
-# Pattern Extraction Mission
+#### 3. apex:implementation-pattern-extractor
+**When**: Working in existing codebase areas, need to match conventions, extending similar features
+**Provides**: Concrete code examples, project conventions, testing patterns
+**Cost**: Medium | **Value**: High for consistency
 
+<details>
+<summary>Usage Template</summary>
+
+```markdown
+<Task subagent_type="apex:implementation-pattern-extractor" description="Extract patterns for [area]">
 **Task Context**: [Enhanced brief from step 3]
-**Task Type**: [Inferred from task - bug|feature|refactor|test]
-**Technologies**: [Inferred from task description]
+**Focus Areas**: [Specific components/patterns to extract]
 
-**Your mission**: Find concrete implementation examples from THIS codebase that directly inform how to implement this task.
+**Extract**:
+1. How similar features are currently implemented
+2. Project conventions (naming, structure, types)
+3. Reusable code snippets with file:line references
+4. Testing patterns for similar features
 
-**Priorities**:
-1. Find how similar features are CURRENTLY implemented (with file:line references)
-2. Extract reusable patterns specific to this project
-3. Identify project conventions (naming, structure, types, error handling)
-4. Flag inconsistencies or variations in approach
-5. Find testing patterns for similar features
-
-**Search strategy**:
-1. Use Glob to find relevant files (e.g., `**/*auth*.ts`)
-2. Use Grep or ripgrep (via Bash) for pattern searches
-3. Read complete files for full context
-4. Check git history for pattern evolution
-
-**Return format**: Complete YAML with:
-- implementation_patterns (primary + alternatives)
-- project_conventions (naming, structure, types, error_handling)
-- reusable_snippets (with file:line sources and actual code)
-- testing_patterns (how similar features are tested)
-- inconsistencies_detected (flagged variations with recommendations)
-- metadata (confidence, files_analyzed)
-
-**Quality requirements**:
-- Every pattern MUST have file:line references
-- Include actual code snippets (not pseudocode)
-- Identify the dominant/canonical pattern
-- Flag inconsistencies honestly
-- Include testing patterns
-
-**Deliverable**: Complete YAML with concrete, copy-pasteable examples from THIS codebase.
+**Return**: YAML with concrete, copy-pasteable examples from codebase
 </Task>
+```
+</details>
 
-# 4. Systems Analysis
-<Task subagent_type="apex:systems-researcher" description="Trace component and dependency flow">
-**Scope**: [Components inferred from brief]
+#### 4. apex:systems-researcher
+**When**: Cross-component changes, architectural impacts, understanding complex flows
+**Provides**: Dependency maps, execution flows, integration points, invariants
+**Cost**: Medium-High | **Value**: High for architectural work
 
-Map execution paths, data flow, integration points, and hidden dependencies. Provide file:line references and highlight contracts or invariants we must respect.
+<details>
+<summary>Usage Template</summary>
+
+```markdown
+<Task subagent_type="apex:systems-researcher" description="Analyze [system/component]">
+**Scope**: [Components/systems to analyze]
+
+Map execution paths, data flow, integration points, and hidden dependencies.
+Provide file:line references and highlight contracts or invariants we must respect.
 </Task>
+```
+</details>
 
-# 5. Git History Intelligence
-<Task subagent_type="apex:git-historian" description="Analyze git history for similar changes">
-Scope: [Directories/files]
-Window: [e.g., "9 months"]
+#### 5. apex:git-historian
+**When**: Working in frequently-changed areas, investigating bugs, understanding evolution
+**Provides**: Change patterns, regressions, churn hotspots, ownership
+**Cost**: Low-Medium | **Value**: Medium-High for context
+
+<details>
+<summary>Usage Template</summary>
+
+```markdown
+<Task subagent_type="apex:git-historian" description="Analyze history of [area]">
+**Scope**: [Directories/files to analyze]
+**Time Window**: [e.g., "9 months", "since v2.0"]
+
 Focus on regressions, reverts, architectural milestones, churn hotspots, and current maintainers.
 </Task>
+```
+</details>
 
-# 6. Forward-Looking Risk Analysis - Specialized agent
-<Task subagent_type="apex:risk-analyst" description="Surface upcoming risks and edge cases">
-Inputs: Task brief, context pack snapshot, architecture notes.
+#### 6. apex:risk-analyst
+**When**: High-complexity tasks (>7/10), production-critical changes, new patterns
+**Provides**: Risk matrix, edge cases, monitoring gaps, mitigations
+**Cost**: Low | **Value**: High for critical work
+
+<details>
+<summary>Usage Template</summary>
+
+```markdown
+<Task subagent_type="apex:risk-analyst" description="Risk analysis for [task]">
+**Inputs**: Task brief, context pack snapshot, architecture notes
+
 Deliver risk matrix, edge-case scenarios, monitoring gaps, and mitigation recommendations.
 </Task>
 ```
+</details>
 
-**CRITICAL**: Wait for ALL sub-agents to complete before proceeding. Synthesize findings from all sources.
+---
+
+### Selection Decision Matrix
+
+**Use this framework to decide which agents to deploy:**
+
+```yaml
+task_analysis:
+  involves_external_tech: [yes/no]  # → web-researcher
+  modifying_existing_code: [yes/no] # → implementation-pattern-extractor
+  cross_component: [yes/no]         # → systems-researcher
+  frequently_changed_area: [yes/no] # → git-historian
+  complexity: [1-10]                # ≥7 → risk-analyst
+  security_sensitive: [yes/no]      # → web-researcher + risk-analyst
+  new_feature: [yes/no]             # → implementation-pattern-extractor
+  bug_investigation: [yes/no]       # → git-historian + systems-researcher
+
+recommended_agents:
+  - apex:intelligence-gatherer  # ALWAYS
+  - [agent_2 based on criteria]
+  - [agent_3 based on criteria]
+  # 2-4 agents total is usually optimal
+```
+
+**Selection Examples**:
+
+<good-example>
+**Task**: "Add JWT authentication to API"
+**Analysis**:
+- involves_external_tech: yes (JWT library)
+- security_sensitive: yes
+- modifying_existing_code: yes (auth layer exists)
+
+**Selected Agents**:
+1. apex:intelligence-gatherer (mandatory)
+2. apex:web-researcher (JWT security best practices, library docs)
+3. apex:implementation-pattern-extractor (existing auth patterns)
+4. apex:risk-analyst (security-critical)
+</good-example>
+
+<good-example>
+**Task**: "Fix bug in user profile update"
+**Analysis**:
+- bug_investigation: yes
+- modifying_existing_code: yes
+- complexity: 4/10
+
+**Selected Agents**:
+1. apex:intelligence-gatherer (mandatory)
+2. apex:git-historian (when was this area last changed?)
+3. apex:implementation-pattern-extractor (how do other updates work?)
+</good-example>
+
+<good-example>
+**Task**: "Refactor configuration loading"
+**Analysis**:
+- cross_component: yes (affects many modules)
+- modifying_existing_code: yes
+- complexity: 6/10
+
+**Selected Agents**:
+1. apex:intelligence-gatherer (mandatory)
+2. apex:systems-researcher (who depends on config?)
+3. apex:implementation-pattern-extractor (current config patterns)
+4. apex:git-historian (config evolution history)
+</good-example>
+
+<bad-example>
+**Task**: "Add dark mode toggle"
+**Analysis**: involves_external_tech: yes, new_feature: yes
+
+**DON'T**: Launch all 6 agents blindly
+**DO**:
+1. apex:intelligence-gatherer (mandatory)
+2. apex:implementation-pattern-extractor (theme/UI patterns)
+3. Maybe apex:web-researcher IF unfamiliar with theme libraries
+</bad-example>
+
+---
+
+### Execution Protocol
+
+1. **Analyze the task** using the decision matrix above
+2. **Select 2-4 agents** (always include intelligence-gatherer)
+3. **Launch selected agents in PARALLEL** (single message with multiple Task calls)
+4. **Wait for ALL agents to complete** before proceeding
+5. **Synthesize findings** from all sources
+
+**Cost-Benefit Guideline**: More agents = more intelligence but higher token cost and latency.
+- Simple tasks (complexity ≤4): 2-3 agents
+- Medium tasks (complexity 5-6): 3-4 agents
+- Complex tasks (complexity ≥7): 4-5 agents
 
 ### Intelligence Synthesis
 
-After all agents complete, synthesize findings:
+After selected agents complete, synthesize findings:
 
 ```yaml
 synthesis_approach:
   collect_results:
-    - APEX patterns and context pack from intelligence-gatherer (abstract cross-project patterns)
-    - Web research findings (official docs, best practices, security)
-    - Implementation patterns from implementation-pattern-extractor (concrete codebase examples)
-    - Systems intelligence from systems-researcher (architecture, dependencies)
-    - Git history insights from git-historian (evolution, lessons)
-    - Architecture constraints from architecture-validator (requirements, constraints)
-    - Forward-looking risks from risk-analyst (edge cases, mitigations)
+    # Always present:
+    - APEX patterns and context pack from intelligence-gatherer (mandatory baseline)
+
+    # Present if agents were selected:
+    - Web research findings (if web-researcher used)
+    - Implementation patterns from codebase (if implementation-pattern-extractor used)
+    - Systems intelligence (if systems-researcher used)
+    - Git history insights (if git-historian used)
+    - Forward-looking risks (if risk-analyst used)
 
   prioritize_findings:
-    - Live codebase = primary truth source (what actually exists)
-    - Implementation patterns = concrete project conventions and working code
-    - Official documentation = authoritative reference for frameworks/APIs
-    - APEX patterns = proven solutions from cross-project experience
-    - Best practices = industry consensus and validation
-    - Git history = evolution understanding and lessons learned
-    - Architecture = design constraints and requirements
-    - Risks = preventive measures to implement
+    1. Live codebase = primary truth source (what actually exists)
+    2. Implementation patterns = concrete project conventions and working code
+    3. Official documentation = authoritative reference for frameworks/APIs
+    4. APEX patterns = proven solutions from cross-project experience
+    5. Best practices = industry consensus and validation
+    6. Git history = evolution understanding and lessons learned
+    7. Risks = preventive measures to implement
 
   connect_insights:
-    - Validate APEX patterns against actual codebase implementations
-    - Cross-reference implementation patterns with official recommendations
-    - Verify best practices are actually used in the codebase
-    - Identify gaps between current code and APEX/external patterns
-    - Flag inconsistencies between codebase patterns and best practices
-    - Note security concerns from web research against actual implementation
-    - Align proactive risk mitigations with historical failure predictions
-    - Flag deprecated patterns or breaking changes
+    - Validate APEX patterns against actual codebase (if implementation patterns available)
+    - Cross-reference with official docs (if web research available)
+    - Verify practices are actually used (if both codebase and web research available)
+    - Identify gaps between current code and recommendations
+    - Flag inconsistencies and deprecated patterns
+    - Note security concerns and risk mitigations
     - Resolve contradictions (priority: codebase reality > official docs > APEX patterns > opinions)
-    - Build complete picture for implementation with internal and external validation
-    - Update context pack with synthesized intelligence including implementation patterns
+    - Build complete picture for implementation with available intelligence
+    - Update context pack with synthesized intelligence
 ```
 
 The synthesized intelligence forms a complete context pack (store as evidence):
@@ -589,10 +649,39 @@ The synthesized intelligence forms a complete context pack (store as evidence):
 
 ```yaml
 context_pack:
+  # Always present (from intelligence-gatherer):
   task_analysis:
     id, title, type, complexity, validation_status, current_phase
 
-  web_research:
+  pattern_cache:  # from intelligence-gatherer
+    architecture: [patterns with trust scores]
+    implementation: [patterns with trust scores]
+    testing: [patterns with trust scores]
+    fixes: [patterns with trust scores]
+    anti_patterns: [patterns to avoid]
+
+  loaded_context:  # from intelligence-gatherer
+    files: [path, tokens, relevance, purpose]
+    total_tokens, token_budget
+
+  historical_intelligence:  # from intelligence-gatherer
+    similar_tasks: [with learnings]
+    system_history: [changes, migrations]
+    predicted_failures: [with prevention strategies]
+
+  execution_strategy:  # from intelligence-gatherer
+    recommended_approach, gemini_integration
+    parallelization_opportunities
+
+  validation_results:  # from intelligence-gatherer
+    requirements_complete, missing_requirements
+    ambiguities_resolved, assumptions_verified
+
+  metadata:  # from intelligence-gatherer
+    intelligence_timestamp, confidence_score, cache_hit_rate
+
+  # Optional sections (present if respective agents were used):
+  web_research:  # from web-researcher (if used)
     official_docs: [urls with key insights and relevance]
     best_practices: [practices with sources and reasoning]
     security_alerts: [issues with severity and mitigation]
@@ -600,7 +689,7 @@ context_pack:
     framework_version: [latest versions and breaking changes]
     gap_analysis: [differences between our code and recommendations]
 
-  implementation_patterns:
+  implementation_patterns:  # from implementation-pattern-extractor (if used)
     primary_patterns: [patterns with code examples and file:line refs]
     project_conventions: [naming, structure, types, error_handling]
     reusable_snippets: [copy-pasteable code with sources]
@@ -609,52 +698,79 @@ context_pack:
     confidence: [1-10 based on pattern consistency]
     files_analyzed: [count]
 
-  pattern_cache:
-    architecture: [patterns with trust scores]
-    implementation: [patterns with trust scores]
-    testing: [patterns with trust scores]
-    fixes: [patterns with trust scores]
-    anti_patterns: [patterns to avoid]
+  systems_analysis:  # from systems-researcher (if used)
+    component_map: [dependencies and relationships]
+    execution_flows: [critical paths with file:line refs]
+    integration_points: [external interfaces and contracts]
+    invariants: [constraints that must be preserved]
 
-  loaded_context:
-    files: [path, tokens, relevance, purpose]
-    total_tokens, token_budget
+  git_intelligence:  # from git-historian (if used)
+    recent_changes: [relevant commits with context]
+    churn_hotspots: [frequently changed areas]
+    regression_history: [reverts and fixes]
+    ownership: [current maintainers]
 
-  historical_intelligence:
-    similar_tasks: [with learnings]
-    system_history: [changes, migrations]
-    predicted_failures: [with prevention strategies]
-
-  validation_results:
-    requirements_complete, missing_requirements
-    ambiguities_resolved, assumptions_verified
-    external_validation: [alignment with official docs and best practices]
-
-  execution_strategy:
-    recommended_approach, gemini_integration
-    parallelization_opportunities
-    security_considerations: [from web research]
-
-  metadata:
-    intelligence_timestamp, confidence_score, cache_hit_rate
+  risk_analysis:  # from risk-analyst (if used)
+    risk_matrix: [identified risks with severity]
+    edge_cases: [scenarios to test]
+    monitoring_gaps: [observability needs]
+    mitigations: [recommended safety measures]
 ```
 
 ### 📊 Display Intelligence Report to User
 
-After receiving the context pack, display a comprehensive intelligence report to the user showing how well APEX intelligence is performing:
+After receiving the context pack, display a comprehensive intelligence report to the user showing intelligence gathered:
 
 ```markdown
 ## 🧠 Intelligence Report for Task: {context_pack.task_analysis.title}
 
-### 📊 Intelligence Performance
+### 📊 Intelligence Performance (Baseline - Always Present)
 
+- **Agents Deployed**: {list of agents used}
 - **Cache Hit Rate**: {context_pack.metadata.cache_hit_rate}% (patterns found in cache vs new lookups)
 - **Pattern Coverage**: {total_patterns_found} patterns found for this task type
 - **Historical Match**: {similar_tasks_count} similar tasks found with {avg_relevance}% relevance
 - **Confidence Score**: {context_pack.metadata.confidence_score}/10 (overall intelligence confidence)
 
-### 🌐 Web Research Intelligence
+### 🎯 Pattern Intelligence (Always Present)
 
+**High-Trust Patterns (★★★★☆+):**
+{for each pattern in context_pack.pattern_cache with trust >= 4:}
+- {pattern.id} ★{trust_stars} ({pattern.usage_count} uses, {pattern.success_rate}% success)
+
+**Applicable Patterns**: {total_applicable} patterns matched this context
+**Anti-patterns Identified**: {context_pack.pattern_cache.anti_patterns.length} patterns to avoid
+**Success Prediction**: Based on {similar_task_count} similar tasks with {avg_success_rate}% average success
+
+### 📚 Historical Intelligence (Always Present)
+
+**Similar Tasks Found**: {context_pack.historical_intelligence.similar_tasks.length}
+{for top 3 similar tasks:}
+- {task.title} ({task.similarity_score}% match) - Outcome: {task.outcome}
+  Learning: {task.key_learning}
+
+**Failure Patterns Detected**: {context_pack.historical_intelligence.predicted_failures.length}
+{for each predicted failure with >50% probability:}
+- {failure.description} ({failure.probability}% likely) → Prevention: {failure.prevention_strategy}
+
+### 🚀 Execution Strategy (Always Present)
+
+**Recommended Approach**: {context_pack.execution_strategy.recommended_approach}
+**Parallelization Opportunities**: {context_pack.execution_strategy.parallelization_opportunities.length} tasks can run concurrently
+**Validation Status**: {context_pack.validation_results.validation_status}
+{if missing_requirements:}
+**Missing Requirements**: {list missing requirements}
+{if ambiguities:}
+**Unresolved Ambiguities**: {list ambiguities}
+
+{if context_pack.execution_strategy.gemini_integration:}
+**Gemini Integration**: Recommended for complexity {context_pack.task_analysis.complexity}/10
+
+---
+
+### 🌐 Web Research Intelligence (Optional - If web-researcher Used)
+
+{if context_pack.web_research:}
 **Official Documentation Validated**:
 {for each doc in context_pack.web_research.official_docs:}
 - {doc.title}: {doc.key_points[0]} ([source]({doc.url}))
@@ -671,11 +787,13 @@ After receiving the context pack, display a comprehensive intelligence report to
 - ✅ **Aligned with standards**: {aligned_count} patterns validated
 - ⚠️ **Needs attention**: {gap_count} areas differ from recommendations
 - 🔄 **Deprecated patterns**: {deprecated_count} patterns to update
+{endif}
 
-**External Validation**: {context_pack.validation_results.external_validation}
+---
 
-### 📝 Implementation Patterns from Codebase
+### 📝 Implementation Patterns from Codebase (Optional - If implementation-pattern-extractor Used)
 
+{if context_pack.implementation_patterns:}
 **Primary Pattern Identified**:
 - {context_pack.implementation_patterns.primary_patterns[0].name}
 - Location: `{file:line}`
@@ -686,62 +804,49 @@ After receiving the context pack, display a comprehensive intelligence report to
 - {convention_category}: {pattern_description}
 
 **Reusable Snippets**: {context_pack.implementation_patterns.reusable_snippets.length} ready-to-use code snippets
-- Snippets available with file:line references for adaptation
-
 **Testing Patterns**: {context_pack.implementation_patterns.testing_patterns.length} testing approaches found
-- Framework: {primary_test_framework}
-- Approach: {testing_pattern_description}
-
-**Inconsistencies Flagged**: {context_pack.implementation_patterns.inconsistencies.length} variations detected
-{if any high-impact inconsistencies:}
-⚠️ **High Impact**: {inconsistency.area} - {inconsistency.recommendation}
 
 **Pattern Analysis**:
 - Files analyzed: {context_pack.implementation_patterns.files_analyzed}
 - Confidence: {context_pack.implementation_patterns.confidence}/10
-- Coverage: {dominant_pattern_coverage}% of files use primary pattern
+{endif}
 
-### 🎯 Pattern Intelligence
+---
 
-**High-Trust Patterns (★★★★☆+):**
-{for each pattern in context_pack.pattern_cache with trust >= 4:}
+### 🏗️ Systems Analysis (Optional - If systems-researcher Used)
 
-- {pattern.id} ★{trust_stars} ({pattern.usage_count} uses, {pattern.success_rate}% success)
+{if context_pack.systems_analysis:}
+**Component Dependencies**: {context_pack.systems_analysis.component_map.length} mapped
+**Critical Execution Flows**: {context_pack.systems_analysis.execution_flows.length} identified
+**Integration Points**: {context_pack.systems_analysis.integration_points.length} external interfaces
+**Invariants to Preserve**: {context_pack.systems_analysis.invariants.length} constraints
+{endif}
 
-**Applicable Patterns**: {total_applicable} patterns matched this context
-**Anti-patterns Identified**: {context_pack.pattern_cache.anti_patterns.length} internal + {context_pack.web_research.avoid_patterns.length} external patterns to avoid
-**Success Prediction**: Based on {similar_task_count} similar tasks with {avg_success_rate}% average success
+---
 
-### 📚 Historical Intelligence
+### 📜 Git Intelligence (Optional - If git-historian Used)
 
-**Similar Tasks Found**: {context_pack.historical_intelligence.similar_tasks.length}
-{for top 3 similar tasks:}
+{if context_pack.git_intelligence:}
+**Recent Relevant Changes**: {context_pack.git_intelligence.recent_changes.length}
+**Churn Hotspots**: {context_pack.git_intelligence.churn_hotspots}
+**Regression History**: {context_pack.git_intelligence.regression_history.length} reverts/fixes
+**Current Ownership**: {context_pack.git_intelligence.ownership}
+{endif}
 
-- {task.title} ({task.similarity_score}% match) - Outcome: {task.outcome}
-  Learning: {task.key_learning}
+---
 
-**Failure Patterns Detected**: {context_pack.historical_intelligence.predicted_failures.length}
-{for each predicted failure with >50% probability:}
+### ⚠️ Risk Analysis (Optional - If risk-analyst Used)
 
-- {failure.description} ({failure.probability}% likely) → Prevention: {failure.prevention_strategy}
-
-### ⚠️ Risk Analysis
-
+{if context_pack.risk_analysis:}
 **Complexity Assessment**: {context_pack.task_analysis.complexity}/10
-**Validation Status**: {context_pack.validation_results.validation_status}
-{if missing_requirements:}
-**Missing Requirements**: {list missing requirements}
-{if ambiguities:}
-**Unresolved Ambiguities**: {list ambiguities}
+**Risk Matrix**: {context_pack.risk_analysis.risk_matrix.length} risks identified
+**Edge Cases**: {context_pack.risk_analysis.edge_cases.length} scenarios to test
+**Monitoring Gaps**: {context_pack.risk_analysis.monitoring_gaps.length} observability needs
+{endif}
 
-### 🚀 Execution Strategy
+---
 
-**Recommended Approach**: {context_pack.execution_strategy.recommended_approach}
-**Parallelization Opportunities**: {context_pack.execution_strategy.parallelization_opportunities.length} tasks can run concurrently
-{if context_pack.execution_strategy.gemini_integration:}
-**Gemini Integration**: Recommended for complexity {context_pack.task_analysis.complexity}/10
-
-### 📈 Intelligence Metrics
+### 📈 Intelligence Metrics (Always Present)
 
 - **Patterns in Cache**: {total_patterns_in_cache} total patterns available
 - **Trust Score Distribution**:
@@ -763,15 +868,13 @@ After receiving the context pack, display a comprehensive intelligence report to
 
 **Implementation Notes for the Intelligence Report**:
 
-1. Extract all metrics from the context_pack returned by intelligence-gatherer
-2. Include web research findings with source attribution (URLs)
+1. Extract all metrics from the context_pack returned by selected agents
+2. Only display sections for agents that were actually used
 3. Calculate derived metrics (averages, percentages, counts) from the raw data
 4. Format trust scores as star ratings (★) for visual clarity
-5. Highlight security alerts and deprecated patterns from web research
-6. Show gap analysis between codebase and official recommendations
-7. Only show sections with meaningful data (skip empty sections)
-8. Highlight critical warnings (validation blocked, high-risk predictions, security issues)
-9. Keep the report concise but informative - focus on actionable intelligence
+5. Highlight critical warnings (validation blocked, high-risk predictions, security issues)
+6. Keep the report concise but informative - focus on actionable intelligence
+7. Clearly indicate which agents were deployed in the "Agents Deployed" line
 
 <critical-gate>
 VALIDATION GATE: If validation_status is "blocked":
