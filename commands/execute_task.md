@@ -512,6 +512,30 @@ Deliver risk matrix, edge-case scenarios, monitoring gaps, and mitigation recomm
 ```
 </details>
 
+#### 7. apex:documentation-researcher
+**When**: Need architecture history, past decisions, project context from documentation
+**Provides**: Relevant .md content, decision rationale, historical context, learnings
+**Cost**: Low | **Value**: Medium-High for context-dependent work
+
+<details>
+<summary>Usage Template</summary>
+
+```markdown
+<Task subagent_type="apex:documentation-researcher" description="Search project docs for [topic]">
+**Task Context**: [Enhanced brief from step 3]
+**Search Focus**: [Specific topics or keywords]
+
+**Research Priorities**:
+- Architecture decisions related to [area]
+- Past learnings or failures in [domain]
+- Related work or similar implementations
+- Project history or evolution context
+
+**Return**: Structured findings with file:line references and relevance assessment
+</Task>
+```
+</details>
+
 ---
 
 ### Selection Decision Matrix
@@ -528,6 +552,9 @@ task_analysis:
   security_sensitive: [yes/no]      # → web-researcher + risk-analyst
   new_feature: [yes/no]             # → implementation-pattern-extractor
   bug_investigation: [yes/no]       # → git-historian + systems-researcher
+  needs_historical_context: [yes/no] # → documentation-researcher
+  references_architecture: [yes/no]  # → documentation-researcher
+  similar_work_exists: [yes/no]      # → documentation-researcher
 
 recommended_agents:
   - apex:intelligence-gatherer  # ALWAYS
@@ -579,11 +606,25 @@ recommended_agents:
 4. apex:git-historian (config evolution history)
 </good-example>
 
+<good-example>
+**Task**: "Implement caching layer for API responses"
+**Analysis**:
+- references_architecture: yes (affects API design)
+- needs_historical_context: yes (past caching decisions)
+- modifying_existing_code: yes
+
+**Selected Agents**:
+1. apex:intelligence-gatherer (mandatory)
+2. apex:documentation-researcher (architecture decisions, past caching approaches)
+3. apex:implementation-pattern-extractor (current API patterns)
+4. apex:web-researcher (caching best practices)
+</good-example>
+
 <bad-example>
 **Task**: "Add dark mode toggle"
 **Analysis**: involves_external_tech: yes, new_feature: yes
 
-**DON'T**: Launch all 6 agents blindly
+**DON'T**: Launch all 7 agents blindly
 **DO**:
 1. apex:intelligence-gatherer (mandatory)
 2. apex:implementation-pattern-extractor (theme/UI patterns)
@@ -621,24 +662,29 @@ synthesis_approach:
     - Systems intelligence (if systems-researcher used)
     - Git history insights (if git-historian used)
     - Forward-looking risks (if risk-analyst used)
+    - Documentation intelligence (if documentation-researcher used)
 
   prioritize_findings:
     1. Live codebase = primary truth source (what actually exists)
     2. Implementation patterns = concrete project conventions and working code
-    3. Official documentation = authoritative reference for frameworks/APIs
-    4. APEX patterns = proven solutions from cross-project experience
-    5. Best practices = industry consensus and validation
-    6. Git history = evolution understanding and lessons learned
-    7. Risks = preventive measures to implement
+    3. Project documentation = architecture decisions and historical context
+    4. Official documentation = authoritative reference for frameworks/APIs
+    5. APEX patterns = proven solutions from cross-project experience
+    6. Best practices = industry consensus and validation
+    7. Git history = evolution understanding and lessons learned
+    8. Risks = preventive measures to implement
 
   connect_insights:
     - Validate APEX patterns against actual codebase (if implementation patterns available)
+    - Cross-reference with project documentation (if documentation researcher used)
     - Cross-reference with official docs (if web research available)
     - Verify practices are actually used (if both codebase and web research available)
+    - Honor past architectural decisions from project docs (if documentation available)
     - Identify gaps between current code and recommendations
     - Flag inconsistencies and deprecated patterns
     - Note security concerns and risk mitigations
-    - Resolve contradictions (priority: codebase reality > official docs > APEX patterns > opinions)
+    - Learn from past failures documented in project memory (if documentation available)
+    - Resolve contradictions (priority: codebase reality > project docs > official docs > APEX patterns > opinions)
     - Build complete picture for implementation with available intelligence
     - Update context pack with synthesized intelligence
 ```
@@ -715,6 +761,14 @@ context_pack:
     edge_cases: [scenarios to test]
     monitoring_gaps: [observability needs]
     mitigations: [recommended safety measures]
+
+  documentation_intelligence:  # from documentation-researcher (if used)
+    architecture_context: [decisions, rationale, constraints with file:line refs]
+    past_decisions: [what was decided, when, why with sources]
+    historical_learnings: [failures, mistakes to avoid, what worked]
+    related_work: [similar tasks, related documentation]
+    conflicts_detected: [contradictory information flagged]
+    documentation_quality: [confidence in findings]
 ```
 
 ### 📊 Display Intelligence Report to User
@@ -831,6 +885,33 @@ After receiving the context pack, display a comprehensive intelligence report to
 **Churn Hotspots**: {context_pack.git_intelligence.churn_hotspots}
 **Regression History**: {context_pack.git_intelligence.regression_history.length} reverts/fixes
 **Current Ownership**: {context_pack.git_intelligence.ownership}
+{endif}
+
+---
+
+### 📚 Documentation Intelligence (Optional - If documentation-researcher Used)
+
+{if context_pack.documentation_intelligence:}
+**Documentation Quality**: {context_pack.documentation_intelligence.metadata.documentation_quality} (confidence in findings)
+**Files Analyzed**: {context_pack.documentation_intelligence.metadata.total_files_analyzed} markdown files
+
+**Architecture Context**: {context_pack.documentation_intelligence.architecture_context.length} relevant decisions found
+{for top 3 architecture contexts:}
+- {title} ({source})
+  Key insight: {key_insights[0]}
+
+**Past Decisions**: {context_pack.documentation_intelligence.past_decisions.length} documented
+{if any ACTIVE past decisions:}
+- {decision} - {rationale} ({source})
+
+**Historical Learnings**: {context_pack.documentation_intelligence.historical_learnings.length} lessons found
+{for high-relevance learnings:}
+- ⚠️ {learning}: {recommendation}
+
+**Related Work**: {context_pack.documentation_intelligence.related_work.length} related documents
+{if conflicts detected:}
+⚠️ **Conflicts Detected**: {conflicts_detected.length} areas with contradictory information
+{endif}
 {endif}
 
 ---
