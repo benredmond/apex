@@ -1645,12 +1645,12 @@ STOP if current phase ≠ REVIEWER.
 
 <critical-requirement>
 **REVIEWER MUST**:
-- Use the superpowers:requesting-code-review skill if available
-- OR use quality-reviewer subagent (see below)
-- Review code quality against project standards
-- Check for technical debt or code smells
-- Verify patterns were applied appropriately
-- Assess maintainability and clarity
+- Use 3-agent adversarial review system (Phase 1 + Phase 2 + Synthesis)
+- Phase 1: Launch quality-scout AND risk-scout in parallel
+- Phase 2: Launch reality-checker to challenge all findings
+- Synthesize: Apply confidence adjustment and generate final report
+- Review code quality, security, performance, patterns, and journey validation
+- Reduce false positives through adversarial challenge process
 </critical-requirement>
 
 Record checkpoint:
@@ -1659,59 +1659,216 @@ Record checkpoint:
 apex_task_checkpoint(taskId, "Starting review phase", 0.85)
 ```
 
-### Execute Comprehensive Review
+### Execute Adversarial Review System
 
-**MANDATORY**: Use quality-reviewer subagent:
+**MANDATORY**: Use 3-agent adversarial review (reduces false positives while maintaining thoroughness)
+
+### Phase 1: Parallel Issue Discovery
+
+**CRITICAL**: Launch BOTH agents in a SINGLE message for true parallelism.
 
 ```markdown
-<Task subagent_type="apex:quality-reviewer" description="Perform code review">
-# Review Mission - The Final Defense
+<Task subagent_type="apex:review:quality-scout" description="Quality and architecture review">
+# Quality Scout Mission
 
 **Task ID**: [TASK_ID]
 **Journey Context**:
-
 - ARCHITECT warnings: [From ARCHITECT phase]
-- BUILDER decisions: [Implementation choices]
+- BUILDER decisions: [Implementation choices and patterns applied]
 - VALIDATOR discoveries: [Test results]
 
-**Your Review Mandate**:
-"You've seen the entire journey. Be the wise mentor who sees what others missed."
+**Your Focus**: Maintainability, patterns, architecture consistency
 
-**Review Through These Lenses**:
+**Review Lenses**:
+1. **Correctness**: Does this solve the original problem completely?
+2. **Maintainability**: Clear, readable, understandable in 6 months?
+3. **Pattern Consistency**: Were ARCHITECT patterns applied correctly?
+4. **Journey Validation**: Were ARCHITECT warnings addressed by BUILDER?
 
-1. Correctness: Does this solve the original problem?
-2. Maintainability: Could you understand this in 6 months?
-3. Resilience: How does this fail gracefully?
-4. Pattern Recognition: What patterns worked/failed?
-5. Journey Awareness: Were warnings addressed?
+**Return**: YAML with findings, each containing:
+```yaml
+findings:
+  - id: "QUA-001"
+    category: "maintainability|correctness|patterns|architecture"
+    severity: "critical|high|medium|low"
+    confidence: 0.0-1.0
+    location: "file:line"
+    issue: "Description"
+    evidence: "Specific code/behavior"
+    suggestion: "How to fix"
+```
+</Task>
 
-**Return**: Comprehensive review with verdict and actionable feedback
+<Task subagent_type="apex:review:risk-scout" description="Security, performance, test review">
+# Risk Scout Mission
+
+**Task ID**: [TASK_ID]
+**Journey Context**:
+- Code changes: [Modified/created files]
+- VALIDATOR results: [Test outcomes, coverage]
+- Predicted failures: [From intelligence gathering]
+
+**Your Focus**: Production readiness, critical risks
+
+**Review Lenses**:
+1. **Security**: Vulnerabilities, input validation, secrets handling
+2. **Performance**: Bottlenecks, inefficient algorithms, scaling issues
+3. **Test Coverage**: Gaps, edge cases, integration points
+4. **Resilience**: Error handling, failure modes, monitoring
+
+**Return**: YAML with findings (same format as Quality Scout)
 </Task>
 ```
 
-<details>
-<summary><strong>Advanced Review Features</strong></summary>
+**WAIT** for BOTH agents to complete before Phase 2.
 
-### Gemini Code Review (Complexity ≥ 5)
+---
 
-Use gemini-orchestrator for collaborative review:
+### Phase 2: Reality Check (Challenge Findings)
 
-- Logic error detection
-- Security vulnerability assessment
-- Performance optimization opportunities
-- Maintainability improvements
-</details>
+Parse YAML from both scouts, then launch challenge agent:
+
+```markdown
+<Task subagent_type="apex:review:reality-checker" description="Challenge review findings">
+# Reality Checker Mission
+
+**Task ID**: [TASK_ID]
+**Phase 1 Findings**: [Complete YAML from both Quality Scout and Risk Scout]
+
+**Journey Context**:
+- ARCHITECT rationale: [Why certain decisions were made]
+- BUILDER justifications: [Trade-offs and constraints]
+- VALIDATOR evidence: [What tests actually verified]
+- Task history: [Related past tasks and learnings]
+
+**Your Mandate**: Challenge EVERY finding to eliminate false positives
+
+**Challenge Strategy**:
+1. **Code Misreading**: Did agent misunderstand the code?
+2. **Mitigating Factors**: Are there compensating controls?
+3. **Journey Justifications**: Was this explicitly decided/accepted earlier?
+4. **Evidence Quality**: Is the evidence concrete or speculative?
+
+**For Each Finding, Determine**:
+- Challenge result: `UPHELD` | `DOWNGRADED` | `DISMISSED`
+- Confidence adjustment: New confidence score (0.0-1.0)
+- Evidence quality: `strong` | `moderate` | `weak`
+- Recommended action: `FIX_NOW` | `SHOULD_FIX` | `NOTE` | `IGNORE`
+- Reasoning: Why you reached this conclusion
+
+**Return**: YAML with challenged findings
+</Task>
+```
+
+---
+
+### Phase 3: Synthesize Report
+
+After Reality Checker completes, synthesize final review:
+
+**Confidence Adjustment Algorithm**:
+```yaml
+finalConfidence = phase1Confidence × challengeImpact
+
+challengeImpact:
+  UPHELD: 1.0      # Finding validated
+  DOWNGRADED: 0.6  # Partially valid
+  DISMISSED: 0.2   # False positive
+```
+
+**Action Decision Logic**:
+```yaml
+if finalConfidence < 0.3:
+  action = IGNORE  # False positive
+else if severity == "critical" AND finalConfidence > 0.5:
+  action = FIX_NOW
+else if severity == "high" AND finalConfidence > 0.6:
+  action = FIX_NOW
+else if finalConfidence > 0.7:
+  action = SHOULD_FIX
+else:
+  action = NOTE  # Document but don't block
+```
+
+**Generate Structured Report**:
+
+```markdown
+## 🔍 Adversarial Review Results
+
+### ✅ Journey Validation
+- ARCHITECT warnings: [X/Y addressed]
+- BUILDER patterns: [Applied correctly / Issues found]
+- VALIDATOR tests: [Pass + adequate / Gaps identified]
+
+### 🔴 FIX NOW (Critical issues, high confidence)
+**[Finding ID]** - [Title]
+- **Location**: `file:line`
+- **Severity**: Critical/High | **Confidence**: X.XX
+- **Issue**: [Description]
+- **Evidence**: [Concrete examples]
+- **Challenge Result**: [UPHELD/DOWNGRADED - reasoning]
+- **Fix**: [Specific code suggestion]
+
+### 🟡 SHOULD FIX (High confidence, lower severity)
+[Same format as FIX NOW]
+
+### 📝 NOTES (Document for future)
+- [Observations, patterns discovered, technical debt accepted]
+
+### ✖️ DISMISSED (False positives)
+- **[Finding ID]**: [Why dismissed - which challenge succeeded]
+
+### 📊 Review Metrics
+- Phase 1 findings: X
+- Upheld: Y | Downgraded: Z | Dismissed: W
+- False positive rate: W/X = XX%
+- Average confidence: X.XX
+```
 
 ### Review Decision
 
-- **If approved**: Proceed to DOCUMENTER - make sure to inform user of any specific gaps in the final output
-- **If explicitly rejected OR important fixes request**: Return to BUILDER with specific requirements
+Based on adversarial review outcomes:
+
+**Decision Matrix**:
+- **0 FIX_NOW findings**: APPROVE → Proceed to DOCUMENTER
+- **1-2 FIX_NOW findings (minor)**: CONDITIONAL → Fix and re-review OR accept with documentation
+- **3+ FIX_NOW OR 1 critical security**: REJECT → Return to BUILDER with requirements
+
+**Handoff Content**:
+```markdown
+## REVIEWER → [DOCUMENTER|BUILDER] Handoff
+
+### Review Outcome: [APPROVED|CONDITIONAL|REJECTED]
+
+### Adversarial Review Summary
+- Phase 1 findings: X (Quality: Y, Risk: Z)
+- Phase 2 challenges: Upheld A, Downgraded B, Dismissed C
+- False positive rate: XX%
+
+### Critical Actions Required: [FIX_NOW findings]
+[List with locations and fixes]
+
+### Recommended Improvements: [SHOULD_FIX findings]
+[List with priorities]
+
+### Accepted Trade-offs: [NOTES]
+[Technical debt, patterns learned, journey validation]
+
+### Metrics
+- Average confidence: X.XX
+- Journey validation: [ARCHITECT X/Y, BUILDER patterns OK/Issues, VALIDATOR pass]
+```
 
 Transition:
 
 ```
 apex_task_update({id: taskId, phase: next_phase, handoff: handoff_content})
-apex_task_append_evidence(taskId, "pattern", "Final pattern effectiveness", {pattern_assessment})
+apex_task_append_evidence(taskId, "pattern", "Adversarial review results", {
+  phase1_findings,
+  phase2_challenges,
+  final_report,
+  false_positive_rate
+})
 ```
 
 ## 10 · Execute DOCUMENTER phase and finalize
