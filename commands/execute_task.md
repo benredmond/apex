@@ -14,14 +14,15 @@
 
 ## Core Workflow
 
-**CREATE A TODO LIST** with exactly these 6 items:
+**CREATE A TODO LIST** with exactly these 7 items:
 
 1. Analyse scope from argument (what kind of input?)
 2. Identify or create task (get it into database)
 3. Optimize and improve prompt (enhance clarity and specificity)
 4. Execute Comprehensive Intelligence & Context Assembly
-5. Set status to in_progress (begin phase workflow)
-6. Execute phases until task complete
+5. Evaluate intelligence adequacy (ambiguity detection + technical adequacy)
+6. Set status to in_progress (begin phase workflow)
+7. Execute phases until task complete
 
 **Phase Progression**: ARCHITECT → BUILDER → VALIDATOR → REVIEWER → DOCUMENTER
 
@@ -769,7 +770,151 @@ context_pack:
     related_work: [similar tasks, related documentation]
     conflicts_detected: [contradictory information flagged]
     documentation_quality: [confidence in findings]
+
+  adequacy_assessment:  # for Step 4.5 gate
+    ambiguity_detected: boolean
+    ambiguous_areas: [
+      {
+        type: "vague_goal" | "unclear_scope" | "technical_choice" | "missing_constraint",
+        description: string,
+        impact: "blocking" | "high" | "medium",
+        suggested_question: string
+      }
+    ]
+    initial_confidence: 0.0-1.0
+    recommendation: "clarify_first" | "adequate" | "needs_technical_research"
 ```
+
+### Initial Ambiguity Assessment
+
+**Before displaying the intelligence report, perform a preliminary ambiguity scan of the gathered intelligence.**
+
+This assessment prepares for Step 4.5 Phase 1 (Ambiguity Detection).
+
+#### Ambiguity Indicators
+
+Scan the task brief and context pack for these red flags:
+
+**Vague Goal Indicators**:
+- Task description contains unmeasured terms: "improve", "better", "optimize", "fix", "handle", "enhance"
+- Success criteria missing or use relative terms ("faster", "more reliable") without baselines
+- No acceptance tests derivable from requirements
+- Multiple valid definitions of "done" exist
+
+**Unclear Scope Indicators**:
+- Boundary words absent: No mention of what's IN scope and what's OUT
+- Component/file targets ambiguous: "the API" (which endpoints?), "authentication" (which aspects?)
+- Conflicting signals: Docs say one thing, code suggests another, patterns point a third way
+- Scale undefined: All instances or subset? Global or per-feature?
+
+**Technical Choice Indicators**:
+- Multiple high-trust patterns found with different approaches (no clear winner)
+- Multiple libraries/frameworks exist for same purpose in codebase
+- Architecture docs are silent or outdated on this decision
+- Recent commits show inconsistent approaches
+
+**Missing Constraint Indicators**:
+- Performance-sensitive task but no targets specified
+- Breaking change possible but no policy stated
+- Security/compliance relevant but requirements undefined
+- Migration/transition needed but no strategy given
+
+#### Ambiguity Pre-Check Logic
+
+```typescript
+function assessAmbiguity(taskBrief: string, contextPack: ContextPack): AmbiguityAssessment {
+  const ambiguities: AmbiguousArea[] = [];
+
+  // Check 1: Vague goals
+  const vagueTerms = ["improve", "better", "optimize", "fix", "handle", "enhance", "refactor"];
+  const hasVagueTerms = vagueTerms.some(term =>
+    taskBrief.toLowerCase().includes(term) &&
+    !hasQuantification(taskBrief, term)
+  );
+
+  if (hasVagueTerms) {
+    ambiguities.push({
+      type: "vague_goal",
+      description: "Task uses unmeasured improvement terms without specific success criteria",
+      impact: "blocking",
+      suggested_question: "What measurable outcome defines success for this task?"
+    });
+  }
+
+  // Check 2: Multiple interpretations
+  const multiplePatterns = contextPack.pattern_cache.implementation.length > 2;
+  const patternsDisagree = checkPatternConsistency(contextPack.pattern_cache);
+
+  if (multiplePatterns && patternsDisagree) {
+    ambiguities.push({
+      type: "technical_choice",
+      description: `Found ${contextPack.pattern_cache.implementation.length} different implementation patterns with no clear preference`,
+      impact: "high",
+      suggested_question: "Which implementation approach should this follow?"
+    });
+  }
+
+  // Check 3: Scope boundaries
+  const scopeWords = ["all", "every", "specific", "only", "just", "these"];
+  const hasScopeDefinition = scopeWords.some(word => taskBrief.includes(word));
+
+  if (!hasScopeDefinition && taskBrief.split(" ").length < 15) {
+    ambiguities.push({
+      type: "unclear_scope",
+      description: "Task description lacks explicit scope boundaries",
+      impact: "high",
+      suggested_question: "Which specific components/files/features should be modified?"
+    });
+  }
+
+  // Check 4: Missing constraints (context-dependent)
+  const isPerformanceTask = /performance|slow|fast|latency|speed/.test(taskBrief);
+  const hasPerformanceTarget = /\d+ms|\d+s|p95|p99/.test(taskBrief);
+
+  if (isPerformanceTask && !hasPerformanceTarget) {
+    ambiguities.push({
+      type: "missing_constraint",
+      description: "Performance task without quantified target",
+      impact: "blocking",
+      suggested_question: "What is the target performance metric? (e.g., p95 < 200ms)"
+    });
+  }
+
+  return {
+    ambiguity_detected: ambiguities.length > 0,
+    ambiguous_areas: ambiguities,
+    initial_confidence: calculateInitialConfidence(contextPack, ambiguities),
+    recommendation: ambiguities.some(a => a.impact === "blocking")
+      ? "clarify_first"
+      : ambiguities.length > 0
+        ? "clarify_first"  // Be conservative: any ambiguity requires clarification
+        : "adequate"
+  };
+}
+```
+
+#### Store Assessment in Context Pack
+
+Update the context pack with ambiguity assessment:
+
+```javascript
+context_pack.adequacy_assessment = {
+  ambiguity_detected: boolean,
+  ambiguous_areas: [...],
+  initial_confidence: score,
+  recommendation: "clarify_first" | "adequate" | "needs_technical_research"
+};
+
+apex_task_append_evidence(taskId, "decision", "Initial ambiguity assessment", {
+  ambiguity_detected: context_pack.adequacy_assessment.ambiguity_detected,
+  flagged_ambiguities: context_pack.adequacy_assessment.ambiguous_areas,
+  recommendation: context_pack.adequacy_assessment.recommendation
+});
+```
+
+**This assessment directly feeds into Step 4.5 Phase 1**, allowing the gate to immediately identify and route ambiguous tasks to user clarification.
+
+---
 
 ### 📊 Display Intelligence Report to User
 
@@ -975,13 +1120,669 @@ Store context pack as evidence:
 apex_task_append_evidence(taskId, "decision", "Intelligence context pack generated", {full_context_pack})
 ```
 
+## 4.5 · Evaluate Intelligence Adequacy and Decide
+
+<critical-gate>
+**MANDATORY TWO-PHASE EVALUATION - DO NOT SKIP**
+
+This gate ensures we never proceed with ambiguous requirements or insufficient context.
+
+**Core Principle**: Ambiguity is a BLOCKING condition that ONLY users can resolve.
+- No code analysis can tell us what the user actually wants
+- Always clarify WHAT before researching HOW
+- Technical context is irrelevant if requirements are unclear
+</critical-gate>
+
+### Phase 1: Ambiguity Detection (MANDATORY FIRST)
+
+**Before evaluating technical adequacy, we MUST ensure the task is unambiguous.**
+
+#### Ambiguity Checklist
+
+Run these checks on the task brief and gathered intelligence:
+
+☐ **Success Criteria Defined**
+   - Can we define "done" unambiguously?
+   - Are success criteria measurable and specific?
+   - Can we derive acceptance tests without guessing?
+
+☐ **Scope Bounded**
+   - Are there vague terms without quantification?
+     - "improve", "better", "fix", "handle", "optimize" without specifics?
+   - Are boundaries clear on what's in/out of scope?
+   - Do we know which components/files/features are affected?
+
+☐ **Single Valid Interpretation**
+   - Is there only ONE way to satisfy the requirement?
+   - Are there conflicting or competing interpretations?
+   - If patterns suggest multiple approaches, is preference specified?
+
+☐ **Constraints Explicit**
+   - If performance matters: Are targets stated? (e.g., "p95 < 200ms")
+   - If breaking changes possible: Is policy clear? (allowed/versioned/forbidden)
+   - If security-sensitive: Are requirements defined? (auth, encryption, PII)
+   - If integrations involved: Are contracts/APIs specified?
+
+☐ **Technical Decisions Specified** (when multiple valid options exist)
+   - If multiple libraries/frameworks possible: Is choice made or constrained?
+   - If multiple architectural patterns found: Is preference indicated?
+   - If migration/transition needed: Is strategy defined?
+
+#### Phase 1 Decision Logic
+
+```yaml
+IF ANY checkbox fails:
+  status: AMBIGUOUS
+  action: ASK_USER
+  reason: "Cannot proceed with ambiguous requirements"
+
+  # Generate structured clarification questions
+  questions: formulate_ambiguity_questions(failed_checkboxes)
+
+  # STOP HERE - Do NOT evaluate technical adequacy
+  # WAIT for user response
+  # UPDATE task brief with clarifications
+  # LOOP back to Phase 1 until ALL checkboxes pass
+
+IF ALL checkboxes pass:
+  status: UNAMBIGUOUS
+  action: PROCEED_TO_PHASE_2
+  reason: "Requirements clear, evaluating technical adequacy"
+```
+
+#### Ambiguity Resolution Question Templates
+
+**Template 1: Vague Goal / Missing Success Criteria**
+
+<good-example>
+```markdown
+## 🎯 Clarification Needed: Success Criteria
+
+**Current task**: "Improve API performance"
+
+**Ambiguity**: The goal lacks measurable success criteria.
+
+**What we found**:
+- Current performance: p95 latency = 450ms, p99 = 1.2s
+- 15 endpoints analyzed, 5 are slow (>400ms)
+- Slowest: GET /users/{id}/profile (p95 = 800ms)
+
+**Question**: How will we know this task is complete?
+
+**Options**:
+A) **Aggressive** - p95 < 200ms across all endpoints
+   - Requires: Caching layer + query optimization + possible schema changes
+   - Estimated effort: 3-5 days
+   - Risk: May require breaking changes
+
+B) **Moderate** - p95 < 300ms for the 5 slow endpoints
+   - Requires: Query optimization + indexing
+   - Estimated effort: 2-3 days
+   - Risk: Low, backward compatible
+
+C) **Conservative** - p95 < 400ms for top 3 slowest endpoints
+   - Requires: Index tuning only
+   - Estimated effort: 1-2 days
+   - Risk: Minimal
+
+**Our recommendation**: Option B (moderate)
+**Reasoning**: Balances impact (addresses all slow endpoints) with feasibility (no schema changes needed)
+
+[Choose A/B/C or specify custom target]
+```
+</good-example>
+
+**Template 2: Unclear Scope / Multiple Interpretations**
+
+<good-example>
+```markdown
+## 🔍 Clarification Needed: Scope Boundaries
+
+**Current task**: "Refactor the authentication system"
+
+**Ambiguity**: Multiple valid interpretations exist.
+
+**Possible interpretations**:
+
+**Option A: Change Auth Mechanism**
+- Current: Session-based (cookie + server-side storage)
+- Proposed: JWT tokens (stateless)
+- Affects: All 23 protected endpoints, session storage, login flow
+- Breaking: Yes - existing sessions invalidated
+- Estimated: 5-7 days
+
+**Option B: Improve Auth Code Quality**
+- Keep: Existing session mechanism
+- Refactor: Clean up middleware, improve error handling, add tests
+- Affects: auth/ directory only (~800 LOC)
+- Breaking: No
+- Estimated: 2-3 days
+
+**Option C: Add OAuth Providers**
+- Keep: Existing password auth
+- Add: Google/GitHub OAuth as alternatives
+- Affects: Login UI, callback handlers, user model
+- Breaking: No (additive only)
+- Estimated: 3-4 days
+
+**What we found in codebase**:
+- Current session-based auth works but has sparse test coverage (35%)
+- Recent commits show frustration with session store (Redis connection issues)
+- Architecture docs mention "future: consider JWT" but no timeline
+
+**Question**: Which interpretation matches your intent?
+
+[Select one option or describe different scope]
+```
+</good-example>
+
+**Template 3: Technical Choice Ambiguity**
+
+<good-example>
+```markdown
+## ⚙️ Clarification Needed: Technical Approach
+
+**Current task**: "Add real-time notifications"
+
+**Ambiguity**: Multiple technical approaches exist with different trade-offs.
+
+**What we found in codebase**:
+- **WebSockets** used in chat feature (30% of codebase)
+- **Server-Sent Events** used in activity feed (20% of codebase)
+- **Polling** used in dashboard (10% of codebase)
+- Architecture docs are silent on notification strategy
+
+**Approaches**:
+
+**Option A: WebSockets (bi-directional)**
+- Library: socket.io (already in dependencies)
+- Pros: Real-time, bi-directional, existing infrastructure
+- Cons: Stateful connections, scaling complexity, firewall issues
+- Consistency: Matches chat feature
+- Estimated: 2-3 days
+
+**Option B: Server-Sent Events (server-to-client push)**
+- Library: Native EventSource API
+- Pros: Simpler than WebSockets, auto-reconnect, HTTP/2 friendly
+- Cons: One-way only, less browser support
+- Consistency: Matches activity feed
+- Estimated: 2-3 days
+
+**Option C: Long Polling (fallback-friendly)**
+- Library: None needed (HTTP endpoints)
+- Pros: Universal compatibility, simple deployment
+- Cons: Higher latency, more server load
+- Consistency: Matches dashboard
+- Estimated: 1-2 days
+
+**Our analysis**:
+- Notifications are one-way (server → client)
+- Need to support all browsers (including older ones)
+- Already have SSE infrastructure in activity feed
+
+**Recommendation**: Option B (Server-Sent Events)
+**Reasoning**: Matches existing pattern, sufficient for one-way notifications, simpler than WebSockets
+
+**Question**: Which approach should this feature use?
+
+[Choose A/B/C or describe alternative]
+```
+</good-example>
+
+#### Question Quality Standards
+
+**When formulating ambiguity questions, MUST**:
+- Provide context: What we found in the codebase/intelligence gathering
+- Offer structured options with implications (not pure free-text)
+- Include our analysis and recommendation (with reasoning)
+- Batch all ambiguity questions together (max 4 per round)
+- Tie each question to a blocked architectural decision
+
+**When formulating ambiguity questions, MUST NOT**:
+- Ask questions answerable from codebase (those go to Phase 2 → agents)
+- Request information we should infer from patterns
+- Ask open-ended "what do you want?" questions
+- Mix ambiguity resolution with technical detail discovery
+
+<bad-example>
+❌ "Can you provide more details about the authentication system?"
+❌ "What should I do here?"
+❌ "Tell me about your requirements"
+❌ "How fast should this be?"
+</bad-example>
+
+<good-example>
+✅ "Should login sessions persist across browser restarts? (Yes/No with implications)"
+✅ "Which OAuth providers must be supported? (Google/GitHub/Microsoft - multi-select)"
+✅ "Target p95 latency: <200ms / <300ms / <500ms? (Current: 450ms)"
+✅ "Breaking changes allowed? (Yes - v2 / No - backcompat / New endpoints only)"
+</good-example>
+
+#### Phase 1 Completion
+
+After receiving user responses:
+
+1. **Update task brief** with clarifications
+   ```
+   apex_task_update({id: taskId, intent: enhanced_brief_with_clarifications})
+   ```
+
+2. **Document ambiguity resolution**
+   ```
+   apex_task_append_evidence(taskId, "decision", "Ambiguity resolution", {
+     original_ambiguities: [],
+     questions_asked: [],
+     user_responses: [],
+     updated_brief: enhanced_brief
+   })
+   ```
+
+3. **Re-run Phase 1 checklist**
+   - Verify all checkboxes now pass
+   - If still ambiguous → Task is fundamentally ill-defined → ESCALATE
+   - If clear → Proceed to Phase 2
+
+**Maximum 1 round of ambiguity clarification**: If task is still ambiguous after user response, the task itself is insufficiently defined and should be broken down or refined outside this workflow.
+
+---
+
+### Phase 2: Technical Adequacy Evaluation (ONLY after Phase 1 passes)
+
+<phase-execution>
+**PREREQUISITE**: Phase 1 complete with status = UNAMBIGUOUS
+
+Requirements are now clear. Evaluate if we have sufficient technical context to architect a solution.
+</phase-execution>
+
+#### Technical Adequacy Checklist
+
+Evaluate the context_pack across 4 dimensions:
+
+**1. Technical Context (30% weight)** - Do we know HOW/WHERE to implement?
+   - [ ] Target files/modules identified from codebase
+   - [ ] Implementation patterns found (or approach is straightforward)
+   - [ ] Integration points understood
+   - [ ] Relevant code examples extracted
+
+   **Score**: 0-100 based on completeness
+
+**2. Risk Assessment (20% weight)** - Do we understand failure modes?
+   - [ ] Breaking change analysis complete
+   - [ ] Performance implications assessed
+   - [ ] Security considerations identified
+   - [ ] Rollback/mitigation strategy possible
+
+   **Score**: 0-100 based on risk understanding
+
+**3. Dependency Mapping (15% weight)** - Do we know what will be affected?
+   - [ ] Direct dependencies mapped (what imports this?)
+   - [ ] Consumers identified (what calls this?)
+   - [ ] Test impact assessed
+   - [ ] Cross-component effects understood
+
+   **Score**: 0-100 based on dependency coverage
+
+**4. Pattern Availability (35% weight)** - Do we have guidance?
+   - [ ] High-trust patterns (★★★★☆+) found for this task type
+   - [ ] Similar past implementations discovered
+   - [ ] Anti-patterns identified (what to avoid)
+   - [ ] Failure predictions available
+
+   **Score**: 0-100 based on pattern confidence
+
+**Overall Confidence Score**: Weighted average of 4 dimensions
+
+#### Phase 2 Decision Logic
+
+```yaml
+IF confidence >= 80:
+  action: PROCEED_TO_ARCHITECT
+  status: HIGH_CONFIDENCE
+  reasoning: "Strong technical context and proven patterns"
+
+IF confidence >= 65 AND < 80:
+  action: PROCEED_TO_ARCHITECT
+  status: ADEQUATE_CONFIDENCE
+  warnings: [document gaps as assumptions]
+  reasoning: "Sufficient context to architect, minor gaps documented"
+
+IF confidence >= 50 AND < 65:
+  action: EVALUATE_GAPS
+  status: MARGINAL_CONFIDENCE
+
+  # Identify specific gaps
+  gaps: identify_technical_gaps(context_pack)
+
+  # Route gaps to recovery
+  IF gaps_are_discoverable:
+    action: SPAWN_AGENTS
+    agents: select_agents_for_gaps(gaps)
+    max_rounds: 2
+  ELSE:
+    action: ASK_USER
+    questions: formulate_technical_questions(gaps)
+
+IF confidence < 50:
+  action: INSUFFICIENT_CONTEXT
+  status: LOW_CONFIDENCE
+
+  # Determine if recoverable
+  IF task_has_high_trust_patterns:
+    action: SPAWN_AGENTS  # Maybe we missed something
+  ELSE:
+    action: ESCALATE_TO_USER
+    message: "Task is clear but we lack technical context to architect safely"
+```
+
+#### Gap Identification and Routing
+
+**Gap Classification**:
+```typescript
+interface TechnicalGap {
+  type: 'pattern_missing' | 'context_incomplete' | 'risk_unknown' | 'dependency_unclear';
+  severity: 'blocking' | 'important' | 'minor';
+  description: string;
+  discoverable: boolean;  // Can agents find this in code/docs?
+  agentTypes?: string[];  // Which agents could resolve this
+}
+```
+
+**Gap-to-Agent Mapping**:
+```yaml
+pattern_missing:
+  - apex:implementation-pattern-extractor (find similar code)
+  - apex:pattern-analyst (query pattern cache)
+
+context_incomplete:
+  - apex:systems-researcher (trace execution flows)
+  - apex:implementation-pattern-extractor (find concrete examples)
+
+risk_unknown:
+  - apex:git-historian (find past issues in this area)
+  - apex:risk-analyst (forward-looking risk assessment)
+  - apex:web-researcher (security advisories, breaking changes)
+
+dependency_unclear:
+  - apex:systems-researcher (map dependency graph)
+  - apex:git-historian (who touches this code?)
+```
+
+**Agent Spawning Strategy**:
+
+When gaps are discoverable, spawn targeted agents:
+
+<good-example>
+```markdown
+**Identified Gaps**:
+1. Implementation pattern for rate limiting unclear (confidence: 45%)
+2. Integration with existing middleware unknown (confidence: 50%)
+
+**Recovery Strategy**: Spawn agents
+
+<Task subagent_type="apex:implementation-pattern-extractor" description="Find rate limiting patterns">
+**Task ID**: {taskId}
+**Focus**: Rate limiting and throttling patterns in codebase
+
+**Extract**:
+1. How is rate limiting currently implemented? (search for "rate", "throttle", "limit")
+2. What libraries/approaches are used?
+3. Where is middleware applied? (global vs. route-specific)
+4. Reusable code snippets with file:line references
+
+**Return**: YAML with concrete examples from codebase
+</Task>
+
+<Task subagent_type="apex:systems-researcher" description="Map middleware integration">
+**Task ID**: {taskId}
+**Focus**: Middleware architecture and integration points
+
+**Analyze**:
+1. How is middleware currently composed/chained?
+2. What's the order of execution?
+3. Where would new middleware fit in the pipeline?
+4. What contracts/interfaces must be respected?
+
+**Return**: Integration strategy with file:line references
+</Task>
+```
+
+After agents complete:
+1. Merge new intelligence into context_pack
+2. Recalculate confidence scores
+3. Re-evaluate Phase 2 decision logic
+4. If confidence now adequate → PROCEED
+5. If still insufficient and round < 2 → Spawn more agents
+6. If round >= 2 or no progress → ESCALATE_TO_USER
+</good-example>
+
+#### Recovery Loop Controls
+
+**Prevent infinite loops with hard constraints**:
+
+```yaml
+recovery_constraints:
+  max_rounds: 2
+  max_agents_per_round: 3
+  timeout_per_round: 5 minutes
+
+  progress_requirements:
+    min_confidence_gain_per_round: 0.15  # Must improve by 15%
+    diminishing_returns_threshold: 0.10  # Stop if gain < 10%
+
+  cost_controls:
+    max_tokens_per_agent: 15000
+    max_total_tokens: 60000
+```
+
+**Progress Tracking**:
+```typescript
+interface RecoveryRound {
+  round: number;
+  gaps_targeted: TechnicalGap[];
+  agents_spawned: string[];
+  confidence_before: number;
+  confidence_after: number;
+  improvement: number;
+  new_intelligence: {...};
+}
+```
+
+**Stop Conditions**:
+```yaml
+STOP and PROCEED if:
+  - confidence >= 65
+  - OR round >= max_rounds AND confidence >= 50
+
+STOP and ESCALATE if:
+  - round >= max_rounds AND confidence < 50
+  - OR improvement < diminishing_returns_threshold
+  - OR no new intelligence gained (agents found nothing)
+```
+
+#### Phase 2 Completion
+
+After technical adequacy determined:
+
+1. **Document adequacy assessment**
+   ```
+   apex_task_append_evidence(taskId, "decision", "Technical adequacy assessment", {
+     phase2_scores: {
+       technical_context: score,
+       risk_assessment: score,
+       dependency_mapping: score,
+       pattern_availability: score,
+       overall_confidence: score
+     },
+     gaps_remaining: [],
+     recovery_rounds: [],
+     proceed_decision: "PROCEED" | "INSUFFICIENT"
+   })
+   ```
+
+2. **If INSUFFICIENT**: Escalate to user
+   ```markdown
+   ## ⚠️ Insufficient Technical Context
+
+   **Task is clear** (ambiguity resolved in Phase 1)
+   **BUT**: We lack sufficient technical context to architect confidently.
+
+   **Attempted Recovery**:
+   - Round 1: Spawned [agents], gained [improvements]
+   - Round 2: Spawned [agents], gained [improvements]
+
+   **Current Confidence**: {score}/100
+
+   **Remaining Gaps**:
+   1. [gap description]
+   2. [gap description]
+
+   **Recommendation**:
+   - Break this into smaller, more focused tasks, OR
+   - Provide architectural guidance on [specific unknowns], OR
+   - Accept proceeding with documented assumptions
+
+   **How to proceed?**
+   A) Proceed anyway (architect with best effort, document assumptions)
+   B) Pause task (need more information)
+   C) Break down (split into smaller tasks)
+   ```
+
+3. **If PROCEED**: Transition to Step 5
+
+---
+
+### Two-Phase Gate Summary
+
+**Phase 1: Ambiguity Detection** (User-only resolution)
+- Checks: Success criteria, scope, interpretations, constraints
+- If ambiguous → ASK_USER with structured questions
+- If clear → Proceed to Phase 2
+- Max 1 clarification round
+
+**Phase 2: Technical Adequacy** (Agent-assisted resolution)
+- Scores: Technical context, risk, dependencies, patterns
+- If adequate (≥65) → PROCEED to ARCHITECT
+- If insufficient → SPAWN_AGENTS for discovery (max 2 rounds)
+- If irrecoverable → ESCALATE to user
+
+**Gate Enforcement**:
+- Step 5 will verify both phases completed before allowing ARCHITECT transition
+- Evidence trail maintained for learning and reflection
+
 ## 5 · Set status to in_progress
 
-Set initial phase to ARCHITECT:
+<phase-execution>
+**MANDATORY PREREQUISITE VERIFICATION**
 
+Before setting phase to ARCHITECT, verify TWO-PHASE GATE completed successfully.
+
+**This step CANNOT proceed unless Step 4.5 is complete.**
+</phase-execution>
+
+### Two-Phase Gate Verification
+
+Run these verification checks before transitioning to ARCHITECT:
+
+#### Phase 1 Verification (Ambiguity Resolution)
+
+☐ **Ambiguity assessment completed**
+   - Step 4.5 Phase 1 executed
+   - Ambiguity checklist evaluated
+
+☐ **No ambiguities OR all resolved**
+   - If ambiguities detected: User clarification received
+   - If ambiguities detected: Task brief updated with user responses
+   - If no ambiguities: Verification passed
+
+☐ **Task brief is unambiguous**
+   - Success criteria are measurable
+   - Scope boundaries are explicit
+   - Single valid interpretation exists
+   - Constraints are stated (performance/breaking changes/security)
+   - Technical choices resolved (if multiple options existed)
+
+☐ **Evidence documented**
+   - Ambiguity resolution recorded via apex_task_append_evidence
+   - User responses captured (if any clarifications were needed)
+
+#### Phase 2 Verification (Technical Adequacy)
+
+☐ **Technical adequacy evaluated**
+   - Step 4.5 Phase 2 executed
+   - 4-dimension scoring completed (Technical Context, Risk, Dependencies, Patterns)
+   - Overall confidence score calculated
+
+☐ **Confidence threshold met OR gaps accepted**
+   - Confidence ≥ 65 (adequate to proceed), OR
+   - Confidence 50-64 with recovery attempted and documented, OR
+   - User explicitly accepted proceeding with documented gaps
+
+☐ **Context pack contains minimum intelligence**
+   - Task analysis present
+   - At least 1 agent provided intelligence (intelligence-gatherer minimum)
+   - Execution strategy defined
+   - Validation results available
+
+☐ **Evidence documented**
+   - Technical adequacy scores recorded via apex_task_append_evidence
+   - Recovery attempts documented (if any agents spawned in Phase 2)
+   - Final confidence score and gaps captured
+
+### Verification Enforcement
+
+<critical-gate>
+**IF ANY VERIFICATION CHECKBOX FAILS**:
+→ **STOP** - Do NOT set phase to ARCHITECT
+→ **RETURN** to Step 4.5
+→ **COMPLETE** missing phase(s)
+→ **ONLY PROCEED** after all checkboxes pass
+
+**Violation = Major Error**: Proceeding without verification leads to:
+- Ambiguous implementations (wrong solution built)
+- Insufficient context (architecture fails in validation)
+- Wasted time and resources
+- Pattern trust score degradation (false success/failure data)
+</critical-gate>
+
+### Record Verification Evidence
+
+Document that both phases completed successfully:
+
+```javascript
+apex_task_append_evidence(taskId, "decision", "Two-phase gate verification", {
+  phase1_ambiguity: {
+    detected: boolean,
+    resolved: boolean,
+    clarifications_from_user: [] | null,
+    verification_passed: true
+  },
+  phase2_technical: {
+    confidence_score: number,
+    confidence_level: "high" | "adequate" | "marginal",
+    gaps_remaining: [],
+    recovery_rounds: number,
+    verification_passed: true
+  },
+  overall_gate_status: "PASSED",
+  timestamp: ISO-8601
+})
 ```
+
+### Set Phase to ARCHITECT
+
+**Only after verification passes**, set initial phase to ARCHITECT:
+
+```javascript
 apex_task_update({id: taskId, phase: "ARCHITECT"})
-apex_task_append_evidence(taskId, "decision", "Task execution started", {execution_strategy, timestamp})
+
+apex_task_append_evidence(taskId, "decision", "Task execution started", {
+  execution_strategy: context_pack.execution_strategy,
+  ambiguity_resolution_summary: {...},
+  intelligence_confidence: context_pack.adequacy_assessment.initial_confidence,
+  adequacy_assessment: "sufficient",
+  phases_completed: ["ambiguity_detection", "technical_adequacy"],
+  timestamp
+})
 ```
 
 ## 6 · Execute ARCHITECT phase
