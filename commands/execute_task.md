@@ -169,6 +169,21 @@ DOCUMENTER: Use all context_pack data for reflection and learning capture
   - Note inconsistencies and resolutions
 </context-pack-mapping>
 
+### Context Pack Abbreviations (ctx.*)
+
+**Use these shorthand references throughout phases:**
+```
+ctx.patterns   = context_pack.pattern_cache.{architecture|implementation|testing}
+ctx.impl       = context_pack.implementation_patterns.{primary_patterns|conventions|snippets}
+ctx.web        = context_pack.web_research.{official_docs|best_practices|security_alerts}
+ctx.history    = context_pack.historical_intelligence.{similar_tasks|predicted_failures}
+ctx.exec       = context_pack.execution_strategy.{recommended_approach|parallelization}
+ctx.systems    = context_pack.systems_analysis.{component_map|execution_flows|invariants}
+ctx.git        = context_pack.git_intelligence.{recent_changes|churn_hotspots|ownership}
+ctx.risk       = context_pack.risk_analysis.{risk_matrix|edge_cases|mitigations}
+ctx.docs       = context_pack.documentation_intelligence.{architecture_context|past_decisions}
+```
+
 ## 1 · Analyse scope from argument
 
 <$ARGUMENTS> ⇒ Can be:
@@ -273,67 +288,20 @@ optimization_steps:
     - Specify validation criteria
 ```
 
-### Enhancement Examples
+### Enhancement Example
 
-<good-example>
-original: "add dark mode"
+**Before**: "add dark mode"
 
-improved: |
-Implement dark mode theme toggle for the application.
+**After**:
+```
+Implement dark mode theme toggle.
 
-Technical Requirements:
+Technical: theme context, CSS variables, toggle component, localStorage persistence
+Acceptance: instant switch, persists across sessions, respects system preference
+Tests: theme switching and persistence coverage
+```
 
-- Create theme context/provider for global theme state
-- Implement CSS variables or theme system for colors
-- Add toggle component in settings/header
-- Persist theme preference in localStorage
-- Ensure all components support both themes
-- Handle system preference detection
-
-Acceptance Criteria:
-
-- Toggle switches between light/dark themes instantly
-- Theme preference persists across sessions
-- Respects system dark mode preference on first visit
-- All UI elements have appropriate dark mode colors
-- No contrast/accessibility issues in either theme
-- Tests cover theme switching and persistence
-  </good-example>
-
-<good-example>
-original: "refactor the API"
-
-improved: |
-Refactor REST API to improve performance and maintainability.
-
-Scope:
-
-- Analyze current API performance bottlenecks
-- Implement consistent error handling patterns
-- Add request/response validation middleware
-- Standardize endpoint naming conventions
-- Optimize database queries (eliminate N+1 problems)
-- Add comprehensive API documentation
-
-Constraints:
-
-- Maintain backward compatibility for v1 endpoints
-- Zero downtime deployment required
-- Complete within current sprint (5 days)
-
-Deliverables:
-
-- Refactored API code with consistent patterns
-- Performance improvement metrics (target: 30% faster)
-- Updated API documentation
-- Migration guide for deprecated endpoints
-- Test coverage > 80% for refactored endpoints
-  </good-example>
-
-<bad-example>
-original: "fix login bug"
-improved: "fix the login bug that users reported" # Still lacks specifics!
-</bad-example>
+**Anti-pattern**: "fix login bug" → "fix the login bug that users reported" (still lacks specifics!)
 
 ### Pattern-Based Enhancement
 
@@ -380,162 +348,27 @@ This phase is CRITICAL - it prevents costly mistakes by uncovering hidden risks,
 
 ### Intelligence Agent Toolbelt
 
-**Philosophy**: Select the RIGHT intelligence agents for THIS task, not all agents every time.
+**Philosophy**: Select the RIGHT agents for THIS task. Not all agents every time.
 
-**MANDATORY BASELINE** (always required):
-- **apex:intelligence-gatherer** - APEX pattern intelligence and task context (always valuable)
+| Agent | When to Use | Key Output |
+|-------|-------------|------------|
+| **intelligence-gatherer** (MANDATORY) | Every task | pattern_cache, execution_strategy, predicted_failures |
+| web-researcher | External tech, security, unfamiliar frameworks | official_docs, security_alerts, best_practices |
+| implementation-pattern-extractor | Existing codebase, match conventions | reusable_snippets, project_conventions |
+| systems-researcher | Cross-component, architectural impacts | dependency_map, execution_flows, invariants |
+| git-historian | Bug investigation, frequently-changed areas | churn_hotspots, regression_history, ownership |
+| risk-analyst | Complexity ≥7, production-critical | risk_matrix, edge_cases, mitigations |
+| documentation-researcher | Architecture history, past decisions | past_decisions, historical_learnings |
 
-**OPTIONAL AGENTS** (select based on task characteristics):
-
-#### 1. apex:intelligence-gatherer (ALWAYS USE)
-**When**: Every task (baseline intelligence)
-**Provides**: APEX patterns, similar tasks, predicted failures, execution strategy
-**Cost**: Medium | **Value**: High
-
-<details>
-<summary>Usage Template</summary>
-
+**Spawn format** (all agents use same structure):
 ```markdown
-<Task subagent_type="apex:intelligence-gatherer" description="APEX pattern discovery and task context">
-**Task ID**: [TASK_ID from step 2]
-**Enhanced Brief**: [The optimized brief from step 3]
-
-**Priorities**:
-1. Find similar tasks in APEX history
-2. Discover high-trust patterns for this task type
-3. Identify predicted failures from historical data
-4. Generate execution strategy with pattern intelligence
-5. Load relevant context with surgical precision
-
-**Return**: Complete context pack with pattern intelligence and execution strategy
+<Task subagent_type="apex:{agent}" description="{focus}">
+**Task ID**: {taskId}
+**Brief**: {enhanced brief from step 3}
+**Focus**: {what to investigate}
+**Return**: {expected output format}
 </Task>
 ```
-</details>
-
-#### 2. apex:web-researcher
-**When**: External dependencies, unfamiliar frameworks, security-sensitive tasks, latest API changes
-**Provides**: Official docs, best practices, security advisories, breaking changes
-**Cost**: High (web fetches) | **Value**: High for external tech
-
-<details>
-<summary>Usage Template</summary>
-
-```markdown
-<Task subagent_type="apex:web-researcher" description="Research [specific technology/framework]">
-**Task Context**: [Brief description from step 3]
-**Technologies/Frameworks**: [Specific tech to research]
-
-**Research Focus**:
-- Official documentation and API changes
-- Security advisories and known issues
-- Best practices and production patterns
-- Breaking changes and migration guides
-
-**Return**: Synthesized findings with source attribution
-</Task>
-```
-</details>
-
-#### 3. apex:implementation-pattern-extractor
-**When**: Working in existing codebase areas, need to match conventions, extending similar features
-**Provides**: Concrete code examples, project conventions, testing patterns
-**Cost**: Medium | **Value**: High for consistency
-
-<details>
-<summary>Usage Template</summary>
-
-```markdown
-<Task subagent_type="apex:implementation-pattern-extractor" description="Extract patterns for [area]">
-**Task Context**: [Enhanced brief from step 3]
-**Focus Areas**: [Specific components/patterns to extract]
-
-**Extract**:
-1. How similar features are currently implemented
-2. Project conventions (naming, structure, types)
-3. Reusable code snippets with file:line references
-4. Testing patterns for similar features
-
-**Return**: YAML with concrete, copy-pasteable examples from codebase
-</Task>
-```
-</details>
-
-#### 4. apex:systems-researcher
-**When**: Cross-component changes, architectural impacts, understanding complex flows
-**Provides**: Dependency maps, execution flows, integration points, invariants
-**Cost**: Medium-High | **Value**: High for architectural work
-
-<details>
-<summary>Usage Template</summary>
-
-```markdown
-<Task subagent_type="apex:systems-researcher" description="Analyze [system/component]">
-**Scope**: [Components/systems to analyze]
-
-Map execution paths, data flow, integration points, and hidden dependencies.
-Provide file:line references and highlight contracts or invariants we must respect.
-</Task>
-```
-</details>
-
-#### 5. apex:git-historian
-**When**: Working in frequently-changed areas, investigating bugs, understanding evolution
-**Provides**: Change patterns, regressions, churn hotspots, ownership
-**Cost**: Low-Medium | **Value**: Medium-High for context
-
-<details>
-<summary>Usage Template</summary>
-
-```markdown
-<Task subagent_type="apex:git-historian" description="Analyze history of [area]">
-**Scope**: [Directories/files to analyze]
-**Time Window**: [e.g., "9 months", "since v2.0"]
-
-Focus on regressions, reverts, architectural milestones, churn hotspots, and current maintainers.
-</Task>
-```
-</details>
-
-#### 6. apex:risk-analyst
-**When**: High-complexity tasks (>7/10), production-critical changes, new patterns
-**Provides**: Risk matrix, edge cases, monitoring gaps, mitigations
-**Cost**: Low | **Value**: High for critical work
-
-<details>
-<summary>Usage Template</summary>
-
-```markdown
-<Task subagent_type="apex:risk-analyst" description="Risk analysis for [task]">
-**Inputs**: Task brief, context pack snapshot, architecture notes
-
-Deliver risk matrix, edge-case scenarios, monitoring gaps, and mitigation recommendations.
-</Task>
-```
-</details>
-
-#### 7. apex:documentation-researcher
-**When**: Need architecture history, past decisions, project context from documentation
-**Provides**: Relevant .md content, decision rationale, historical context, learnings
-**Cost**: Low | **Value**: Medium-High for context-dependent work
-
-<details>
-<summary>Usage Template</summary>
-
-```markdown
-<Task subagent_type="apex:documentation-researcher" description="Search project docs for [topic]">
-**Task Context**: [Enhanced brief from step 3]
-**Search Focus**: [Specific topics or keywords]
-
-**Research Priorities**:
-- Architecture decisions related to [area]
-- Past learnings or failures in [domain]
-- Related work or similar implementations
-- Project history or evolution context
-
-**Return**: Structured findings with file:line references and relevance assessment
-</Task>
-```
-</details>
 
 ---
 
@@ -566,71 +399,14 @@ recommended_agents:
 
 **Selection Examples**:
 
-<good-example>
-**Task**: "Add JWT authentication to API"
-**Analysis**:
-- involves_external_tech: yes (JWT library)
-- security_sensitive: yes
-- modifying_existing_code: yes (auth layer exists)
+| Task Type | Key Signals | Agents (+ mandatory intelligence-gatherer) |
+|-----------|-------------|---------------------------------------------|
+| Security feature (JWT auth) | external_tech, security_sensitive | web-researcher, implementation-pattern-extractor, risk-analyst |
+| Bug fix | bug_investigation, complexity ≤4 | git-historian, implementation-pattern-extractor |
+| Cross-component refactor | cross_component, complexity 6+ | systems-researcher, implementation-pattern-extractor, git-historian |
+| Architecture feature (caching) | references_architecture | documentation-researcher, implementation-pattern-extractor, web-researcher |
 
-**Selected Agents**:
-1. apex:intelligence-gatherer (mandatory)
-2. apex:web-researcher (JWT security best practices, library docs)
-3. apex:implementation-pattern-extractor (existing auth patterns)
-4. apex:risk-analyst (security-critical)
-</good-example>
-
-<good-example>
-**Task**: "Fix bug in user profile update"
-**Analysis**:
-- bug_investigation: yes
-- modifying_existing_code: yes
-- complexity: 4/10
-
-**Selected Agents**:
-1. apex:intelligence-gatherer (mandatory)
-2. apex:git-historian (when was this area last changed?)
-3. apex:implementation-pattern-extractor (how do other updates work?)
-</good-example>
-
-<good-example>
-**Task**: "Refactor configuration loading"
-**Analysis**:
-- cross_component: yes (affects many modules)
-- modifying_existing_code: yes
-- complexity: 6/10
-
-**Selected Agents**:
-1. apex:intelligence-gatherer (mandatory)
-2. apex:systems-researcher (who depends on config?)
-3. apex:implementation-pattern-extractor (current config patterns)
-4. apex:git-historian (config evolution history)
-</good-example>
-
-<good-example>
-**Task**: "Implement caching layer for API responses"
-**Analysis**:
-- references_architecture: yes (affects API design)
-- needs_historical_context: yes (past caching decisions)
-- modifying_existing_code: yes
-
-**Selected Agents**:
-1. apex:intelligence-gatherer (mandatory)
-2. apex:documentation-researcher (architecture decisions, past caching approaches)
-3. apex:implementation-pattern-extractor (current API patterns)
-4. apex:web-researcher (caching best practices)
-</good-example>
-
-<bad-example>
-**Task**: "Add dark mode toggle"
-**Analysis**: involves_external_tech: yes, new_feature: yes
-
-**DON'T**: Launch all 7 agents blindly
-**DO**:
-1. apex:intelligence-gatherer (mandatory)
-2. apex:implementation-pattern-extractor (theme/UI patterns)
-3. Maybe apex:web-researcher IF unfamiliar with theme libraries
-</bad-example>
+**Anti-pattern**: "Add dark mode" → DON'T launch all 7 agents. DO use 2-3 targeted agents.
 
 ---
 
@@ -690,100 +466,29 @@ synthesis_approach:
     - Update context pack with synthesized intelligence
 ```
 
-The synthesized intelligence forms a complete context pack (store as evidence):
+The synthesized intelligence forms a complete context pack (store as evidence).
 
-### 📦 Context Pack Structure (Reference)
+### 📦 Context Pack Structure (Compact Reference)
 
-```yaml
-context_pack:
-  # Always present (from intelligence-gatherer):
-  task_analysis:
-    id, title, type, complexity, validation_status, current_phase
+**Always present** (from intelligence-gatherer):
+- `task_analysis`: {id, title, type, complexity, validation_status, current_phase}
+- `ctx.patterns`: {architecture, implementation, testing, fixes, anti_patterns} - each with trust scores
+- `loaded_context`: {files[], total_tokens, token_budget}
+- `ctx.history`: {similar_tasks, system_history, predicted_failures}
+- `ctx.exec`: {recommended_approach, gemini_integration, parallelization_opportunities}
+- `validation_results`: {requirements_complete, missing_requirements, ambiguities_resolved}
+- `metadata`: {intelligence_timestamp, confidence_score, cache_hit_rate}
 
-  pattern_cache:  # from intelligence-gatherer
-    architecture: [patterns with trust scores]
-    implementation: [patterns with trust scores]
-    testing: [patterns with trust scores]
-    fixes: [patterns with trust scores]
-    anti_patterns: [patterns to avoid]
+**Optional** (present if respective agents used):
+- `ctx.web`: {official_docs, best_practices, security_alerts, avoid_patterns, gap_analysis}
+- `ctx.impl`: {primary_patterns, project_conventions, reusable_snippets, testing_patterns, inconsistencies}
+- `ctx.systems`: {component_map, execution_flows, integration_points, invariants}
+- `ctx.git`: {recent_changes, churn_hotspots, regression_history, ownership}
+- `ctx.risk`: {risk_matrix, edge_cases, monitoring_gaps, mitigations}
+- `ctx.docs`: {architecture_context, past_decisions, historical_learnings, conflicts_detected}
 
-  loaded_context:  # from intelligence-gatherer
-    files: [path, tokens, relevance, purpose]
-    total_tokens, token_budget
-
-  historical_intelligence:  # from intelligence-gatherer
-    similar_tasks: [with learnings]
-    system_history: [changes, migrations]
-    predicted_failures: [with prevention strategies]
-
-  execution_strategy:  # from intelligence-gatherer
-    recommended_approach, gemini_integration
-    parallelization_opportunities
-
-  validation_results:  # from intelligence-gatherer
-    requirements_complete, missing_requirements
-    ambiguities_resolved, assumptions_verified
-
-  metadata:  # from intelligence-gatherer
-    intelligence_timestamp, confidence_score, cache_hit_rate
-
-  # Optional sections (present if respective agents were used):
-  web_research:  # from web-researcher (if used)
-    official_docs: [urls with key insights and relevance]
-    best_practices: [practices with sources and reasoning]
-    security_alerts: [issues with severity and mitigation]
-    avoid_patterns: [anti-patterns from external sources]
-    framework_version: [latest versions and breaking changes]
-    gap_analysis: [differences between our code and recommendations]
-
-  implementation_patterns:  # from implementation-pattern-extractor (if used)
-    primary_patterns: [patterns with code examples and file:line refs]
-    project_conventions: [naming, structure, types, error_handling]
-    reusable_snippets: [copy-pasteable code with sources]
-    testing_patterns: [how to test similar features]
-    inconsistencies: [variations flagged with recommendations]
-    confidence: [1-10 based on pattern consistency]
-    files_analyzed: [count]
-
-  systems_analysis:  # from systems-researcher (if used)
-    component_map: [dependencies and relationships]
-    execution_flows: [critical paths with file:line refs]
-    integration_points: [external interfaces and contracts]
-    invariants: [constraints that must be preserved]
-
-  git_intelligence:  # from git-historian (if used)
-    recent_changes: [relevant commits with context]
-    churn_hotspots: [frequently changed areas]
-    regression_history: [reverts and fixes]
-    ownership: [current maintainers]
-
-  risk_analysis:  # from risk-analyst (if used)
-    risk_matrix: [identified risks with severity]
-    edge_cases: [scenarios to test]
-    monitoring_gaps: [observability needs]
-    mitigations: [recommended safety measures]
-
-  documentation_intelligence:  # from documentation-researcher (if used)
-    architecture_context: [decisions, rationale, constraints with file:line refs]
-    past_decisions: [what was decided, when, why with sources]
-    historical_learnings: [failures, mistakes to avoid, what worked]
-    related_work: [similar tasks, related documentation]
-    conflicts_detected: [contradictory information flagged]
-    documentation_quality: [confidence in findings]
-
-  adequacy_assessment:  # for Step 4.5 gate
-    ambiguity_detected: boolean
-    ambiguous_areas: [
-      {
-        type: "vague_goal" | "unclear_scope" | "technical_choice" | "missing_constraint",
-        description: string,
-        impact: "blocking" | "high" | "medium",
-        suggested_question: string
-      }
-    ]
-    initial_confidence: 0.0-1.0
-    recommendation: "clarify_first" | "adequate" | "needs_technical_research"
-```
+**Adequacy assessment** (for Step 4.5):
+- `adequacy_assessment`: {ambiguity_detected, ambiguous_areas[], initial_confidence: 0-1, recommendation: clarify_first|adequate|needs_technical_research}
 
 ### Initial Ambiguity Assessment
 
@@ -918,178 +623,39 @@ apex_task_append_evidence(taskId, "decision", "Initial ambiguity assessment", {
 
 ### 📊 Display Intelligence Report to User
 
-After receiving the context pack, display a comprehensive intelligence report to the user showing intelligence gathered:
+After receiving the context pack, display a comprehensive intelligence report structured as:
 
 ```markdown
-## 🧠 Intelligence Report for Task: {context_pack.task_analysis.title}
+## 🧠 Intelligence Report for Task: {task_title}
 
-### 📊 Intelligence Performance (Baseline - Always Present)
+### 📊 Baseline Metrics (Always Present)
+Agents: {list} | Cache Hit: {%} | Patterns: {count} | Similar Tasks: {count} | Confidence: {X}/10
 
-- **Agents Deployed**: {list of agents used}
-- **Cache Hit Rate**: {context_pack.metadata.cache_hit_rate}% (patterns found in cache vs new lookups)
-- **Pattern Coverage**: {total_patterns_found} patterns found for this task type
-- **Historical Match**: {similar_tasks_count} similar tasks found with {avg_relevance}% relevance
-- **Confidence Score**: {context_pack.metadata.confidence_score}/10 (overall intelligence confidence)
+### 🎯 Pattern Intelligence
+High-Trust (★★★★☆+): {pattern_id} ({uses} uses, {%} success)
+Applicable: {count} | Anti-patterns: {count} | Success Prediction: {%}
 
-### 🎯 Pattern Intelligence (Always Present)
+### 📚 Historical Intelligence
+Similar Tasks: {top 3 with outcomes and learnings}
+Failure Predictions: {>50% probability with prevention strategies}
 
-**High-Trust Patterns (★★★★☆+):**
-{for each pattern in context_pack.pattern_cache with trust >= 4:}
-- {pattern.id} ★{trust_stars} ({pattern.usage_count} uses, {pattern.success_rate}% success)
+### 🚀 Execution Strategy
+Approach: {recommended} | Parallelization: {count} | Validation: {status}
+{if missing/ambiguous: list them}
 
-**Applicable Patterns**: {total_applicable} patterns matched this context
-**Anti-patterns Identified**: {context_pack.pattern_cache.anti_patterns.length} patterns to avoid
-**Success Prediction**: Based on {similar_task_count} similar tasks with {avg_success_rate}% average success
+### Optional Sections (include if agent was used)
+- 🌐 ctx.web: Official docs, best practices, security alerts, gap analysis
+- 📝 ctx.impl: Primary patterns, conventions, reusable snippets, testing patterns
+- 🏗️ ctx.systems: Dependencies, execution flows, integration points, invariants
+- 📜 ctx.git: Recent changes, churn hotspots, regressions, ownership
+- 📚 ctx.docs: Architecture context, past decisions, historical learnings
+- ⚠️ ctx.risk: Risk matrix, edge cases, monitoring gaps
 
-### 📚 Historical Intelligence (Always Present)
+### 📈 Metrics Summary
+Patterns: {count} | Trust Distribution: ★★★★★({X}) ★★★★☆({X}) ★★★☆☆({X})
+Context: {files} files, {tokens} tokens | Generation: {time}s
 
-**Similar Tasks Found**: {context_pack.historical_intelligence.similar_tasks.length}
-{for top 3 similar tasks:}
-- {task.title} ({task.similarity_score}% match) - Outcome: {task.outcome}
-  Learning: {task.key_learning}
-
-**Failure Patterns Detected**: {context_pack.historical_intelligence.predicted_failures.length}
-{for each predicted failure with >50% probability:}
-- {failure.description} ({failure.probability}% likely) → Prevention: {failure.prevention_strategy}
-
-### 🚀 Execution Strategy (Always Present)
-
-**Recommended Approach**: {context_pack.execution_strategy.recommended_approach}
-**Parallelization Opportunities**: {context_pack.execution_strategy.parallelization_opportunities.length} tasks can run concurrently
-**Validation Status**: {context_pack.validation_results.validation_status}
-{if missing_requirements:}
-**Missing Requirements**: {list missing requirements}
-{if ambiguities:}
-**Unresolved Ambiguities**: {list ambiguities}
-
-{if context_pack.execution_strategy.gemini_integration:}
-**Gemini Integration**: Recommended for complexity {context_pack.task_analysis.complexity}/10
-
----
-
-### 🌐 Web Research Intelligence (Optional - If web-researcher Used)
-
-{if context_pack.web_research:}
-**Official Documentation Validated**:
-{for each doc in context_pack.web_research.official_docs:}
-- {doc.title}: {doc.key_points[0]} ([source]({doc.url}))
-
-**Best Practices Identified**: {context_pack.web_research.best_practices.length} industry patterns found
-{for top 3 best practices:}
-- {practice.practice} (Source: {practice.source})
-
-**Security Alerts**: {context_pack.web_research.security_alerts.length} security considerations
-{if any high severity:}
-⚠️ **High Priority**: {alert.issue} - {alert.mitigation}
-
-**Gap Analysis**:
-- ✅ **Aligned with standards**: {aligned_count} patterns validated
-- ⚠️ **Needs attention**: {gap_count} areas differ from recommendations
-- 🔄 **Deprecated patterns**: {deprecated_count} patterns to update
-{endif}
-
----
-
-### 📝 Implementation Patterns from Codebase (Optional - If implementation-pattern-extractor Used)
-
-{if context_pack.implementation_patterns:}
-**Primary Pattern Identified**:
-- {context_pack.implementation_patterns.primary_patterns[0].name}
-- Location: `{file:line}`
-- Usage: {usage_frequency} ({confidence}/10 confidence)
-
-**Project Conventions**: {context_pack.implementation_patterns.project_conventions.length} conventions discovered
-{for top conventions:}
-- {convention_category}: {pattern_description}
-
-**Reusable Snippets**: {context_pack.implementation_patterns.reusable_snippets.length} ready-to-use code snippets
-**Testing Patterns**: {context_pack.implementation_patterns.testing_patterns.length} testing approaches found
-
-**Pattern Analysis**:
-- Files analyzed: {context_pack.implementation_patterns.files_analyzed}
-- Confidence: {context_pack.implementation_patterns.confidence}/10
-{endif}
-
----
-
-### 🏗️ Systems Analysis (Optional - If systems-researcher Used)
-
-{if context_pack.systems_analysis:}
-**Component Dependencies**: {context_pack.systems_analysis.component_map.length} mapped
-**Critical Execution Flows**: {context_pack.systems_analysis.execution_flows.length} identified
-**Integration Points**: {context_pack.systems_analysis.integration_points.length} external interfaces
-**Invariants to Preserve**: {context_pack.systems_analysis.invariants.length} constraints
-{endif}
-
----
-
-### 📜 Git Intelligence (Optional - If git-historian Used)
-
-{if context_pack.git_intelligence:}
-**Recent Relevant Changes**: {context_pack.git_intelligence.recent_changes.length}
-**Churn Hotspots**: {context_pack.git_intelligence.churn_hotspots}
-**Regression History**: {context_pack.git_intelligence.regression_history.length} reverts/fixes
-**Current Ownership**: {context_pack.git_intelligence.ownership}
-{endif}
-
----
-
-### 📚 Documentation Intelligence (Optional - If documentation-researcher Used)
-
-{if context_pack.documentation_intelligence:}
-**Documentation Quality**: {context_pack.documentation_intelligence.metadata.documentation_quality} (confidence in findings)
-**Files Analyzed**: {context_pack.documentation_intelligence.metadata.total_files_analyzed} markdown files
-
-**Architecture Context**: {context_pack.documentation_intelligence.architecture_context.length} relevant decisions found
-{for top 3 architecture contexts:}
-- {title} ({source})
-  Key insight: {key_insights[0]}
-
-**Past Decisions**: {context_pack.documentation_intelligence.past_decisions.length} documented
-{if any ACTIVE past decisions:}
-- {decision} - {rationale} ({source})
-
-**Historical Learnings**: {context_pack.documentation_intelligence.historical_learnings.length} lessons found
-{for high-relevance learnings:}
-- ⚠️ {learning}: {recommendation}
-
-**Related Work**: {context_pack.documentation_intelligence.related_work.length} related documents
-{if conflicts detected:}
-⚠️ **Conflicts Detected**: {conflicts_detected.length} areas with contradictory information
-{endif}
-{endif}
-
----
-
-### ⚠️ Risk Analysis (Optional - If risk-analyst Used)
-
-{if context_pack.risk_analysis:}
-**Complexity Assessment**: {context_pack.task_analysis.complexity}/10
-**Risk Matrix**: {context_pack.risk_analysis.risk_matrix.length} risks identified
-**Edge Cases**: {context_pack.risk_analysis.edge_cases.length} scenarios to test
-**Monitoring Gaps**: {context_pack.risk_analysis.monitoring_gaps.length} observability needs
-{endif}
-
----
-
-### 📈 Intelligence Metrics (Always Present)
-
-- **Patterns in Cache**: {total_patterns_in_cache} total patterns available
-- **Trust Score Distribution**:
-  - ★★★★★: {five_star_count} patterns (100% reliable)
-  - ★★★★☆: {four_star_count} patterns (80%+ success)
-  - ★★★☆☆: {three_star_count} patterns (60%+ success)
-  - ★★☆☆☆: {two_star_count} patterns (learning phase)
-- **Context Loading**: {context_pack.loaded_context.files.length} files, {context_pack.loaded_context.total_tokens} tokens ({token_percentage}% of budget)
-- **Intelligence Generation Time**: {time_elapsed} seconds
-
-### 💡 Key Insights
-
-{Generate 2-3 key insights based on the intelligence gathered, such as:}
-
-- This task is similar to {previous_task} which succeeded using {pattern}
-- High risk of {specific_failure} based on {evidence}
-- Pattern {pattern_id} has 100% success rate for this type of task
+### 💡 Key Insights (2-3 actionable insights)
 ```
 
 **Implementation Notes for the Intelligence Report**:
@@ -1190,144 +756,35 @@ IF ALL checkboxes pass:
   reason: "Requirements clear, evaluating technical adequacy"
 ```
 
-#### Ambiguity Resolution Question Templates
+#### Ambiguity Question Format
 
-**Template 1: Vague Goal / Missing Success Criteria**
-
-<good-example>
+**Template structure** (use for all ambiguity types):
 ```markdown
-## 🎯 Clarification Needed: Success Criteria
+## {emoji} Clarification Needed: {Category}
 
-**Current task**: "Improve API performance"
+**Current task**: "{task description}"
+**Ambiguity**: {what's unclear}
 
-**Ambiguity**: The goal lacks measurable success criteria.
-
-**What we found**:
-- Current performance: p95 latency = 450ms, p99 = 1.2s
-- 15 endpoints analyzed, 5 are slow (>400ms)
-- Slowest: GET /users/{id}/profile (p95 = 800ms)
-
-**Question**: How will we know this task is complete?
+**What we found**: {relevant codebase/intelligence findings}
 
 **Options**:
-A) **Aggressive** - p95 < 200ms across all endpoints
-   - Requires: Caching layer + query optimization + possible schema changes
-   - Estimated effort: 3-5 days
-   - Risk: May require breaking changes
+A) {option} - {tradeoffs: requires, effort, risk, breaking}
+B) {option} - {tradeoffs}
+C) {option} - {tradeoffs}
 
-B) **Moderate** - p95 < 300ms for the 5 slow endpoints
-   - Requires: Query optimization + indexing
-   - Estimated effort: 2-3 days
-   - Risk: Low, backward compatible
+**Our recommendation**: Option {X}
+**Reasoning**: {why this balances impact and feasibility}
 
-C) **Conservative** - p95 < 400ms for top 3 slowest endpoints
-   - Requires: Index tuning only
-   - Estimated effort: 1-2 days
-   - Risk: Minimal
-
-**Our recommendation**: Option B (moderate)
-**Reasoning**: Balances impact (addresses all slow endpoints) with feasibility (no schema changes needed)
-
-[Choose A/B/C or specify custom target]
+[Choose A/B/C or specify alternative]
 ```
-</good-example>
 
-**Template 2: Unclear Scope / Multiple Interpretations**
-
-<good-example>
-```markdown
-## 🔍 Clarification Needed: Scope Boundaries
-
-**Current task**: "Refactor the authentication system"
-
-**Ambiguity**: Multiple valid interpretations exist.
-
-**Possible interpretations**:
-
-**Option A: Change Auth Mechanism**
-- Current: Session-based (cookie + server-side storage)
-- Proposed: JWT tokens (stateless)
-- Affects: All 23 protected endpoints, session storage, login flow
-- Breaking: Yes - existing sessions invalidated
-- Estimated: 5-7 days
-
-**Option B: Improve Auth Code Quality**
-- Keep: Existing session mechanism
-- Refactor: Clean up middleware, improve error handling, add tests
-- Affects: auth/ directory only (~800 LOC)
-- Breaking: No
-- Estimated: 2-3 days
-
-**Option C: Add OAuth Providers**
-- Keep: Existing password auth
-- Add: Google/GitHub OAuth as alternatives
-- Affects: Login UI, callback handlers, user model
-- Breaking: No (additive only)
-- Estimated: 3-4 days
-
-**What we found in codebase**:
-- Current session-based auth works but has sparse test coverage (35%)
-- Recent commits show frustration with session store (Redis connection issues)
-- Architecture docs mention "future: consider JWT" but no timeline
-
-**Question**: Which interpretation matches your intent?
-
-[Select one option or describe different scope]
-```
-</good-example>
-
-**Template 3: Technical Choice Ambiguity**
-
-<good-example>
-```markdown
-## ⚙️ Clarification Needed: Technical Approach
-
-**Current task**: "Add real-time notifications"
-
-**Ambiguity**: Multiple technical approaches exist with different trade-offs.
-
-**What we found in codebase**:
-- **WebSockets** used in chat feature (30% of codebase)
-- **Server-Sent Events** used in activity feed (20% of codebase)
-- **Polling** used in dashboard (10% of codebase)
-- Architecture docs are silent on notification strategy
-
-**Approaches**:
-
-**Option A: WebSockets (bi-directional)**
-- Library: socket.io (already in dependencies)
-- Pros: Real-time, bi-directional, existing infrastructure
-- Cons: Stateful connections, scaling complexity, firewall issues
-- Consistency: Matches chat feature
-- Estimated: 2-3 days
-
-**Option B: Server-Sent Events (server-to-client push)**
-- Library: Native EventSource API
-- Pros: Simpler than WebSockets, auto-reconnect, HTTP/2 friendly
-- Cons: One-way only, less browser support
-- Consistency: Matches activity feed
-- Estimated: 2-3 days
-
-**Option C: Long Polling (fallback-friendly)**
-- Library: None needed (HTTP endpoints)
-- Pros: Universal compatibility, simple deployment
-- Cons: Higher latency, more server load
-- Consistency: Matches dashboard
-- Estimated: 1-2 days
-
-**Our analysis**:
-- Notifications are one-way (server → client)
-- Need to support all browsers (including older ones)
-- Already have SSE infrastructure in activity feed
-
-**Recommendation**: Option B (Server-Sent Events)
-**Reasoning**: Matches existing pattern, sufficient for one-way notifications, simpler than WebSockets
-
-**Question**: Which approach should this feature use?
-
-[Choose A/B/C or describe alternative]
-```
-</good-example>
+**Ambiguity categories**:
+| Type | Trigger | Example Question |
+|------|---------|------------------|
+| Vague goal | "improve", "optimize" without metrics | "Target p95 latency: <200ms / <300ms / <500ms?" |
+| Unclear scope | Multiple valid interpretations | "Which interpretation: change mechanism / improve quality / add OAuth?" |
+| Technical choice | Multiple patterns in codebase | "Which approach: WebSockets / SSE / Polling?" |
+| Missing constraint | Performance/breaking changes undefined | "Breaking changes allowed: Yes-v2 / No-backcompat / New-endpoints-only?" |
 
 #### Question Quality Standards
 
@@ -1827,88 +1284,22 @@ apex_task_checkpoint(taskId, "ARCHITECT: Starting mandatory design analysis", 0.
 
 ## 📋 ARTIFACT 1: Chain of Thought Analysis
 
-**First, investigate deeply**:
+Investigate: WHY exists? WHAT problems before? WHO depends? WHERE are landmines?
 
-- WHY does the current implementation exist? (trace its history)
-- WHAT problems did previous attempts encounter?
-- WHO depends on this that isn't obvious?
-- WHERE are the landmines? (what breaks easily?)
-
-### MANDATORY OUTPUT FORMAT:
-
-```yaml
-chain_of_thought:
-  current_state:
-    what_exists:
-      - [Component/file]: [Current purpose and state]
-      - [Component/file]: [Current purpose and state]
-    how_it_got_here:
-      - [Git archaeology findings]
-      - [Previous implementation attempts]
-    dependencies:
-      - [What depends on this]
-      - [What this depends on]
-
-  problem_decomposition:
-    core_problem: [Single sentence]
-    sub_problems: 1. [Specific issue needing solution]
-      2. [Specific issue needing solution]
-      3. [Specific issue needing solution]
-
-  hidden_complexity:
-    - [Non-obvious challenge discovered]
-    - [Edge case from similar tasks]
-    - [Pattern conflict identified]
-
-  success_criteria:
-    - [Measurable outcome 1]
-    - [Measurable outcome 2]
-    - [Measurable outcome 3]
-```
+**Schema**: `chain_of_thought: {current_state: {what_exists[], how_it_got_here[], dependencies[]}, problem_decomposition: {core_problem, sub_problems[]}, hidden_complexity[], success_criteria[]}`
 
 **❌ VIOLATION**: "The task needs authentication" (vague)
-**✅ COMPLIANT**: See structured format above with specifics
+**✅ COMPLIANT**: Structured with component-level specifics
 
 ---
 
 ## 🌳 ARTIFACT 2: Tree of Thought Solutions
 
-**Ask yourself**: "What patterns have succeeded here before? What would future maintainers thank me for?"
+Generate EXACTLY 3 substantially different solutions.
 
-### MANDATORY: Generate EXACTLY 3 complete solutions
+**Schema per solution**: `{approach, description(2-3 sentences), implementation[steps], patterns_used[PAT:IDs], pros[], cons[], complexity: 1-10, risk: LOW|MEDIUM|HIGH, time_estimate}`
 
-```yaml
-tree_of_thought:
-  solution_A:
-    approach: [Concrete approach name]
-    description: [2-3 sentences exactly]
-    implementation:
-      - Step 1: [Specific action]
-      - Step 2: [Specific action]
-      - Step 3: [Specific action]
-    patterns_used: [PAT:IDs from context_pack]
-    pros:
-      - [Specific advantage]
-      - [Specific advantage]
-    cons:
-      - [Specific disadvantage]
-      - [Specific disadvantage]
-    complexity: [1-10]
-    risk: [LOW|MEDIUM|HIGH]
-    time_estimate: [Realistic hours]
-
-  solution_B: [Same structure - MUST be substantially different]
-
-  solution_C: [Same structure - MUST be substantially different]
-
-  comparative_analysis:
-    winner: [A|B|C]
-    reasoning: |
-      [Why this solution wins - 2-3 sentences]
-      [Specific evidence from context_pack]
-    runner_up: [A|B|C]
-    why_not_runner_up: [Specific reason]
-```
+**Comparative analysis**: `{winner: A|B|C, reasoning(2-3 sentences with ctx.* evidence), runner_up, why_not_runner_up}`
 
 **❌ VIOLATION**: Two similar solutions with minor variations
 **✅ COMPLIANT**: Three fundamentally different architectural approaches
@@ -1917,73 +1308,17 @@ tree_of_thought:
 
 ## 📝 ARTIFACT 3: Chain of Draft Evolution
 
-**Think**: "How can this design prevent rather than handle errors?"
+Show thinking evolution through 3 drafts. Ask: "How can this design prevent rather than handle errors?"
 
-### MANDATORY: Show thinking evolution through 3 drafts
-
-```yaml
-chain_of_draft:
-  draft_1_raw:
-    core_design: |
-      [Initial rough architecture - can be messy]
-      [Shows first instinct approach]
-    identified_issues:
-      - [Problem with draft 1]
-      - [Problem with draft 1]
-
-  draft_2_refined:
-    core_design: |
-      [Refined architecture addressing draft 1 issues]
-      [More structured than draft 1]
-    improvements:
-      - [What got better]
-      - [What got better]
-    remaining_issues:
-      - [Still problematic]
-
-  draft_3_final:
-    core_design: |
-      [Production-ready architecture]
-      [All issues addressed]
-    why_this_evolved: |
-      [2-3 sentences on evolution]
-    patterns_integrated:
-      - [Pattern ID]: [How it shaped design]
-      - [Pattern ID]: [How it shaped design]
-```
+**Schema**: `chain_of_draft: {draft_1_raw: {core_design, identified_issues[]}, draft_2_refined: {core_design, improvements[], remaining_issues[]}, draft_3_final: {core_design, why_this_evolved, patterns_integrated[]}}`
 
 ---
 
 ## 🚫 ARTIFACT 4: YAGNI Declaration
 
-**Remember**: "What edge cases will only appear in production?" Focus on those, exclude everything else.
+Focus on production edge cases, exclude everything else.
 
-### MANDATORY: Document what you're NOT implementing
-
-```yaml
-yagni_declaration:
-  explicitly_excluding:
-    - feature: [Feature name]
-      why_not: [Specific reason]
-      cost_if_included: [Time/complexity cost]
-
-    - feature: [Feature name]
-      why_not: [Specific reason]
-      cost_if_included: [Time/complexity cost]
-
-  preventing_scope_creep:
-    - [Tempting addition]: [Why resisting]
-    - [Tempting addition]: [Why resisting]
-
-  future_considerations:
-    - [Could add later]: [When it would make sense]
-    - [Could add later]: [When it would make sense]
-
-  complexity_budget:
-    allocated: [1-10 complexity points]
-    used: [Points used by chosen solution]
-    reserved: [Points kept in reserve]
-```
+**Schema**: `yagni_declaration: {explicitly_excluding: [{feature, why_not, cost_if_included}], preventing_scope_creep: [{temptation, why_resisting}], future_considerations: [{could_add, when_makes_sense}], complexity_budget: {allocated: 1-10, used, reserved}}`
 
 **❌ VIOLATION**: "Keeping it simple" (vague)
 **✅ COMPLIANT**: Specific features excluded with reasons
@@ -1992,153 +1327,33 @@ yagni_declaration:
 
 ## 🎯 ARTIFACT 5: Pattern Selection Rationale
 
-### MANDATORY: Justify every pattern choice using context pack
+Justify every pattern choice using ctx.* intelligence.
 
-```yaml
-pattern_selection:
-  applying:
-    - pattern_id: [PAT:CATEGORY:NAME from context_pack]
-      trust_score: [★ rating]
-      usage_stats: [X uses, Y% success]
-      why_this_pattern: [Specific reason]
-      where_applying: [Specific location]
+**Schema**: `pattern_selection: {applying: [{pattern_id, trust_score: ★, usage_stats, why_this_pattern, where_applying}], considering_but_not_using: [{pattern_id, trust_score, why_not}], missing_patterns: [{need, workaround}]}`
 
-  considering_but_not_using:
-    - pattern_id: [PAT:CATEGORY:NAME]
-      trust_score: [★ rating]
-      why_not: [Specific reason]
-
-  missing_patterns:
-    - need: [What pattern we need but don't have]
-      workaround: [How we'll handle without it]
-```
-
-Use intelligence from:
-
-- `context_pack.implementation_patterns.primary_patterns` - Concrete codebase examples with file:line refs
-- `context_pack.implementation_patterns.project_conventions` - Project naming, structure, types
-- `context_pack.implementation_patterns.reusable_snippets` - Copy-pasteable code from codebase
-- `context_pack.web_research.official_docs` - Official recommendations and examples
-- `context_pack.web_research.best_practices` - Industry-validated patterns
-- `context_pack.web_research.security_alerts` - Security considerations to address
-- `context_pack.web_research.avoid_patterns` - External anti-patterns to avoid
-- `context_pack.pattern_cache.architecture` - APEX cross-project patterns
-- `context_pack.execution_strategy.recommended_approach` - Recommended strategy
-- `context_pack.historical_intelligence.similar_tasks` - Historical patterns
+**Intelligence sources**: ctx.impl (primary_patterns, conventions, snippets), ctx.web (official_docs, best_practices, security_alerts, avoid_patterns), ctx.patterns.architecture, ctx.exec.recommended_approach, ctx.history.similar_tasks
 
 ---
 
 ## ✅ ARCHITECTURE DECISION RECORD
 
-**Your handoff should answer**: "If BUILDER follows this exactly, what could still go wrong?"
+**Handoff question**: "If BUILDER follows this exactly, what could still go wrong?"
 
-**ONLY AFTER ALL ARTIFACTS COMPLETE:**
-
-```yaml
-architecture_decision:
-  decision: |
-    [Clear statement of chosen architecture]
-    Based on Tree of Thought winner: [A|B|C]
-
-  files_to_modify:
-    - path: [file]
-      purpose: [why changing]
-      pattern: [pattern applying]
-
-  files_to_create:
-    - path: [file]
-      purpose: [why needed]
-      pattern: [pattern using]
-      test_plan: [how to test this new file]
-
-  sequence: 1. [First implementation step]
-    2. [Second implementation step]
-    3. [Third implementation step]
-
-  validation_plan:
-    - [How to verify step 1]
-    - [How to verify step 2]
-    - [How to verify step 3]
-
-  potential_failures:
-    - [What could still go wrong]
-    - [Edge case to watch for]
-```
+**Schema**: `architecture_decision: {decision(winner: A|B|C), files_to_modify: [{path, purpose, pattern}], files_to_create: [{path, purpose, pattern, test_plan}], sequence[], validation_plan[], potential_failures[]}`
 
 ---
 
 ## 🔍 SELF-REVIEW CHECKPOINT
 
-**BEFORE TRANSITIONING TO BUILDER:**
-
-```markdown
-## Mandatory Architecture Self-Review
-
-☐ Chain of Thought exposed ALL hidden complexity?
-☐ Tree of Thought has 3 DIFFERENT solutions?
-☐ Chain of Draft shows REAL evolution?
-☐ YAGNI explicitly lists 3+ exclusions?
-☐ Patterns have trust scores and usage stats?
-☐ Architecture decision is CONCRETE?
-☐ New files include test_plan specifications?
+☐ Chain of Thought: ALL hidden complexity?  ☐ Tree of Thought: 3 DIFFERENT solutions?
+☐ Chain of Draft: REAL evolution?  ☐ YAGNI: 3+ exclusions?  ☐ Patterns: trust scores + stats?
+☐ Architecture decision: CONCRETE?  ☐ New files: test_plan included?
 
 **If ANY unchecked → STOP and revise**
-```
-
-<details>
-<summary><strong>Advanced ARCHITECT Features</strong></summary>
-
-### Gemini Collaboration (Complexity ≥ 7)
-
-Use gemini-orchestrator subagent for architecture review:
-
-- Security vulnerabilities assessment
-- Performance bottleneck identification
-- Edge case discovery
-- Alternative approach evaluation
-
-### State Archaeology
-
-Review architectural assumptions from context pack:
-
-- Check context_pack.validation_results.assumptions_verified
-- Review context_pack.historical_intelligence.system_history
-- Apply anti-patterns from context_pack.pattern_cache.anti_patterns
-</details>
 
 ### ARCHITECT → BUILDER Handoff
 
-```markdown
-## ARCHITECT → BUILDER Handoff
-
-### Chosen Architecture
-
-[From architecture_decision.decision]
-
-### What NOT to Build (YAGNI)
-
-[From yagni_declaration.explicitly_excluding]
-
-### Patterns to Apply
-
-[From pattern_selection.applying]
-
-### Files to Modify/Create
-
-[From architecture_decision.files_to_modify/create]
-
-### Implementation Sequence
-
-[From architecture_decision.sequence]
-
-### Validation at Each Step
-
-[From architecture_decision.validation_plan]
-
-### Watch Out For
-
-[From architecture_decision.potential_failures]
-```
+Include: Chosen architecture, YAGNI exclusions, patterns to apply, files to modify/create, implementation sequence, validation steps, failure warnings.
 
 Transition to BUILDER:
 
@@ -2242,27 +1457,6 @@ Review `context_pack.historical_intelligence.predicted_failures`:
 - > 70% probability: Apply prevention automatically
 - 50-70%: Apply with caution comment
 - <50%: Document risk but proceed
-
-<details>
-<summary><strong>Advanced BUILDER Features</strong></summary>
-
-### Parallel File Processing
-
-When modifying multiple similar files:
-
-- Group files by modification type
-- Apply same change pattern to group
-- Use MultiEdit for single file with multiple changes
-- Use parallel Task agents for multiple files
-
-### Gemini Code Generation (Complexity ≥ 6)
-
-For complex algorithms not in patterns:
-
-- Initial generation with context
-- Iterative refinement discussion
-- Performance optimization review
-</details>
 
 ### BUILDER Actions
 
@@ -2593,72 +1787,18 @@ else:
 
 **Generate Structured Report**:
 
-```markdown
-## 🔍 Adversarial Review Results
+Report sections: ✅ Journey Validation (ARCHITECT/BUILDER/VALIDATOR checks) → 🔴 FIX NOW (critical+high confidence) → 🟡 SHOULD FIX → 📝 NOTES → ✖️ DISMISSED → 📊 Metrics (findings, upheld/downgraded/dismissed, false positive rate)
 
-### ✅ Journey Validation
-- ARCHITECT warnings: [X/Y addressed]
-- BUILDER patterns: [Applied correctly / Issues found]
-- VALIDATOR tests: [Pass + adequate / Gaps identified]
-
-### 🔴 FIX NOW (Critical issues, high confidence)
-**[Finding ID]** - [Title]
-- **Location**: `file:line`
-- **Severity**: Critical/High | **Confidence**: X.XX
-- **Issue**: [Description]
-- **Evidence**: [Concrete examples]
-- **Challenge Result**: [UPHELD/DOWNGRADED - reasoning]
-- **Fix**: [Specific code suggestion]
-
-### 🟡 SHOULD FIX (High confidence, lower severity)
-[Same format as FIX NOW]
-
-### 📝 NOTES (Document for future)
-- [Observations, patterns discovered, technical debt accepted]
-
-### ✖️ DISMISSED (False positives)
-- **[Finding ID]**: [Why dismissed - which challenge succeeded]
-
-### 📊 Review Metrics
-- Phase 1 findings: X
-- Upheld: Y | Downgraded: Z | Dismissed: W
-- False positive rate: W/X = XX%
-- Average confidence: X.XX
-```
+**Finding format**: `{id, location: file:line, severity, confidence, issue, evidence, challenge_result, fix}`
 
 ### Review Decision
 
-Based on adversarial review outcomes:
-
 **Decision Matrix**:
-- **0 FIX_NOW findings**: APPROVE → Proceed to DOCUMENTER
-- **1-2 FIX_NOW findings (minor)**: CONDITIONAL → Fix and re-review OR accept with documentation
-- **3+ FIX_NOW OR 1 critical security**: REJECT → Return to BUILDER with requirements
+- **0 FIX_NOW**: APPROVE → DOCUMENTER
+- **1-2 FIX_NOW (minor)**: CONDITIONAL → Fix or accept with docs
+- **3+ FIX_NOW or critical security**: REJECT → BUILDER
 
-**Handoff Content**:
-```markdown
-## REVIEWER → [DOCUMENTER|BUILDER] Handoff
-
-### Review Outcome: [APPROVED|CONDITIONAL|REJECTED]
-
-### Adversarial Review Summary
-- Phase 1 findings: X (Quality: Y, Risk: Z)
-- Phase 2 challenges: Upheld A, Downgraded B, Dismissed C
-- False positive rate: XX%
-
-### Critical Actions Required: [FIX_NOW findings]
-[List with locations and fixes]
-
-### Recommended Improvements: [SHOULD_FIX findings]
-[List with priorities]
-
-### Accepted Trade-offs: [NOTES]
-[Technical debt, patterns learned, journey validation]
-
-### Metrics
-- Average confidence: X.XX
-- Journey validation: [ARCHITECT X/Y, BUILDER patterns OK/Issues, VALIDATOR pass]
-```
+**Handoff**: Include outcome (APPROVED|CONDITIONAL|REJECTED), review summary (findings count, challenge results, false positive rate), FIX_NOW actions, SHOULD_FIX recommendations, accepted trade-offs, journey validation.
 
 Transition:
 
@@ -2706,24 +1846,14 @@ Include evidence that would help future tasks avoid our mistakes.
 Your documentation is a gift to future implementers facing similar challenges.
 
 <phase-execution>
-**APPLY**: phase-gate-template with EXPECTED_PHASE = "DOCUMENTER"
-
-STOP if current phase ≠ DOCUMENTER.
-
-**THIS IS THE ONLY PHASE WHERE apex_task_complete CAN BE CALLED**
+**Gate**: phase="DOCUMENTER" (apex_task_complete ONLY allowed here)
 </phase-execution>
 
-<critical-requirement>
-**🚨 APEX_TASK_COMPLETE IS FORBIDDEN IN ALL PHASES EXCEPT DOCUMENTER 🚨**
-
-**BEFORE CALLING apex_task_complete**:
-☐ Current phase is DOCUMENTER (verified via apex_task_context)
-☐ You have checkpoints for: ARCHITECT, BUILDER, VALIDATOR, REVIEWER, DOCUMENTER
-☐ Documentation files updated (if task affected workflow/architecture)
-☐ All patterns claimed exist in context_pack from intelligence gathering
-
-If ANY checkbox is unchecked → DO NOT call apex_task_complete
-</critical-requirement>
+**BEFORE apex_task_complete** (all must be true):
+☐ Current phase is DOCUMENTER (via apex_task_context)
+☐ Checkpoints exist for all 5 phases
+☐ Documentation updated (if task affected workflow/architecture)
+☐ Claimed patterns exist in context_pack from Step 4
 
 Final checkpoint:
 
@@ -2875,116 +2005,12 @@ apex_reflect({
 })
 ```
 
-For detailed examples and troubleshooting, see apex_reflect appendix.
 </reference-section>
 
 ### Final Report to User
 
 ✅ **Result**: [Task title] - [Primary achievement]
-
-📊 **Key Metrics**:
-
-- Complexity: X/10 (predicted vs actual)
-- Files: [created], [modified]
-- Tests: [pass/fail counts]
-- Pattern Intelligence: Cache hit rate X%
-
-💬 **Summary**: [Concise summary of what was done]
-
-📚 **Patterns**:
-
-- Applied: X patterns from cache
-- Discovered: Y new patterns
-- Reflection: ✅ apex_reflect called
-
-⏭️ **Next steps**: [Follow-up tasks or recommendations]
-
----
-
-## Appendix: Extended References
-
-<details>
-<summary><strong>Complete apex_reflect Documentation</strong></summary>
-
-### Common Errors and Fixes
-
-| Error                              | Fix                                                     |
-| ---------------------------------- | ------------------------------------------------------- |
-| "Expected object, received string" | Pass claims/batch_patterns as objects, not JSON strings |
-| "code_lines" error                 | Use "git_lines" instead                                 |
-| Missing SHA                        | Add "sha": "HEAD" for uncommitted files                 |
-| Evidence validation fails          | Commit files first, then reflect                        |
-
-### Anti-pattern Structure
-
-```javascript
-anti_patterns: [
-  {
-    title: "Required field name", // NOT pattern_id
-    reason: "Required explanation",
-    evidence: [], // Optional
-  },
-];
-```
-
-### Evidence Format Rules
-
-```javascript
-// Git lines (most common)
-{ kind: "git_lines", file: "src/api.ts", sha: "HEAD", start: 45, end: 78 }
-
-// String evidence (auto-converted)
-evidence: "Applied in auth.ts:45-78"
-```
-
-### Detailed Examples
-
-[Extended examples available but omitted for brevity - use batch format for most cases]
-
-</details>
-
-<details>
-<summary><strong>Phase Parallelization Strategies</strong></summary>
-
-### BUILDER Parallelization
-
-- Multiple file modifications
-- Test-driven development
-- Pattern application across files
-
-### VALIDATOR Parallelization
-
-- Frontend + backend tests (concurrent)
-- Unit + integration tests (parallel)
-- Linting + formatting + type checking
-
-### Batch Operations
-
-- Group similar changes
-- Apply patterns consistently
-- Use MultiEdit for single files
-- Use parallel Tasks for multiple files
-
-</details>
-
-<details>
-<summary><strong>Prompt Optimization Examples</strong></summary>
-
-### Example Transformations
-
-**Vague → Specific**:
-
-- Before: "fix bug"
-- After: Detailed requirements with success criteria
-
-**Feature → Structured**:
-
-- Before: "add feature"
-- After: Technical requirements with acceptance criteria
-
-**Complex → Organized**:
-
-- Before: "refactor code"
-- After: Scoped deliverables with constraints
-
-</details>
+📊 **Metrics**: Complexity X/10, Files modified/created, Tests pass/fail, Cache hit rate
+💬 **Summary**: [Concise summary]
+📚 **Patterns**: Applied X, Discovered Y, Reflection ✅
+⏭️ **Next steps**: [Recommendations]
