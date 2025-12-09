@@ -1014,47 +1014,13 @@ After agents complete:
 
 #### Recovery Loop Controls
 
-**Prevent infinite loops with hard constraints**:
+**Hard Constraints**: Max 2 rounds, 3 agents/round, 5min timeout | Min 15% confidence gain/round, stop if <10% | Max 15K tokens/agent, 60K total
 
-```yaml
-recovery_constraints:
-  max_rounds: 2
-  max_agents_per_round: 3
-  timeout_per_round: 5 minutes
-
-  progress_requirements:
-    min_confidence_gain_per_round: 0.15  # Must improve by 15%
-    diminishing_returns_threshold: 0.10  # Stop if gain < 10%
-
-  cost_controls:
-    max_tokens_per_agent: 15000
-    max_total_tokens: 60000
-```
-
-**Progress Tracking**:
-```typescript
-interface RecoveryRound {
-  round: number;
-  gaps_targeted: TechnicalGap[];
-  agents_spawned: string[];
-  confidence_before: number;
-  confidence_after: number;
-  improvement: number;
-  new_intelligence: {...};
-}
-```
+**Progress Tracking**: RecoveryRound = {round, gaps_targeted, agents_spawned, confidence_before/after, improvement, new_intelligence}
 
 **Stop Conditions**:
-```yaml
-STOP and PROCEED if:
-  - confidence >= 65
-  - OR round >= max_rounds AND confidence >= 50
-
-STOP and ESCALATE if:
-  - round >= max_rounds AND confidence < 50
-  - OR improvement < diminishing_returns_threshold
-  - OR no new intelligence gained (agents found nothing)
-```
+- **PROCEED**: confidence ≥65 OR (round ≥2 AND confidence ≥50)
+- **ESCALATE**: (round ≥2 AND confidence <50) OR improvement <10% OR no new intelligence
 
 #### Phase 2 Completion
 
@@ -1366,28 +1332,11 @@ apex_task_append_evidence(taskId, "pattern", "Architecture artifacts and decisio
 
 ### 🔨 BUILDER: Craft Code That Tells a Story
 
-You are the craftsperson. Your code will be read more than written.
+**Mental Model**: Each line of code is a decision. Your code will be read more than written.
 
-**Mental Model**: Each line of code is a decision. Make it deliberately.
+**Before writing ANY code, ask**: (1) Have I absorbed ARCHITECT's warnings? (2) Do I understand the patterns and why? (3) What failure modes must I prevent? (4) What assumptions could be wrong?
 
-**Before writing ANY code, ask**:
-
-1. 📖 Have I absorbed ARCHITECT's warnings and design rationale?
-2. 🎯 Do I understand the patterns recommended and why?
-3. ⚠️ What failure modes were predicted that I must prevent?
-4. 🤔 What assumptions am I making that could be wrong?
-
-**While implementing**:
-
-- Start with the hardest, riskiest parts first
-- Reference patterns from context_pack (discovered during intelligence gathering)
-- When something feels wrong, it probably is - investigate
-- Your code explains itself - comments explain why, not what
-
-**Success looks like**:
-Future developers understanding your intent without documentation.
-
-Note: If specs are unclear, return to ARCHITECT phase rather than guess.
+**Note**: If specs are unclear, return to ARCHITECT phase rather than guess.
 
 <phase-execution>
 **APPLY**: phase-gate-template with EXPECTED_PHASE = "BUILDER"
@@ -1499,25 +1448,11 @@ apex_task_append_evidence(taskId, "pattern", "Implementation patterns applied", 
 
 ### ✅ VALIDATOR: Guardian of Quality
 
-You are the quality guardian. Every bug you catch saves hours of debugging later.
+**Mental Model**: Think like a skeptical user who wants to break things. Hunt for failures, don't just run tests.
 
-**Mental Model**: Think like a skeptical user who wants to break things.
+**Before tests, predict**: What's most likely to break? What edge cases were missed? Which integrations are fragile?
 
-**Your Testing Philosophy**:
-"Don't just run tests - hunt for failures. Predict what will break,
-validate your predictions, and learn from surprises. Every test
-failure teaches us something about our assumptions."
-
-**Before running tests, predict**:
-
-- "Based on changes made, what's most likely to break?"
-- "What edge cases might BUILDER have missed?"
-- "Which integrations are most fragile?"
-
-**After validation, reflect**:
-"What surprised me? What patterns emerge? What should we test next time?"
-
-Your thoroughness determines user trust in this software.
+**After tests, reflect**: What surprised me? What patterns emerge? What should we test next time?
 
 <phase-execution>
 **APPLY**: phase-gate-template with EXPECTED_PHASE = "VALIDATOR"
@@ -1554,29 +1489,15 @@ apex_task_checkpoint(taskId, "Starting validation phase - running tests", 0.7)
 
 ### Execute Comprehensive Validation
 
-Use test-validator subagent:
+Spawn test-validator with task context and modified files list:
 
 ```markdown
-<Task subagent_type="apex:test-validator" description="Execute comprehensive validation">
-# Validation Mission - Hunt for Failures
+<Task subagent_type="apex:test-validator" description="Comprehensive validation">
+**Task ID**: [TASK_ID] | **Modified Files**: [from BUILDER] | **Predictions**: [from ctx.history]
 
-**Task ID**: [TASK_ID]
-**Modified Files**: [List from BUILDER phase]
-**Context Pack Predictions**: [Predicted failures]
+**Run**: Syntax (ESLint/ruff) → Formatting → Type check → Unit tests → Integration tests → Coverage
 
-**Your Testing Philosophy**:
-"Don't just run tests - hunt for failures. Every test failure teaches us something."
-
-**Required Validations**:
-
-- Syntax validation (ESLint, ruff)
-- Code formatting (Prettier, ruff format)
-- Type checking (TypeScript, mypy)
-- Unit test execution
-- Integration test execution
-- Coverage analysis
-
-**Return**: Structured validation report with predictions vs reality
+**Return**: Validation report comparing predictions vs reality, categorized issues
 </Task>
 ```
 
@@ -1610,23 +1531,11 @@ apex_task_append_evidence(taskId, "pattern", "Test patterns and errors", {test_r
 
 ### 👁️ REVIEWER: The Final Defense
 
-You are the experienced mentor. Your review prevents future regret.
+**Mental Model**: Review as if you'll maintain this code for 5 years. Your approval means you'd deploy to production.
 
-**Mental Model**: Review as if you'll maintain this code for 5 years.
+**Absorb the journey**: Did BUILDER address ARCHITECT warnings? Did patterns fit context? Are there systemic issues from VALIDATOR?
 
-**First, absorb the journey**:
-
-- What did ARCHITECT warn about? (Did BUILDER address it?)
-- What patterns were applied? (Did they fit the context?)
-- What did VALIDATOR discover? (Are there systemic issues?)
-
-**Ask the hard questions**:
-
-- "What would I do differently with hindsight?"
-- "What technical debt are we accepting?"
-- "What patterns should we document for next time?"
-
-Your approval means you'd confidently deploy this to production.
+**Hard questions**: What would I do differently? What technical debt are we accepting? What patterns to document?
 
 <phase-execution>
 **APPLY**: phase-gate-template with EXPECTED_PHASE = "REVIEWER"
@@ -1725,31 +1634,14 @@ Parse YAML from both scouts, then launch challenge agent:
 
 ```markdown
 <Task subagent_type="apex:review:reality-checker" description="Challenge review findings">
-# Reality Checker Mission
+**Task ID**: [TASK_ID] | **Phase 1 Findings**: [YAML from both scouts]
+**Journey Context**: ARCHITECT rationale, BUILDER justifications, VALIDATOR evidence, task history
 
-**Task ID**: [TASK_ID]
-**Phase 1 Findings**: [Complete YAML from both Quality Scout and Risk Scout]
+**Mandate**: Challenge EVERY finding to eliminate false positives
 
-**Journey Context**:
-- ARCHITECT rationale: [Why certain decisions were made]
-- BUILDER justifications: [Trade-offs and constraints]
-- VALIDATOR evidence: [What tests actually verified]
-- Task history: [Related past tasks and learnings]
+**Challenge each finding on**: Code misreading? Mitigating factors? Journey-justified? Evidence quality?
 
-**Your Mandate**: Challenge EVERY finding to eliminate false positives
-
-**Challenge Strategy**:
-1. **Code Misreading**: Did agent misunderstand the code?
-2. **Mitigating Factors**: Are there compensating controls?
-3. **Journey Justifications**: Was this explicitly decided/accepted earlier?
-4. **Evidence Quality**: Is the evidence concrete or speculative?
-
-**For Each Finding, Determine**:
-- Challenge result: `UPHELD` | `DOWNGRADED` | `DISMISSED`
-- Confidence adjustment: New confidence score (0.0-1.0)
-- Evidence quality: `strong` | `moderate` | `weak`
-- Recommended action: `FIX_NOW` | `SHOULD_FIX` | `NOTE` | `IGNORE`
-- Reasoning: Why you reached this conclusion
+**Determine**: challenge_result (UPHELD|DOWNGRADED|DISMISSED), confidence (0-1), evidence_quality (strong|moderate|weak), action (FIX_NOW|SHOULD_FIX|NOTE|IGNORE), reasoning
 
 **Return**: YAML with challenged findings
 </Task>
@@ -1761,29 +1653,9 @@ Parse YAML from both scouts, then launch challenge agent:
 
 After Reality Checker completes, synthesize final review:
 
-**Confidence Adjustment Algorithm**:
-```yaml
-finalConfidence = phase1Confidence × challengeImpact
+**Confidence Adjustment**: `finalConfidence = phase1Confidence × challengeImpact` where UPHELD=1.0, DOWNGRADED=0.6, DISMISSED=0.2
 
-challengeImpact:
-  UPHELD: 1.0      # Finding validated
-  DOWNGRADED: 0.6  # Partially valid
-  DISMISSED: 0.2   # False positive
-```
-
-**Action Decision Logic**:
-```yaml
-if finalConfidence < 0.3:
-  action = IGNORE  # False positive
-else if severity == "critical" AND finalConfidence > 0.5:
-  action = FIX_NOW
-else if severity == "high" AND finalConfidence > 0.6:
-  action = FIX_NOW
-else if finalConfidence > 0.7:
-  action = SHOULD_FIX
-else:
-  action = NOTE  # Document but don't block
-```
+**Action Decision**: <0.3 → IGNORE | critical AND >0.5 → FIX_NOW | high AND >0.6 → FIX_NOW | >0.7 → SHOULD_FIX | else → NOTE
 
 **Generate Structured Report**:
 
@@ -1816,34 +1688,14 @@ apex_task_append_evidence(taskId, "pattern", "Adversarial review results", {
 
 ### 📝 DOCUMENTER: Transform Experience into Wisdom
 
-You are the organizational memory. Your reflections make everyone better.
-
 **Mental Model**: Every task teaches something. Extract the deep lessons.
 
-**Deep Reflection Framework**:
+**Reflection Framework**:
+- **Patterns**: Which worked? Which were discovered? Which needed adaptation?
+- **Surprises**: What took longer/was easier? What assumptions were wrong?
+- **Next time**: How would we approach differently? What warning signs did we miss?
 
-**What patterns emerged?**
-
-- Which cached patterns proved invaluable?
-- What new patterns did we discover?
-- Which patterns needed adaptation? Why?
-
-**What surprised us?**
-
-- What took longer than expected? Why?
-- What was easier than anticipated? Why?
-- What assumptions were wrong?
-
-**What would we do differently?**
-
-- Knowing what we know now, how would we approach this?
-- What warning signs did we miss early?
-- What patterns should we cache for next time?
-
-**The apex_reflect call is sacred** - it's how the system learns.
-Include evidence that would help future tasks avoid our mistakes.
-
-Your documentation is a gift to future implementers facing similar challenges.
+**The apex_reflect call is sacred** - it's how the system learns. Include evidence that helps future tasks avoid our mistakes.
 
 <phase-execution>
 **Gate**: phase="DOCUMENTER" (apex_task_complete ONLY allowed here)
