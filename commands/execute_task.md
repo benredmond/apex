@@ -348,17 +348,17 @@ This phase is CRITICAL - it prevents costly mistakes by uncovering hidden risks,
 
 ### Intelligence Agent Toolbelt
 
-**Philosophy**: Select the RIGHT agents for THIS task. Not all agents every time.
+**Philosophy**: Default to MORE agents, justify what you SKIP. Insufficient intelligence costs more than extra agents.
 
-| Agent | When to Use | Key Output |
-|-------|-------------|------------|
-| **intelligence-gatherer** (MANDATORY) | Every task | pattern_cache, execution_strategy, predicted_failures |
-| web-researcher | External tech, security, unfamiliar frameworks | official_docs, security_alerts, best_practices |
-| implementation-pattern-extractor | Existing codebase, match conventions | reusable_snippets, project_conventions |
-| systems-researcher | Cross-component, architectural impacts | dependency_map, execution_flows, invariants |
-| git-historian | Bug investigation, frequently-changed areas | churn_hotspots, regression_history, ownership |
-| risk-analyst | Complexity ≥7, production-critical | risk_matrix, edge_cases, mitigations |
-| documentation-researcher | Architecture history, past decisions | past_decisions, historical_learnings |
+| Agent | Category | Key Output |
+|-------|----------|------------|
+| **intelligence-gatherer** | MANDATORY | pattern_cache, execution_strategy, predicted_failures |
+| **implementation-pattern-extractor** | DEFAULT | reusable_snippets, project_conventions |
+| **documentation-researcher** | DEFAULT | past_decisions, historical_learnings |
+| **git-historian** | DEFAULT | churn_hotspots, regression_history, ownership |
+| web-researcher | SIGNAL-BASED | official_docs, security_alerts, best_practices |
+| systems-researcher | SIGNAL-BASED | dependency_map, execution_flows, invariants |
+| risk-analyst | SIGNAL-BASED | risk_matrix, edge_cases, mitigations |
 
 **Spawn format** (all agents use same structure):
 ```markdown
@@ -372,56 +372,45 @@ This phase is CRITICAL - it prevents costly mistakes by uncovering hidden risks,
 
 ---
 
-### Selection Decision Matrix
+### Agent Selection: Opt-Out Model
 
-**Use this framework to decide which agents to deploy:**
+**For ANY task, start with ALL default agents (4 minimum):**
+
+1. **intelligence-gatherer** - MANDATORY, never skip
+2. **implementation-pattern-extractor** - skip ONLY if greenfield with no existing code
+3. **documentation-researcher** - skip ONLY if no project docs exist
+4. **git-historian** - skip ONLY if brand new repo with <10 commits
+
+**Add these based on signals:**
+
+| Agent | Add When |
+|-------|----------|
+| web-researcher | External APIs, unfamiliar frameworks, security concerns |
+| systems-researcher | Cross-component changes, architectural impacts |
+| risk-analyst | Complexity ≥7, production-critical, security-sensitive |
+
+**Before spawning, document any skips:**
 
 ```yaml
-task_analysis:
-  involves_external_tech: [yes/no]  # → web-researcher
-  modifying_existing_code: [yes/no] # → implementation-pattern-extractor
-  cross_component: [yes/no]         # → systems-researcher
-  frequently_changed_area: [yes/no] # → git-historian
-  complexity: [1-10]                # ≥7 → risk-analyst
-  security_sensitive: [yes/no]      # → web-researcher + risk-analyst
-  new_feature: [yes/no]             # → implementation-pattern-extractor
-  bug_investigation: [yes/no]       # → git-historian + systems-researcher
-  needs_historical_context: [yes/no] # → documentation-researcher
-  references_architecture: [yes/no]  # → documentation-researcher
-  similar_work_exists: [yes/no]      # → documentation-researcher
-
-recommended_agents:
-  - apex:intelligence-gatherer  # ALWAYS
-  - [agent_2 based on criteria]
-  - [agent_3 based on criteria]
-  # 2-4 agents total is usually optimal
+agents_skipped:
+  - agent: "git-historian"
+    justification: "New repo, only 3 commits exist"
 ```
 
-**Selection Examples**:
-
-| Task Type | Key Signals | Agents (+ mandatory intelligence-gatherer) |
-|-----------|-------------|---------------------------------------------|
-| Security feature (JWT auth) | external_tech, security_sensitive | web-researcher, implementation-pattern-extractor, risk-analyst |
-| Bug fix | bug_investigation, complexity ≤4 | git-historian, implementation-pattern-extractor |
-| Cross-component refactor | cross_component, complexity 6+ | systems-researcher, implementation-pattern-extractor, git-historian |
-| Architecture feature (caching) | references_architecture | documentation-researcher, implementation-pattern-extractor, web-researcher |
-
-**Anti-pattern**: "Add dark mode" → DON'T launch all 7 agents. DO use 2-3 targeted agents.
+**No justification = no skip. Default is inclusion.**
 
 ---
 
 ### Execution Protocol
 
-1. **Analyze the task** using the decision matrix above
-2. **Select 2-4 agents** (always include intelligence-gatherer)
-3. **Launch selected agents in PARALLEL** (single message with multiple Task calls)
-4. **Wait for ALL agents to complete** before proceeding
-5. **Synthesize findings** from all sources
+1. **Start with 4 default agents** (intelligence-gatherer + implementation-pattern-extractor + documentation-researcher + git-historian)
+2. **Evaluate signals** to add web-researcher, systems-researcher, or risk-analyst
+3. **Document any skips** with explicit justification (rare - most tasks use all 4 defaults)
+4. **Launch ALL selected agents in PARALLEL** (single message with multiple Task calls)
+5. **Wait for ALL agents to complete** before proceeding
+6. **Synthesize findings** from all sources
 
-**Cost-Benefit Guideline**: More agents = more intelligence but higher token cost and latency.
-- Simple tasks (complexity ≤4): 2-3 agents
-- Medium tasks (complexity 5-6): 3-4 agents
-- Complex tasks (complexity ≥7): 4-5 agents
+**Cost Reality**: The cost of spawning an extra agent (~5K tokens) is far less than the cost of missing critical context (50K+ tokens in rework).
 
 ### Intelligence Synthesis
 
