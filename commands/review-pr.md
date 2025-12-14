@@ -154,7 +154,12 @@ Display this summary to the user before Phase 2.
 
 ## Phase 4: Launch Adversarial Challenge Agents
 
-**CRITICAL**: Launch ALL 5 Phase 2 agents in a SINGLE message for true parallelism.
+**CRITICAL**: Launch ALL 3 Phase 2 agents in a SINGLE message for true parallelism.
+
+Phase 2 uses 3 specialized agents:
+1. **challenger** - Unified validity/evidence challenger (challenges ALL findings)
+2. **context-defender** - Git archaeology, historical justification
+3. **tradeoff-analyst** - ROI calculation
 
 Provide each agent with:
 - All Phase 1 findings (complete YAML)
@@ -163,7 +168,7 @@ Provide each agent with:
 - File context
 
 ```markdown
-<Task subagent_type="review-devils-advocate" description="Challenge review findings">
+<Task subagent_type="apex:review:phase2:review-challenger" description="Challenge all findings">
 **Phase 1 Findings:**
 [Insert ALL findings from all 5 Phase 1 agents in YAML format]
 
@@ -173,23 +178,19 @@ Provide each agent with:
 **Git History:**
 [Recent commits]
 
-Challenge EVERY finding. Return challenges in YAML format with evidence and confidence scores.
-</Task>
-
-<Task subagent_type="review-false-positive-hunter" description="Find false positives">
-**Phase 1 Findings:**
-[Insert ALL findings]
-
-**Original Code:**
-[Full diff]
-
 **File Context:**
 [Related files that might provide context]
 
-Identify false positives from pattern mismatches or code misreadings. Return in YAML format.
+Challenge EVERY finding for:
+- Code accuracy (did Phase 1 read correctly?)
+- Pattern applicability (does framework prevent this?)
+- Mitigation verification (are Phase 1 assessments accurate?)
+- Evidence quality (Strong/Medium/Weak rating)
+
+Return challenges in YAML format with evidence and confidence scores.
 </Task>
 
-<Task subagent_type="review-context-defender" description="Find historical justifications">
+<Task subagent_type="apex:review:phase2:review-context-defender" description="Find historical justifications">
 **Phase 1 Findings:**
 [Insert ALL findings]
 
@@ -202,7 +203,7 @@ Identify false positives from pattern mismatches or code misreadings. Return in 
 Use git history to find justifications for seemingly problematic code. Return in YAML format.
 </Task>
 
-<Task subagent_type="review-tradeoff-analyst" description="Analyze fix ROI">
+<Task subagent_type="apex:review:phase2:review-tradeoff-analyst" description="Analyze fix ROI">
 **Phase 1 Findings:**
 [Insert ALL findings]
 
@@ -211,19 +212,9 @@ Use git history to find justifications for seemingly problematic code. Return in
 
 Analyze effort vs benefit for each finding. Return ROI analysis in YAML format.
 </Task>
-
-<Task subagent_type="review-evidence-validator" description="Validate evidence quality">
-**Phase 1 Findings:**
-[Insert ALL findings]
-
-**Original Code:**
-[Full diff]
-
-Validate the quality and strength of evidence for each finding. Return validation in YAML format.
-</Task>
 ```
 
-**WAIT** for ALL 5 agents to complete.
+**WAIT** for ALL 3 agents to complete.
 
 ## Phase 5: Synthesis & Reconciliation
 
@@ -231,10 +222,16 @@ For each Phase 1 finding, calculate final scores using this algorithm:
 
 ```
 For each finding:
-  1. Count challenges: How many of 5 Phase 2 agents challenged it?
-     challenge_rate = challenges_count / 5
+  1. Get challenge result from challenger agent:
+     - UPHELD: finding valid as reported
+     - DOWNGRADED: finding valid but overstated
+     - DISMISSED: false positive
 
-  2. Get evidence score from evidence-validator (0.0-1.0)
+     # Count how many of 3 agents challenged it
+     challenge_rate = challenges_count / 3  # Changed from / 5
+
+  2. Get evidence score from challenger (0.0-1.0)
+     # Challenger rates evidence as Strong (0.85-1.0), Medium (0.6-0.85), Weak (0.0-0.6)
 
   3. Check if context-defender found justification (boolean)
 
@@ -242,9 +239,9 @@ For each finding:
 
   5. Calculate validity confidence:
      confidence = finding.initial_confidence
-     confidence *= (1 - challenge_rate * 0.4)
-     confidence *= (0.5 + evidence_score * 0.5)
-     if context_justified: confidence *= 0.3
+     confidence *= (1 - challenge_rate * 0.4)  # Penalty for challenges
+     confidence *= (0.5 + evidence_score * 0.5)  # Evidence quality factor
+     if context_justified: confidence *= 0.3  # Historical justification reduces priority
 
   6. Calculate priority:
      severity_points = {Critical: 100, High: 75, Medium: 50, Low: 25}
@@ -327,6 +324,8 @@ Use clear markdown formatting with:
 ## Notes
 
 - This system is designed to eliminate false positives while maintaining thoroughness
-- Phase 1 agents are aggressive (high recall), Phase 2 filters (high precision)
+- Phase 1 agents are **mitigation-aware** (report everything, adjust confidence via mitigation assessment)
+- Phase 2 uses **3 specialized agents** (challenger, context-defender, tradeoff-analyst)
+- The **challenger** agent combines validity checking, evidence rating, and pattern verification
 - The synthesis algorithm balances severity, confidence, and ROI
 - All findings include complete reasoning chains for transparency

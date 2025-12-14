@@ -1539,9 +1539,10 @@ STOP if current phase ≠ REVIEWER.
 <critical-requirement>
 **REVIEWER MUST**:
 - Use 3-agent adversarial review system (Phase 1 + Phase 2 + Synthesis)
-- Phase 1: Launch quality-scout AND risk-scout in parallel
-- Phase 2: Launch reality-checker to challenge all findings
-- Synthesize: Apply confidence adjustment and generate final report
+- Phase 1: Launch quality-scout AND risk-scout in parallel (mitigation-aware reporting)
+- Phase 2: Launch challenger agent to challenge ALL findings (validity, evidence, pattern verification)
+- Optionally launch context-defender for git archaeology if findings involve historical code
+- Synthesize: Apply confidence adjustment formula and generate final report
 - Review code quality, security, performance, patterns, and journey validation
 - Reduce false positives through adversarial challenge process
 </critical-requirement>
@@ -1554,85 +1555,96 @@ apex_task_checkpoint(taskId, "Starting review phase", 0.85)
 
 ### Execute Adversarial Review System
 
-**MANDATORY**: Use 3-agent adversarial review (reduces false positives while maintaining thoroughness)
+**MANDATORY**: Use adversarial review system (5 Phase 1 agents + 2 Phase 2 agents for false positive reduction)
 
 ### Phase 1: Parallel Issue Discovery
 
-**CRITICAL**: Launch BOTH agents in a SINGLE message for true parallelism.
+**CRITICAL**: Launch ALL 5 Phase 1 agents in a SINGLE message for true parallelism.
 
 ```markdown
-<Task subagent_type="apex:review:quality-scout" description="Quality and architecture review">
-# Quality Scout Mission
-
+<Task subagent_type="apex:review:phase1:review-security-analyst" description="Security review">
 **Task ID**: [TASK_ID]
-**Journey Context**:
-- ARCHITECT warnings: [From ARCHITECT phase]
-- BUILDER decisions: [Implementation choices and patterns applied]
-- VALIDATOR discoveries: [Test results]
+**Code Changes**: [Modified/created files with diffs]
+**Journey Context**: ARCHITECT warnings, BUILDER decisions, VALIDATOR results
 
-**Your Focus**: Maintainability, patterns, architecture consistency
-
-**Review Lenses**:
-1. **Correctness**: Does this solve the original problem completely?
-2. **Maintainability**: Clear, readable, understandable in 6 months?
-3. **Pattern Consistency**: Were ARCHITECT patterns applied correctly?
-4. **Journey Validation**: Were ARCHITECT warnings addressed by BUILDER?
-
-**Return**: YAML with findings, each containing:
-```yaml
-findings:
-  - id: "QUA-001"
-    category: "maintainability|correctness|patterns|architecture"
-    severity: "critical|high|medium|low"
-    confidence: 0.0-1.0
-    location: "file:line"
-    issue: "Description"
-    evidence: "Specific code/behavior"
-    suggestion: "How to fix"
-```
+Review for security vulnerabilities. Use mitigation-aware reporting.
+Return YAML findings with id, severity, confidence, location, issue, evidence, mitigations_found.
 </Task>
 
-<Task subagent_type="apex:review:risk-scout" description="Security, performance, test review">
-# Risk Scout Mission
-
+<Task subagent_type="apex:review:phase1:review-performance-analyst" description="Performance review">
 **Task ID**: [TASK_ID]
-**Journey Context**:
-- Code changes: [Modified/created files]
-- VALIDATOR results: [Test outcomes, coverage]
-- Predicted failures: [From intelligence gathering]
+**Code Changes**: [Modified/created files with diffs]
+**Journey Context**: ARCHITECT warnings, BUILDER decisions, VALIDATOR results
 
-**Your Focus**: Production readiness, critical risks
+Review for performance issues. Use mitigation-aware reporting.
+Return YAML findings with id, severity, confidence, location, issue, evidence, mitigations_found.
+</Task>
 
-**Review Lenses**:
-1. **Security**: Vulnerabilities, input validation, secrets handling
-2. **Performance**: Bottlenecks, inefficient algorithms, scaling issues
-3. **Test Coverage**: Gaps, edge cases, integration points
-4. **Resilience**: Error handling, failure modes, monitoring
+<Task subagent_type="apex:review:phase1:review-architecture-analyst" description="Architecture review">
+**Task ID**: [TASK_ID]
+**Code Changes**: [Modified/created files with diffs]
+**Journey Context**: ARCHITECT patterns, BUILDER justifications
 
-**Return**: YAML with findings (same format as Quality Scout)
+Review for architecture violations and pattern consistency. Use mitigation-aware reporting.
+Return YAML findings with id, severity, confidence, location, issue, evidence, mitigations_found.
+</Task>
+
+<Task subagent_type="apex:review:phase1:review-test-coverage-analyst" description="Test coverage review">
+**Task ID**: [TASK_ID]
+**Code Changes**: [Modified/created files with diffs]
+**VALIDATOR Results**: [Test outcomes, coverage metrics]
+
+Review for test coverage gaps. Use mitigation-aware reporting.
+Return YAML findings with id, severity, confidence, location, issue, evidence, mitigations_found.
+</Task>
+
+<Task subagent_type="apex:review:phase1:review-code-quality-analyst" description="Code quality review">
+**Task ID**: [TASK_ID]
+**Code Changes**: [Modified/created files with diffs]
+**Journey Context**: ARCHITECT patterns, BUILDER decisions
+
+Review for maintainability and code quality. Use mitigation-aware reporting.
+Return YAML findings with id, severity, confidence, location, issue, evidence, mitigations_found.
 </Task>
 ```
 
-**WAIT** for BOTH agents to complete before Phase 2.
+**WAIT** for ALL 5 agents to complete before Phase 2.
 
 ---
 
-### Phase 2: Reality Check (Challenge Findings)
+### Phase 2: Adversarial Challenge (ALWAYS runs)
 
-Parse YAML from both scouts, then launch challenge agent:
+Parse YAML from all Phase 1 agents, then launch challenge agents in parallel:
 
 ```markdown
-<Task subagent_type="apex:review:reality-checker" description="Challenge review findings">
-**Task ID**: [TASK_ID] | **Phase 1 Findings**: [YAML from both scouts]
+<Task subagent_type="apex:review:phase2:review-challenger" description="Challenge all findings">
+**Task ID**: [TASK_ID]
+**Phase 1 Findings**: [YAML from all 5 Phase 1 agents]
 **Journey Context**: ARCHITECT rationale, BUILDER justifications, VALIDATOR evidence, task history
+**Original Code**: [Relevant code snippets]
 
-**Mandate**: Challenge EVERY finding to eliminate false positives
+**Mandate**: Challenge EVERY finding for:
+- Code accuracy (did Phase 1 read correctly?)
+- Pattern applicability (does framework prevent this?)
+- Mitigation verification (are Phase 1 assessments accurate?)
+- Evidence quality (Strong/Medium/Weak rating)
 
-**Challenge each finding on**: Code misreading? Mitigating factors? Journey-justified? Evidence quality?
+**Return**: YAML with challenges containing:
+- challenge_result: UPHELD | DOWNGRADED | DISMISSED
+- evidence_quality: strong (0.85-1.0) | medium (0.6-0.85) | weak (0.0-0.6)
+- recommended_confidence: 0.0-1.0
+- reasoning
+</Task>
 
-**Determine**: challenge_result (UPHELD|DOWNGRADED|DISMISSED), confidence (0-1), evidence_quality (strong|moderate|weak), action (FIX_NOW|SHOULD_FIX|NOTE|IGNORE), reasoning
+<Task subagent_type="apex:review:phase2:review-context-defender" description="Find historical justifications">
+**Task ID**: [TASK_ID]
+**Phase 1 Findings**: [YAML from all Phase 1 agents - focus on findings affecting existing code]
+**Repository**: [Path and git info]
 
-**Return**: YAML with challenged findings
+Use git history to find justifications for seemingly problematic code patterns.
+Only needed if findings involve existing/historical code choices.
+
+**Return**: YAML with context justifications
 </Task>
 ```
 
@@ -1640,9 +1652,15 @@ Parse YAML from both scouts, then launch challenge agent:
 
 ### Phase 3: Synthesize Report
 
-After Reality Checker completes, synthesize final review:
+After challenger and context-defender complete, synthesize final review:
 
-**Confidence Adjustment**: `finalConfidence = phase1Confidence × challengeImpact` where UPHELD=1.0, DOWNGRADED=0.6, DISMISSED=0.2
+**Confidence Adjustment Formula**:
+```
+finalConfidence = phase1Confidence
+finalConfidence *= challengeImpact  # UPHELD=1.0, DOWNGRADED=0.6, DISMISSED=0.2
+finalConfidence *= (0.5 + evidence_score * 0.5)  # Evidence quality factor
+if context_justified: finalConfidence *= 0.3  # Historical justification reduces priority
+```
 
 **Action Decision**: <0.3 → IGNORE | critical AND >0.5 → FIX_NOW | high AND >0.6 → FIX_NOW | >0.7 → SHOULD_FIX | else → NOTE
 

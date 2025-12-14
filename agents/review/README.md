@@ -6,30 +6,31 @@ A production-grade code review system that uses adversarial agents to eliminate 
 
 This system implements a **three-phase** review process:
 
-1. **Phase 1 (First-Pass Review)**: 5 specialized agents aggressively find issues
-2. **Phase 2 (Adversarial Challenge)**: 5 agents challenge findings to eliminate false positives
+1. **Phase 1 (First-Pass Review)**: 5 specialized agents find issues with **mitigation-aware reporting**
+2. **Phase 2 (Adversarial Challenge)**: 3 agents challenge findings to eliminate false positives
 3. **Phase 3 (Synthesis)**: Evidence-based confidence scoring and prioritized recommendations
 
-**Key Innovation**: Agents "fight with each other" - Phase 1 overreports (high recall), Phase 2 filters (high precision), producing high-confidence actionable findings.
+**Key Innovation**:
+- Phase 1 agents **always report findings** but adjust confidence via mitigation assessment (never suppress)
+- Phase 2 agents challenge validity, check evidence quality, and provide context
+- Result: High-confidence actionable findings with low false positive rate (<15% target)
 
 ## Architecture
 
 ```
 /review-pr <target>
        ↓
-Phase 1: First-Pass Review (Parallel)
-├─ security-analyst
-├─ performance-analyst
-├─ architecture-analyst
-├─ test-coverage-analyst
-└─ code-quality-analyst
+Phase 1: Mitigation-Aware Review (Parallel)
+├─ security-analyst      (reports + assesses mitigations)
+├─ performance-analyst   (reports + assesses mitigations)
+├─ architecture-analyst  (reports + assesses mitigations)
+├─ test-coverage-analyst (reports + assesses mitigations)
+└─ code-quality-analyst  (reports + assesses mitigations)
        ↓
 Phase 2: Adversarial Challenge (Parallel)
-├─ devils-advocate
-├─ false-positive-hunter
-├─ context-defender
-├─ tradeoff-analyst
-└─ evidence-validator
+├─ challenger          (unified validity/evidence/pattern checking)
+├─ context-defender    (git archaeology, historical justification)
+└─ tradeoff-analyst    (ROI calculation)
        ↓
 Phase 3: Synthesis & Reconciliation
 └─ Confidence scoring + prioritization
@@ -43,19 +44,21 @@ The review system is part of the APEX repository. Agents are located in:
 
 ```
 agents/review/
-├── phase1/          # First-pass review agents
+├── phase1/           # First-pass review agents (mitigation-aware)
 │   ├── security-analyst.md
 │   ├── performance-analyst.md
 │   ├── architecture-analyst.md
 │   ├── test-coverage-analyst.md
 │   └── code-quality-analyst.md
 │
-├── phase2/          # Adversarial challenge agents
-│   ├── devils-advocate.md
-│   ├── false-positive-hunter.md
-│   ├── context-defender.md
-│   ├── tradeoff-analyst.md
-│   └── evidence-validator.md
+├── phase2/           # Adversarial challenge agents
+│   ├── challenger.md           # Unified validity/evidence checker
+│   ├── context-defender.md     # Git archaeology
+│   ├── tradeoff-analyst.md     # ROI analysis
+│   └── archived/               # Legacy agents (replaced by challenger)
+│       ├── devils-advocate.md
+│       ├── false-positive-hunter.md
+│       └── evidence-validator.md
 │
 └── README.md
 
@@ -85,8 +88,8 @@ commands/
 
 1. **Create a PR or make changes**
 2. **Run the review**: `/review-pr feature-branch`
-3. **Wait for Phase 1** (5 agents analyze in parallel)
-4. **Wait for Phase 2** (5 agents challenge findings)
+3. **Wait for Phase 1** (5 agents analyze in parallel with mitigation assessment)
+4. **Wait for Phase 2** (3 agents challenge findings)
 5. **Review synthesis report** with confidence scores
 6. **Act on recommendations**:
    - **Fix**: High-confidence, high-priority issues
@@ -94,83 +97,95 @@ commands/
    - **Accept**: Context-justified (document)
    - **Dismiss**: False positives
 
-## Phase 1: First-Pass Review Agents
+## Phase 1: Mitigation-Aware Review Agents
+
+All Phase 1 agents now use **mitigation-aware reporting**: they always report findings but adjust confidence based on mitigations found.
+
+### Mitigation Assessment Framework
+
+| Classification | Definition | Confidence Adjustment |
+|---------------|------------|----------------------|
+| FULLY_EFFECTIVE | Completely prevents the issue | × 0.3 |
+| PARTIALLY_EFFECTIVE | Reduces but doesn't eliminate risk | × 0.5 |
+| INSUFFICIENT | Trivially bypassable | × 0.8 |
+| WRONG_LAYER | Addresses different concern | × 1.0 (no adjustment) |
+
+**Key Principle**: Always report, never suppress. Adjust confidence via mitigation assessment.
 
 ### security-analyst
 
 **Focus**: Security vulnerabilities (SQL injection, XSS, auth bypasses)
 
-**Approach**: Aggressive - flags all potential security issues
+**Approach**: Reports all potential security issues with mitigation assessment
 
-**Output**: Findings with exploit scenarios, fix suggestions, confidence scores
+**Mitigations Checked**: ORM parameterization, framework escaping, rate limiting, validation
 
-**Severity Tiers**: Critical (RCE, data breach) → High (XSS, weak crypto) → Medium (missing headers) → Low (info disclosure)
+**Output**: Findings with exploit scenarios, mitigation assessment, confidence calculation
+
+**Defense-in-depth**: Auth/payment/PII findings always reported with minimum 0.4 confidence
 
 ### performance-analyst
 
 **Focus**: Performance bottlenecks (N+1 queries, O(n²) algorithms, memory leaks)
 
-**Approach**: Assumes production scale - flags anything that won't scale
+**Approach**: Assumes production scale with mitigation assessment
 
-**Output**: Findings with impact estimates, complexity analysis, optimization suggestions
+**Mitigations Checked**: Caching, eager loading, pagination, indexing
 
-**Metrics**: Complexity (O notation), query counts, memory growth
+**Output**: Findings with impact estimates, mitigation assessment, complexity analysis
 
 ### architecture-analyst
 
 **Focus**: Architectural violations (layer separation, circular dependencies, pattern consistency)
 
-**Approach**: Enforces existing project patterns strictly
+**Approach**: Enforces patterns with mitigation assessment for documented exceptions
 
-**Output**: Findings with counter-examples from codebase, refactoring suggestions
+**Mitigations Checked**: ADRs, documented exceptions, framework constraints, refactoring plans
 
-**Compares**: New code vs established patterns in same codebase
+**Output**: Findings with counter-examples, mitigation assessment, refactoring suggestions
 
 ### test-coverage-analyst
 
 **Focus**: Test coverage gaps (untested paths, missing edge cases, quality issues)
 
-**Approach**: Prioritizes critical paths over coverage percentage
+**Approach**: Prioritizes critical paths with mitigation assessment
 
-**Output**: Findings with specific untested paths, suggested test code
+**Mitigations Checked**: Integration tests, E2E tests, monitoring, property-based tests
 
-**Checks**: Unit tests, integration tests, edge cases, error paths
+**Output**: Findings with specific untested paths, mitigation assessment, suggested test code
 
 ### code-quality-analyst
 
 **Focus**: Code quality (complexity, readability, naming, duplication)
 
-**Approach**: Pragmatic - focuses on real maintainability issues, not style nitpicks
+**Approach**: Pragmatic with mitigation assessment for documented complexity
 
-**Output**: Findings with complexity metrics, refactoring examples
+**Mitigations Checked**: JSDoc, README docs, refactoring tickets, domain complexity
 
-**Metrics**: Cyclomatic complexity, function length, nesting depth
+**Output**: Findings with complexity metrics, mitigation assessment, refactoring examples
 
 ## Phase 2: Adversarial Challenge Agents
 
-### devils-advocate
+Phase 2 now uses **3 specialized agents** (reduced from 5) for more efficient challenging.
 
-**Focus**: Challenge validity of every finding
+### challenger (NEW - replaces 3 agents)
 
-**Approach**: Ruthlessly skeptical - finds ANY reason to dismiss
+**Focus**: Unified validity, accuracy, and evidence checking
 
-**Challenges**:
-- Severity overstatement (mitigations reduce actual risk)
-- Evidence misreading (code was misunderstood)
-- Impact exaggeration (blast radius smaller than claimed)
-- Compensating controls (safeguards missed by Phase 1)
+**Replaces**: devils-advocate + false-positive-hunter + evidence-validator
 
-### false-positive-hunter
+**Evaluates 4 dimensions for each finding**:
+1. **Code Accuracy**: Did Phase 1 read the code correctly?
+2. **Pattern Applicability**: Does the framework prevent this issue?
+3. **Mitigation Verification**: Are Phase 1's mitigation assessments accurate?
+4. **Evidence Quality**: Strong (0.85-1.0) / Medium (0.6-0.85) / Weak (0.0-0.6)
 
-**Focus**: Identify pattern-matching errors and code misreadings
+**Challenge Results**:
+- **UPHELD**: Finding valid as reported
+- **DOWNGRADED**: Finding valid but overstated
+- **DISMISSED**: False positive
 
-**Approach**: Trust nothing - verify everything by reading actual code
-
-**Detects**:
-- Code misread (missed validation/error handling)
-- Pattern mismatch (framework auto-handles issue)
-- Missing context (didn't check surrounding code)
-- Framework magic (ORM auto-parameterizes, React auto-escapes)
+**Key Principle**: Challenge EVERY finding. No conditional skip. No self-classification bypass.
 
 ### context-defender
 
@@ -198,17 +213,6 @@ commands/
 
 **ROI Formula**: `benefit / (benefit + cost)`
 
-### evidence-validator
-
-**Focus**: Rate quality and strength of evidence
-
-**Approach**: Rigorous - evidence must be verifiable
-
-**Ratings**:
-- **Strong** (0.85-1.0): Failing test, measured metrics, reproducible exploit
-- **Medium** (0.6-0.85): Pattern match, code inspection, historical issue
-- **Weak** (0.0-0.6): Speculation, theoretical, unverified
-
 ## Phase 3: Synthesis Algorithm
 
 The orchestrator synthesizes Phase 1 and Phase 2 results using evidence-based scoring:
@@ -221,8 +225,8 @@ validityConfidence = phase1.confidence
   * (0.5 + evidenceScore * 0.5)        // Adjust for evidence quality
   * (contextJustified ? 0.3 : 1.0)     // Reduce if justified
 
-// challengeRate = (# of Phase 2 agents that challenged) / 5
-// evidenceScore = 0.0-1.0 from evidence-validator
+// challengeRate = (# of Phase 2 agents that challenged) / 3  // Changed from / 5
+// evidenceScore = 0.0-1.0 from challenger agent
 // contextJustified = context-defender found justification
 ```
 
@@ -296,8 +300,8 @@ const result = await db.execute(query, [email]);
 ## Success Metrics
 
 **Target Metrics**:
-- False Positive Rate: < 30%
-- Signal Ratio: > 60% actionable findings
+- False Positive Rate: < 15% (improved from ~27%)
+- Signal Ratio: > 70% actionable findings
 - Confidence Accuracy: 80%+ correlation with reality
 - Review Time: < 10 minutes for standard PR
 
@@ -306,6 +310,7 @@ const result = await db.execute(query, [email]);
 - Low-confidence findings should be questionable
 - Dismissed findings should be false positives
 - Accepted findings should be justified
+- Mitigation-adjusted findings should have accurate adequacy assessments
 
 ## Configuration
 
@@ -374,11 +379,12 @@ To disable an agent, simply don't invoke it in the orchestrator. Comment out the
 
 Traditional code review tools have high false positive rates (20-40%) because they prioritize recall over precision. Our system inverts this: Phase 1 achieves high recall, Phase 2 achieves high precision.
 
-### Why 5 + 5 agents?
+### Why 5 + 3 agents?
 
-- **Phase 1**: Covers major review categories (security, performance, architecture, tests, quality)
-- **Phase 2**: Each challenger has distinct role (validity, accuracy, context, ROI, evidence)
-- More agents = diminishing returns, slower reviews
+- **Phase 1 (5 agents)**: Covers major review categories (security, performance, architecture, tests, quality)
+- **Phase 2 (3 agents)**: Consolidated for efficiency - challenger combines validity/accuracy/evidence checking, context-defender provides git archaeology, tradeoff-analyst calculates ROI
+- Previous 5-agent Phase 2 had overlapping responsibilities; 3 agents achieves same coverage with less overhead
+- Mitigation-aware Phase 1 reduces Phase 2 workload by providing better-calibrated confidence upfront
 
 ### Why YAML output?
 
