@@ -1522,10 +1522,6 @@ apex_task_append_evidence(taskId, "pattern", "Test patterns and errors", {test_r
 
 **Mental Model**: Review as if you'll maintain this code for 5 years. Your approval means you'd deploy to production.
 
-**Absorb the journey**: Did BUILDER address ARCHITECT warnings? Did patterns fit context? Are there systemic issues from VALIDATOR?
-
-**Hard questions**: What would I do differently? What technical debt are we accepting? What patterns to document?
-
 <phase-execution>
 **APPLY**: phase-gate-template with EXPECTED_PHASE = "REVIEWER"
 
@@ -1536,26 +1532,55 @@ STOP if current phase ≠ REVIEWER.
 - Code review = code is production-ready (quality, maintainability, standards)
 </phase-execution>
 
+### 🚨 MANDATORY REVIEWER GATE - SUBAGENT REVIEW REQUIRED
+
 <critical-requirement>
-**REVIEWER MUST**:
-- Use 3-agent adversarial review system (Phase 1 + Phase 2 + Synthesis)
-- Phase 1: Launch quality-scout AND risk-scout in parallel (mitigation-aware reporting)
-- Phase 2: Launch challenger agent to challenge ALL findings (validity, evidence, pattern verification)
-- Optionally launch context-defender for git archaeology if findings involve historical code
-- Synthesize: Apply confidence adjustment formula and generate final report
-- Review code quality, security, performance, patterns, and journey validation
-- Reduce false positives through adversarial challenge process
+**YOU CANNOT REVIEW CODE YOURSELF. YOU MUST USE SUBAGENTS.**
+
+The REVIEWER phase requires launching specialized review subagents:
+
+**Phase 1 (MANDATORY)**: Launch 5 analyst agents IN PARALLEL:
+1. `apex:review:phase1:review-security-analyst`
+2. `apex:review:phase1:review-performance-analyst`
+3. `apex:review:phase1:review-architecture-analyst`
+4. `apex:review:phase1:review-test-coverage-analyst`
+5. `apex:review:phase1:review-code-quality-analyst`
+
+**Phase 2 (MANDATORY)**: Launch challenger agent:
+1. `apex:review:phase2:review-challenger`
+
+**YOU CANNOT SKIP SUBAGENTS. SELF-REVIEW IS FORBIDDEN.**
+
+**Common Violations (DO NOT DO THESE)**:
+❌ "The code looks good to me" → VIOLATION: self-review without subagents
+❌ "I reviewed the changes and they're fine" → VIOLATION: no subagents launched
+❌ "Tests pass so approving" → VIOLATION: VALIDATOR ≠ REVIEWER, subagents required
+❌ "Simple change, no review needed" → VIOLATION: ALL changes require subagent review
+❌ "Launching just one agent" → VIOLATION: Phase 1 requires ALL 5 agents in parallel
+
+**Why subagents are mandatory**:
+- You have cognitive biases about code you just helped write
+- Specialized agents catch issues you would miss
+- Adversarial challenge reduces false positives
+- Parallel agents provide comprehensive coverage
 </critical-requirement>
+
+---
 
 Record checkpoint:
 
 ```
-apex_task_checkpoint(taskId, "Starting review phase", 0.85)
+apex_task_checkpoint(taskId, "Starting review phase - launching subagents", 0.85)
 ```
 
 ### Execute Adversarial Review System
 
-**MANDATORY**: Use adversarial review system (5 Phase 1 agents + 2 Phase 2 agents for false positive reduction)
+<critical-gate>
+**LAUNCH ALL 5 PHASE 1 AGENTS IN A SINGLE MESSAGE.**
+
+Do NOT proceed to Phase 2 until ALL Phase 1 agents complete.
+Do NOT transition to DOCUMENTER without completing Phase 2.
+</critical-gate>
 
 ### Phase 1: Parallel Issue Discovery
 
@@ -1679,6 +1704,23 @@ Report sections: ✅ Journey Validation (ARCHITECT/BUILDER/VALIDATOR checks) →
 
 **Handoff**: Include outcome (APPROVED|CONDITIONAL|REJECTED), review summary (findings count, challenge results, false positive rate), FIX_NOW actions, SHOULD_FIX recommendations, accepted trade-offs, journey validation.
 
+### REVIEWER Phase Completion Verification
+
+<critical-gate>
+**BEFORE transitioning to DOCUMENTER, verify subagent review completed:**
+
+☐ **Phase 1 DONE**: All 5 analyst agents launched AND returned findings?
+☐ **Phase 2 DONE**: Challenger agent launched AND returned challenges?
+☐ **Synthesis DONE**: Confidence adjustments applied, final report generated?
+☐ **Decision MADE**: APPROVE / CONDITIONAL / REJECT determined?
+
+**If ANY checkbox is unchecked → GO BACK AND COMPLETE IT.**
+
+You CANNOT transition to DOCUMENTER without subagent review results.
+</critical-gate>
+
+---
+
 Transition:
 
 ```
@@ -1697,22 +1739,37 @@ apex_task_append_evidence(taskId, "pattern", "Adversarial review results", {
 
 **Mental Model**: Every task teaches something. Extract the deep lessons.
 
-**Reflection Framework**:
-- **Patterns**: Which worked? Which were discovered? Which needed adaptation?
-- **Surprises**: What took longer/was easier? What assumptions were wrong?
-- **Next time**: How would we approach differently? What warning signs did we miss?
-
-**The apex_reflect call is sacred** - it's how the system learns. Include evidence that helps future tasks avoid our mistakes.
-
 <phase-execution>
 **Gate**: phase="DOCUMENTER" (apex_task_complete ONLY allowed here)
 </phase-execution>
 
-**BEFORE apex_task_complete** (all must be true):
+### 🚨 MANDATORY DOCUMENTER GATE - THREE REQUIRED ACTIONS
+
+<critical-requirement>
+**DOCUMENTER PHASE IS NOT COMPLETE UNTIL ALL THREE ACTIONS ARE EXECUTED:**
+
+1. ✅ **git commit** - Commit all code changes
+2. ✅ **apex_task_complete** - Mark task complete in database
+3. ✅ **apex_reflect** - Submit reflection to update pattern trust scores
+
+**YOU CANNOT SKIP ANY OF THESE. ALL THREE ARE MANDATORY.**
+
+**Common Violations (DO NOT DO THESE)**:
+❌ "Task complete, moving on" → VIOLATION: skipped git commit AND apex_reflect
+❌ "Called apex_task_complete, done" → VIOLATION: skipped apex_reflect
+❌ "Code works, tests pass" → VIOLATION: DOCUMENTER requires commit + complete + reflect
+❌ "No patterns to reflect on" → VIOLATION: apex_reflect is ALWAYS required, even with empty patterns
+
+**Consequence of skipping apex_reflect**: Pattern learning is lost. Trust scores don't update. Future tasks don't benefit from this experience. The APEX system cannot improve.
+</critical-requirement>
+
+---
+
+**BEFORE starting DOCUMENTER** (all must be true):
 ☐ Current phase is DOCUMENTER (via apex_task_context)
 ☐ Checkpoints exist for all 5 phases
 ☐ Documentation updated (if task affected workflow/architecture)
-☐ Claimed patterns exist in context_pack from Step 4
+☐ Patterns to claim verified against context_pack from Step 4
 
 Final checkpoint:
 
@@ -1764,40 +1821,69 @@ Modified workflow from 5 stages to 4 stages in code, but:
 **THE FIX**: Systematic grep → read → update → verify cycle
 </critical-requirement>
 
-### Complete Task and Reflect
+### Execute Three Mandatory Actions
 
-#### Step 1: Complete the task
+<critical-gate>
+**EXECUTE ALL THREE IN THIS ORDER. DO NOT SKIP ANY.**
+</critical-gate>
 
-```
-apex_task_complete(taskId, outcome, key_learning, patterns_used)
-```
+---
 
-Returns a ReflectionDraft for review.
+#### ACTION 1: Git Commit (MANDATORY)
 
-#### Step 2: Commit Changes
-
-<system-reminder>
-CRITICAL: You MUST commit changes BEFORE calling apex_reflect or it will fail!
-Git sequence: status → add → commit → verify → reflect
-</system-reminder>
+**WHY FIRST**: apex_reflect validates git evidence. Uncommitted changes = validation failure.
 
 ```bash
 git status --short
 git add [relevant files]
-git commit -m "Task [TASK_ID]: [Description]"
-git log -1 --oneline # Verify commit succeeded
+git commit -m "Task [TASK_ID]: [Description]
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+git log -1 --oneline  # Verify commit succeeded
 ```
 
-#### Step 3: Deep Pattern Reflection
+☐ **Checkpoint**: Commit SHA captured? You need it for evidence.
 
-**⏸️ PAUSE**: Take 30-60 seconds to deeply analyze the implementation.
+---
 
-**Reflection Questions**:
+#### ACTION 2: apex_task_complete (MANDATORY)
 
-- What patterns from the cache worked perfectly?
+```javascript
+apex_task_complete({
+  id: taskId,
+  outcome: "success" | "partial" | "failure",
+  key_learning: "Main lesson from this task",
+  patterns_used: ["PAT:ID:FROM:CONTEXT_PACK"]  // Only patterns from Step 4
+})
+```
+
+**Returns**: ReflectionDraft - use this as basis for apex_reflect.
+
+☐ **Checkpoint**: ReflectionDraft received?
+
+---
+
+#### ACTION 3: apex_reflect (MANDATORY)
+
+<critical-requirement>
+**YOU MUST CALL apex_reflect. THIS IS NOT OPTIONAL.**
+
+Without apex_reflect:
+- Pattern trust scores don't update
+- Learnings aren't captured
+- Future tasks don't benefit
+- The APEX system cannot improve
+
+Even if you used zero patterns, call apex_reflect with an empty batch_patterns array.
+</critical-requirement>
+
+**Reflection Questions** (answer before calling):
+- What patterns from context_pack worked?
 - What new patterns did we discover?
 - What anti-patterns should we avoid?
-- What would save 2+ hours next time?
+- What key learnings should be captured?
 
 ### Call apex_reflect
 
@@ -1808,16 +1894,23 @@ git log -1 --oneline # Verify commit succeeded
 
 <good-example>
 # Simple batch format (RECOMMENDED)
+# Use pattern IDs from context_pack (Step 4), NOT invented names
 apex_reflect({
-  task: { id: "T123", title: "Fix auth bug" },
+  task: { id: taskId, title: taskTitle },  // From apex_task_complete response
   outcome: "success",
-  batch_patterns: [  # ← ARRAY, not string!
+  batch_patterns: [  // ← ARRAY, not string!
     {
-      pattern: "FIX:AUTH:SESSION",
-      outcome: "worked-perfectly",
-      evidence: "Fixed in auth.ts:234"
+      pattern: "PAT:AUTH:JWT",  // Must exist in context_pack from Step 4
+      outcome: "worked-perfectly"
     }
   ]
+})
+
+# Minimal reflection (when no patterns were used)
+apex_reflect({
+  task: { id: taskId, title: taskTitle },
+  outcome: "success",
+  batch_patterns: []  // Empty array is valid - still captures task outcome
 })
 </good-example>
 
@@ -1865,6 +1958,22 @@ apex_reflect({
 ```
 
 </reference-section>
+
+### DOCUMENTER Phase Completion Verification
+
+<critical-gate>
+**BEFORE reporting to user, verify ALL THREE actions completed:**
+
+☐ **ACTION 1 DONE**: Git commit created? (verify with `git log -1`)
+☐ **ACTION 2 DONE**: apex_task_complete called? (received ReflectionDraft?)
+☐ **ACTION 3 DONE**: apex_reflect called? (received response with `ok: true`?)
+
+**If ANY checkbox is unchecked → GO BACK AND COMPLETE IT.**
+
+The task is NOT done until apex_reflect returns successfully.
+</critical-gate>
+
+---
 
 ### Final Report to User
 
