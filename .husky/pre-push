@@ -1,5 +1,10 @@
 #!/usr/bin/env sh
 
+# Initialize nvm for non-interactive shells
+# This ensures we use the correct Node.js version (v24.6.0) for native module compatibility
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
 echo "🚀 Running pre-push checks..."
 echo "⏱️  This will run the full test suite (~8 seconds)"
 
