@@ -1921,37 +1921,59 @@ apex_reflect({
 })
 </bad-example>
 
-**Trust Update Outcomes**:
+**Trust Update Outcomes**: `worked-perfectly` (100%) | `worked-with-tweaks` (70%) | `partial-success` (50%) | `failed-minor-issues` (30%) | `failed-completely` (0%)
 
-- `"worked-perfectly"` = 100% success
-- `"worked-with-tweaks"` = 70% success
-- `"partial-success"` = 50% success
-- `"failed-minor-issues"` = 30% success
-- `"failed-completely"` = 0% success
+---
 
-**Full Claims Format** (for complex reflection):
+## Evidence Schema (EvidenceRefSchema)
+
+**All `evidence` and `source_ref` fields MUST be objects with `kind`. Only 4 valid kinds:**
+
+| Kind | Required Fields | Example |
+|------|----------------|---------|
+| `git_lines` | file, sha, start, end | `{ kind: "git_lines", file: "src/x.ts", sha: "HEAD", start: 1, end: 10 }` |
+| `commit` | sha | `{ kind: "commit", sha: "abc123" }` |
+| `pr` | number | `{ kind: "pr", number: 123, repo: "owner/repo" }` |
+| `ci_run` | id, provider | `{ kind: "ci_run", id: "123", provider: "github" }` |
+
+**❌ Common mistakes:**
+- `{ type: "file" }` or `{ kind: "code_lines" }` → invalid kind
+- `evidence: "string"` or `source_ref: "file:L1-5"` → must be object with `kind`
+
+---
+
+## Claims Format (for new_patterns, anti_patterns, learnings)
 
 ```javascript
 apex_reflect({
-  task: { id: "T124", title: "Add caching" },
+  task: { id: "T124", title: "Task name" },
   outcome: "success",
-  claims: {  # ← OBJECT, not string!
-    patterns_used: [...],
-    trust_updates: [...],
-    new_patterns: [{
-      title: "Pattern Name",
-      summary: "Description",
-      snippets: [],
-      evidence: []
+  claims: {
+    patterns_used: [{
+      pattern_id: "PAT:ID",
+      evidence: [{ kind: "git_lines", file: "src/x.ts", sha: "HEAD", start: 1, end: 10 }]  // Required: ≥1
     }],
-    anti_patterns: [{
-      title: "Anti-pattern Name",  # Required
-      reason: "Why this is bad",    # Required
-      evidence: []
+    trust_updates: [{ pattern_id: "PAT:ID", outcome: "worked-perfectly" }],
+
+    new_patterns: [{  // Optional section
+      title: "Pattern Title",       // Required
+      summary: "Description",       // Required
+      snippets: [{                  // Required array (can be empty)
+        snippet_id: "unique-id",    // ⚠️ REQUIRED
+        source_ref: { kind: "git_lines", file: "src/x.ts", sha: "HEAD", start: 1, end: 10 }  // ⚠️ REQUIRED object
+      }],
+      evidence: []                  // Required array (can be empty)
     }],
-    learnings: [{
-      assertion: "What you learned",
-      evidence: []
+
+    anti_patterns: [{  // Optional section
+      title: "Anti-pattern Title",  // Required
+      reason: "Why it's bad",       // Required
+      evidence: []                  // Required array (can be empty)
+    }],
+
+    learnings: [{  // Optional section
+      assertion: "What was learned",  // Required
+      evidence: []                    // Optional
     }]
   }
 })
