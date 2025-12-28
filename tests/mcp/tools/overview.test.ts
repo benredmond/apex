@@ -140,17 +140,52 @@ describe("PatternOverviewService", () => {
     });
 
     it("should filter by max_age_days", async () => {
-      // Create a pattern from 30 days ago
+      // Create an old pattern (30 days ago)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      await repository.create(
+        buildTestPattern("old-pattern", {
+          type: "LANG",
+          title: "Old Pattern",
+          summary: "This pattern is 30 days old",
+          trust_score: 0.8,
+          usage_count: 5,
+          success_count: 4,
+          created_at: thirtyDaysAgo.toISOString(),
+        })
+      );
+
+      // Create a recent pattern (today)
+      await repository.create(
+        buildTestPattern("recent-pattern", {
+          type: "LANG",
+          title: "Recent Pattern",
+          summary: "This pattern was just created",
+          trust_score: 0.8,
+          usage_count: 5,
+          success_count: 4,
+          created_at: new Date().toISOString(),
+        })
+      );
 
       // Query for patterns less than 7 days old
       const response = await service.overview({
         max_age_days: 7,
       });
 
-      // All returned patterns should be recent (created in the test)
+      // Should have at least the recent pattern
       expect(response.patterns.length).toBeGreaterThan(0);
+
+      // Old pattern should be filtered out
+      const oldPattern = response.patterns.find((p) => p.id === "old-pattern");
+      expect(oldPattern).toBeUndefined();
+
+      // Recent pattern should be included
+      const recentPattern = response.patterns.find((p) => p.id === "recent-pattern");
+      expect(recentPattern).toBeDefined();
+
+      // All returned patterns should be within max_age_days
       response.patterns.forEach((p) => {
         const createdAt = new Date(p.created_at);
         const daysDiff = Math.floor(
@@ -208,9 +243,9 @@ describe("PatternOverviewService", () => {
       });
 
       expect(response.patterns.length).toBeGreaterThan(1);
-      // Verify the patterns are sorted by title (case-sensitive ASCII ordering)
+      // Verify the patterns are sorted by title using localeCompare (matches service implementation)
       const titles = response.patterns.map((p) => p.title);
-      const sortedTitles = [...titles].sort();
+      const sortedTitles = [...titles].sort((a, b) => a.localeCompare(b));
       expect(titles).toEqual(sortedTitles);
     });
 
