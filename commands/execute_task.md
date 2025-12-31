@@ -1541,13 +1541,13 @@ The REVIEWER phase requires launching specialized review subagents:
 
 **Phase 1 (MANDATORY)**: Launch 5 analyst agents IN PARALLEL:
 1. `apex:review:phase1:review-security-analyst`
-2. `apex:review:phase1:review-performance-analyst`
-3. `apex:review:phase1:review-architecture-analyst`
-4. `apex:review:phase1:review-test-coverage-analyst`
-5. `apex:review:phase1:review-code-quality-analyst`
+2. `apex:review:phase1:review-architecture-analyst`
+3. `apex:review:phase1:review-test-coverage-analyst`
+4. `apex:review:phase1:review-code-quality-analyst`
+5. `apex:review:phase1:review-git-historian` (pattern violations, regressions)
 
-**Phase 2 (MANDATORY)**: Launch challenger agent:
-1. `apex:review:phase2:review-challenger`
+**Phase 2 (MANDATORY)**: Launch unified challenger:
+1. `apex:review:phase2:review-challenger` (validates, checks history, assesses ROI)
 
 **YOU CANNOT SKIP SUBAGENTS. SELF-REVIEW IS FORBIDDEN.**
 
@@ -1592,17 +1592,8 @@ Do NOT transition to DOCUMENTER without completing Phase 2.
 **Code Changes**: [Modified/created files with diffs]
 **Journey Context**: ARCHITECT warnings, BUILDER decisions, VALIDATOR results
 
-Review for security vulnerabilities. Use mitigation-aware reporting.
-Return YAML findings with id, severity, confidence, location, issue, evidence, mitigations_found.
-</Task>
-
-<Task subagent_type="apex:review:phase1:review-performance-analyst" description="Performance review">
-**Task ID**: [TASK_ID]
-**Code Changes**: [Modified/created files with diffs]
-**Journey Context**: ARCHITECT warnings, BUILDER decisions, VALIDATOR results
-
-Review for performance issues. Use mitigation-aware reporting.
-Return YAML findings with id, severity, confidence, location, issue, evidence, mitigations_found.
+Review ONLY code in the diff for security vulnerabilities. Pre-filter linter-catchable issues.
+Return YAML findings with id, severity, confidence (0-100), location, issue, evidence.
 </Task>
 
 <Task subagent_type="apex:review:phase1:review-architecture-analyst" description="Architecture review">
@@ -1610,8 +1601,8 @@ Return YAML findings with id, severity, confidence, location, issue, evidence, m
 **Code Changes**: [Modified/created files with diffs]
 **Journey Context**: ARCHITECT patterns, BUILDER justifications
 
-Review for architecture violations and pattern consistency. Use mitigation-aware reporting.
-Return YAML findings with id, severity, confidence, location, issue, evidence, mitigations_found.
+Review ONLY code in the diff for architecture violations. Pre-filter linter-catchable issues.
+Return YAML findings with id, severity, confidence (0-100), location, issue, evidence.
 </Task>
 
 <Task subagent_type="apex:review:phase1:review-test-coverage-analyst" description="Test coverage review">
@@ -1619,8 +1610,8 @@ Return YAML findings with id, severity, confidence, location, issue, evidence, m
 **Code Changes**: [Modified/created files with diffs]
 **VALIDATOR Results**: [Test outcomes, coverage metrics]
 
-Review for test coverage gaps. Use mitigation-aware reporting.
-Return YAML findings with id, severity, confidence, location, issue, evidence, mitigations_found.
+Review ONLY new/changed code for test coverage gaps. Pre-filter trivial gaps.
+Return YAML findings with id, severity, confidence (0-100), location, issue, evidence.
 </Task>
 
 <Task subagent_type="apex:review:phase1:review-code-quality-analyst" description="Code quality review">
@@ -1628,8 +1619,17 @@ Return YAML findings with id, severity, confidence, location, issue, evidence, m
 **Code Changes**: [Modified/created files with diffs]
 **Journey Context**: ARCHITECT patterns, BUILDER decisions
 
-Review for maintainability and code quality. Use mitigation-aware reporting.
-Return YAML findings with id, severity, confidence, location, issue, evidence, mitigations_found.
+Review ONLY code in the diff for quality issues. Pre-filter linter-catchable/cosmetic issues.
+Return YAML findings with id, severity, confidence (0-100), location, issue, evidence.
+</Task>
+
+<Task subagent_type="apex:review:phase1:review-git-historian" description="Git history review">
+**Task ID**: [TASK_ID]
+**Code Changes**: [Modified/created files with diffs]
+**Git Context**: [Recent commits, blame for modified lines]
+
+Review for pattern violations, regressions, and inconsistencies using git history.
+Return YAML findings with id, severity, confidence (0-100), location, issue, evidence.
 </Task>
 ```
 
@@ -1637,39 +1637,33 @@ Return YAML findings with id, severity, confidence, location, issue, evidence, m
 
 ---
 
-### Phase 2: Adversarial Challenge (ALWAYS runs)
+### Phase 2: Unified Adversarial Challenge
 
-Parse YAML from all Phase 1 agents, then launch challenge agents in parallel:
+Parse YAML from all Phase 1 agents, then launch the unified challenger:
 
 ```markdown
 <Task subagent_type="apex:review:phase2:review-challenger" description="Challenge all findings">
 **Task ID**: [TASK_ID]
 **Phase 1 Findings**: [YAML from all 5 Phase 1 agents]
-**Journey Context**: ARCHITECT rationale, BUILDER justifications, VALIDATOR evidence, task history
+**Journey Context**: ARCHITECT rationale, BUILDER justifications, VALIDATOR evidence
 **Original Code**: [Relevant code snippets]
+**Git History**: [Recent commits, blame for flagged lines]
 
-**Mandate**: Challenge EVERY finding for:
-- Code accuracy (did Phase 1 read correctly?)
-- Pattern applicability (does framework prevent this?)
-- Mitigation verification (are Phase 1 assessments accurate?)
-- Evidence quality (Strong/Medium/Weak rating)
+**Unified Challenge Dimensions**:
+1. **Validation**: Code accuracy, evidence quality (Strong/Medium/Weak)
+2. **Historical Context**: Git archaeology for justifications
+3. **ROI Analysis**: Fix effort vs benefit
+4. **Override Decision**: Pull forward or push back if warranted
 
 **Return**: YAML with challenges containing:
+- phase1_confidence: 0-100
+- validation: {code_accurate, evidence_quality, evidence_score}
+- historical_context: {justification_type, evidence, context_multiplier}
+- roi_analysis: {fix_effort, benefit_type, roi_score}
+- override: {action, reason}
 - challenge_result: UPHELD | DOWNGRADED | DISMISSED
-- evidence_quality: strong (0.85-1.0) | medium (0.6-0.85) | weak (0.0-0.6)
-- recommended_confidence: 0.0-1.0
-- reasoning
-</Task>
-
-<Task subagent_type="apex:review:phase2:review-context-defender" description="Find historical justifications">
-**Task ID**: [TASK_ID]
-**Phase 1 Findings**: [YAML from all Phase 1 agents - focus on findings affecting existing code]
-**Repository**: [Path and git info]
-
-Use git history to find justifications for seemingly problematic code patterns.
-Only needed if findings involve existing/historical code choices.
-
-**Return**: YAML with context justifications
+- final_confidence: 0-100
+- final_category: fix_now | should_fix | filtered
 </Task>
 ```
 
@@ -1677,23 +1671,39 @@ Only needed if findings involve existing/historical code choices.
 
 ### Phase 3: Synthesize Report
 
-After challenger and context-defender complete, synthesize final review:
+After unified challenger completes, categorize findings by tiered thresholds:
 
-**Confidence Adjustment Formula**:
-```
-finalConfidence = phase1Confidence
-finalConfidence *= challengeImpact  # UPHELD=1.0, DOWNGRADED=0.6, DISMISSED=0.2
-finalConfidence *= (0.5 + evidence_score * 0.5)  # Evidence quality factor
-if context_justified: finalConfidence *= 0.3  # Historical justification reduces priority
-```
+**Tiered Thresholds** (from challenger's final_confidence):
 
-**Action Decision**: <0.3 → IGNORE | critical AND >0.5 → FIX_NOW | high AND >0.6 → FIX_NOW | >0.7 → SHOULD_FIX | else → NOTE
+| Score | Category | Action |
+|-------|----------|--------|
+| **≥80** | 🔴 Fix Now | High confidence, clear issue - must fix |
+| **60-79** | 🟡 Should Fix | Medium confidence - worth addressing |
+| **<60** | Filtered | Too uncertain - not reported |
 
 **Generate Structured Report**:
 
-Report sections: ✅ Journey Validation (ARCHITECT/BUILDER/VALIDATOR checks) → 🔴 FIX NOW (critical+high confidence) → 🟡 SHOULD FIX → 📝 NOTES → ✖️ DISMISSED → 📊 Metrics (findings, upheld/downgraded/dismissed, false positive rate)
+```markdown
+## Review Summary
+Found X issues → Y Fix Now, Z Should Fix, W filtered
 
-**Finding format**: `{id, location: file:line, severity, confidence, issue, evidence, challenge_result, fix}`
+### 🔴 Fix Now (Y)
+- {id} ({confidence}): {issue} [{file}:{line}]
+  - Evidence: {evidence_summary}
+  - Fix: {suggestion}
+
+### 🟡 Should Fix (Z)
+- {id} ({confidence}): {issue} [{file}:{line}]
+
+### Overrides Applied
+- {id}: Pulled forward because {reason}
+- {id}: Pushed back because {reason}
+
+### Metrics
+- Phase 1 findings: X
+- Upheld: Y | Downgraded: Z | Dismissed: W
+- False positive rate: (Dismissed / Total) %
+```
 
 ### Review Decision
 
@@ -1710,8 +1720,11 @@ Report sections: ✅ Journey Validation (ARCHITECT/BUILDER/VALIDATOR checks) →
 **BEFORE transitioning to DOCUMENTER, verify subagent review completed:**
 
 ☐ **Phase 1 DONE**: All 5 analyst agents launched AND returned findings?
-☐ **Phase 2 DONE**: Challenger agent launched AND returned challenges?
-☐ **Synthesis DONE**: Confidence adjustments applied, final report generated?
+  - security-analyst, architecture-analyst, test-coverage-analyst, code-quality-analyst, git-historian
+☐ **Phase 2 DONE**: Unified challenger launched AND returned challenges?
+  - All findings challenged with validation + history + ROI
+☐ **Synthesis DONE**: Tiered thresholds applied, final report generated?
+  - ≥80 → Fix Now, 60-79 → Should Fix, <60 → Filtered
 ☐ **Decision MADE**: APPROVE / CONDITIONAL / REJECT determined?
 
 **If ANY checkbox is unchecked → GO BACK AND COMPLETE IT.**

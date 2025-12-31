@@ -61,22 +61,8 @@ Provide each agent with:
 - Recent commits:
 [Recent commit messages]
 
-Perform comprehensive security review. Return findings in YAML format with confidence scores and evidence.
-</Task>
-
-<Task subagent_type="review-performance-analyst" description="Performance issue review">
-**Code Changes:**
-[Insert full diff here]
-
-**Files Modified:**
-[List files with line counts]
-
-**Context:**
-- Review target: $ARGUMENTS
-- Recent commits:
-[Recent commit messages]
-
-Perform comprehensive performance review. Return findings in YAML format with confidence scores and evidence.
+Review ONLY code in the diff for security vulnerabilities. Pre-filter linter-catchable issues.
+Return YAML findings with id, severity, confidence (0-100), location, issue, evidence.
 </Task>
 
 <Task subagent_type="review-architecture-analyst" description="Architecture review">
@@ -91,7 +77,8 @@ Perform comprehensive performance review. Return findings in YAML format with co
 - Recent commits:
 [Recent commit messages]
 
-Perform comprehensive architecture review. Return findings in YAML format with confidence scores and evidence.
+Review ONLY code in the diff for architecture violations. Pre-filter linter-catchable issues.
+Return YAML findings with id, severity, confidence (0-100), location, issue, evidence.
 </Task>
 
 <Task subagent_type="review-test-coverage-analyst" description="Test coverage review">
@@ -106,7 +93,8 @@ Perform comprehensive architecture review. Return findings in YAML format with c
 - Recent commits:
 [Recent commit messages]
 
-Perform comprehensive test coverage review. Return findings in YAML format with confidence scores and evidence.
+Review ONLY new/changed code for test coverage gaps. Pre-filter trivial gaps.
+Return YAML findings with id, severity, confidence (0-100), location, issue, evidence.
 </Task>
 
 <Task subagent_type="review-code-quality-analyst" description="Code quality review">
@@ -121,7 +109,25 @@ Perform comprehensive test coverage review. Return findings in YAML format with 
 - Recent commits:
 [Recent commit messages]
 
-Perform comprehensive code quality review. Return findings in YAML format with confidence scores and evidence.
+Review ONLY code in the diff for quality issues. Pre-filter linter-catchable/cosmetic issues.
+Return YAML findings with id, severity, confidence (0-100), location, issue, evidence.
+</Task>
+
+<Task subagent_type="review-git-historian" description="Git history review">
+**Code Changes:**
+[Insert full diff here]
+
+**Files Modified:**
+[List files with line counts]
+
+**Context:**
+- Review target: $ARGUMENTS
+- Recent commits:
+[Recent commit messages]
+- Git blame for modified lines
+
+Review for pattern violations, regressions, and inconsistencies using git history.
+Return YAML findings with id, severity, confidence (0-100), location, issue, evidence.
 </Task>
 ```
 
@@ -152,16 +158,11 @@ phase1_summary:
 
 Display this summary to the user before Phase 2.
 
-## Phase 4: Launch Adversarial Challenge Agents
+## Phase 4: Launch Unified Challenger
 
-**CRITICAL**: Launch ALL 3 Phase 2 agents in a SINGLE message for true parallelism.
+Launch the unified challenger agent to validate all Phase 1 findings:
 
-Phase 2 uses 3 specialized agents:
-1. **challenger** - Unified validity/evidence challenger (challenges ALL findings)
-2. **context-defender** - Git archaeology, historical justification
-3. **tradeoff-analyst** - ROI calculation
-
-Provide each agent with:
+Provide the challenger with:
 - All Phase 1 findings (complete YAML)
 - Original code diff
 - Git history
@@ -181,151 +182,111 @@ Provide each agent with:
 **File Context:**
 [Related files that might provide context]
 
-Challenge EVERY finding for:
-- Code accuracy (did Phase 1 read correctly?)
-- Pattern applicability (does framework prevent this?)
-- Mitigation verification (are Phase 1 assessments accurate?)
-- Evidence quality (Strong/Medium/Weak rating)
+For EACH finding, evaluate across 4 dimensions:
 
-Return challenges in YAML format with evidence and confidence scores.
-</Task>
+1. **Validation** - Is the finding accurate?
+   - Did Phase 1 read the code correctly?
+   - Does the framework prevent this issue?
+   - Is there existing mitigation?
 
-<Task subagent_type="apex:review:phase2:review-context-defender" description="Find historical justifications">
-**Phase 1 Findings:**
-[Insert ALL findings]
+2. **Historical Context** - Is there justification?
+   - Previous failed attempts to fix this?
+   - Documented decisions explaining this pattern?
+   - Intentional technical debt?
 
-**Original Code:**
-[Full diff]
+3. **ROI Analysis** - Is fixing worth it?
+   - Fix complexity (lines changed, risk)
+   - Benefit magnitude (user impact, maintenance)
+   - Opportunity cost
 
-**Repository:**
-[Path and git info]
+4. **Override Decision** - Should this be pulled forward or pushed back?
+   - Pull forward (→ Fix Now): Security issues, code smells, future problems
+   - Push back (→ Should Fix): Deprecated code, one-time use, low traffic paths
 
-Use git history to find justifications for seemingly problematic code. Return in YAML format.
-</Task>
-
-<Task subagent_type="apex:review:phase2:review-tradeoff-analyst" description="Analyze fix ROI">
-**Phase 1 Findings:**
-[Insert ALL findings]
-
-**Original Code:**
-[Full diff]
-
-Analyze effort vs benefit for each finding. Return ROI analysis in YAML format.
+Return YAML with adjusted confidence scores (0-100) and override decisions.
 </Task>
 ```
 
-**WAIT** for ALL 3 agents to complete.
+**WAIT** for challenger to complete.
 
 ## Phase 5: Synthesis & Reconciliation
 
-For each Phase 1 finding, calculate final scores using this algorithm:
+Apply the challenger's adjusted confidence scores using tiered thresholds:
 
 ```
 For each finding:
-  1. Get challenge result from challenger agent:
-     - UPHELD: finding valid as reported
-     - DOWNGRADED: finding valid but overstated
-     - DISMISSED: false positive
+  1. Start with Phase 1 confidence (0-100)
 
-     # Count how many of 3 agents challenged it
-     challenge_rate = challenges_count / 3  # Changed from / 5
+  2. Apply challenger adjustments:
+     # Evidence quality multiplier
+     confidence *= (0.5 + evidenceScore * 0.5)
 
-  2. Get evidence score from challenger (0.0-1.0)
-     # Challenger rates evidence as Strong (0.85-1.0), Medium (0.6-0.85), Weak (0.0-0.6)
+     # Historical context penalties
+     if previousAttemptFailed: confidence *= 0.3
+     else if documentedDecision: confidence *= 0.4
+     else if intentionalDebt: confidence *= 0.5
 
-  3. Check if context-defender found justification (boolean)
+     # ROI adjustments
+     if lowROI: confidence *= 0.7
 
-  4. Get ROI score from tradeoff-analyst (0.0-1.0)
+  3. Apply override decisions:
+     if pullForward: confidence = max(confidence, 80)  # → Fix Now
+     if pushBack: confidence = min(confidence, 79)     # → Should Fix at most
 
-  5. Calculate validity confidence:
-     confidence = finding.initial_confidence
-     confidence *= (1 - challenge_rate * 0.4)  # Penalty for challenges
-     confidence *= (0.5 + evidence_score * 0.5)  # Evidence quality factor
-     if context_justified: confidence *= 0.3  # Historical justification reduces priority
-
-  6. Calculate priority:
-     severity_points = {Critical: 100, High: 75, Medium: 50, Low: 25}
-     priority = severity_points * confidence * roi_score
-
-  7. Make recommendation:
-     if confidence < 0.3: "Dismiss"
-     else if context_justified AND confidence < 0.6: "Accept"
-     else if roi_score < 0.3: "Defer"
-     else if confidence > 0.7 AND priority > 60: "Fix"
-     else if priority > 40: "Defer"
-     else: "Accept"
+  4. Apply tiered thresholds:
+     if confidence >= 80: "🔴 Fix Now"
+     else if confidence >= 60: "🟡 Should Fix"
+     else: filtered (not shown in output)
 ```
 
-Group findings by recommendation: Fix, Defer, Accept, Dismiss
+### Output Format
 
-Sort each group by priority score (highest first)
+```markdown
+## Review Summary
+Found X issues → Y Fix Now, Z Should Fix, W filtered
 
-## Phase 6: Generate Final Report
+### 🔴 Fix Now (Y)
+| ID | Score | Issue | Location |
+|----|-------|-------|----------|
+| SEC-001 | 92 | SQL injection in user input | src/api.ts:45 |
 
-Create a comprehensive markdown report with these sections:
-
-### Summary
-- Phase 1 findings: X
-- Phase 2 challenges: Y
-- Final recommendations: Fix (A), Defer (B), Accept (C), Dismiss (D)
-- False positive rate: (Dismissed / Total) %
-- Average confidence: X.XX
-
-### Immediate Action Items (Fix)
-For each "Fix" recommendation (sorted by priority):
-- **ID**: Finding ID (e.g., SEC-001)
-- **Title**: Brief description
-- **Severity**: Critical/High/Medium/Low
-- **Confidence**: X.XX
-- **Priority**: XX
-- **Location**: file:line
+For each Fix Now item:
 - **Issue**: Detailed description
 - **Evidence**: Key evidence points
-- **Phase 2 Outcome**: Summary of challenges (e.g., "Challenged by 1/5 agents, all dismissed")
 - **Fix**: Concrete code suggestion
-- **Pattern**: Reference any applicable patterns
 
-### Technical Debt (Defer)
-For each "Defer" recommendation:
-- Why deferred (usually low ROI or low priority)
-- Suggested backlog placement
+### 🟡 Should Fix (Z)
+| ID | Score | Issue | Location |
+|----|-------|-------|----------|
+| ARCH-002 | 71 | Circular dependency | src/utils.ts:12 |
 
-### Accepted Risks (Accept)
-For each "Accept" recommendation:
-- Justification (from context-defender)
-- Recommendation to document
+### Filtered (W)
+[Not shown - logged for transparency]
+```
 
-### Dismissed (False Positives)
-For each "Dismiss" recommendation:
-- Brief reason why dismissed
-- Which Phase 2 agent(s) successfully challenged it
+## Phase 6: Final Summary
 
-### Metrics
-- Review effectiveness: (High confidence findings / Total findings)
-- False positive prevention: (Dismissed / Phase 1 total)
-- Context awareness: (Accepted with justification / Total)
+After synthesis, output the final report using the format from Phase 5.
 
-## Output Format
-
-Use clear markdown formatting with:
-- Headers for each section
-- Tables for summaries
-- Code blocks for fixes
-- Emoji indicators (✅ Fix, ⏸️ Defer, ✓ Accept, ✖️ Dismiss)
+Include metrics:
+- **Filter rate**: (Filtered / Phase 1 total) %
+- **Fix Now rate**: (Fix Now / Passed threshold) %
+- **Override usage**: How many findings were pulled forward or pushed back
 
 ## Best Practices
 
-1. **Parallel Execution**: All Phase 1 agents in one message, all Phase 2 agents in one message
-2. **Complete Context**: Provide full diffs and context to each agent
-3. **Evidence-Based**: Every score must be calculated from actual evidence
-4. **Transparent**: Show reasoning for each recommendation
-5. **Actionable**: Provide concrete fixes, not just descriptions
+1. **Parallel Execution**: All 5 Phase 1 agents in a single message
+2. **Complete Context**: Provide full diffs and git history to each agent
+3. **Pre-Filtering**: Agents skip linter-catchable and pre-existing issues
+4. **Evidence-Based**: Every confidence score backed by specific evidence
+5. **Reviewer Discretion**: Challenger can pull forward or push back findings
+6. **Actionable Output**: Fix Now items include concrete code suggestions
 
 ## Notes
 
-- This system is designed to eliminate false positives while maintaining thoroughness
-- Phase 1 agents are **mitigation-aware** (report everything, adjust confidence via mitigation assessment)
-- Phase 2 uses **3 specialized agents** (challenger, context-defender, tradeoff-analyst)
-- The **challenger** agent combines validity checking, evidence rating, and pattern verification
-- The synthesis algorithm balances severity, confidence, and ROI
-- All findings include complete reasoning chains for transparency
+- **Pre-filtering** keeps output focused (diff-only, not linter-catchable)
+- Phase 1 agents use **0-100 confidence scoring** with tiered thresholds
+- Phase 2 uses a **unified challenger** that validates, checks history, analyzes ROI, and applies overrides
+- **Tiered thresholds**: ≥80 Fix Now, 60-79 Should Fix, <60 filtered
+- **Overrides**: Challenger can pull forward (security, code smells) or push back (deprecated, low-traffic)
+- All findings include reasoning chains for transparency
