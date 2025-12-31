@@ -89,6 +89,7 @@ apex mcp install        # Setup MCP integration
 /apex:implement <task-id> # Build and validate code
 /apex:ship <task-id>      # Review, commit, and reflect
 /apex:execute <task>      # Run full workflow (research → plan → implement → ship)
+/apex:debug <task-id>     # Systematic debugging with pattern learning
 /apex:review-pr           # Adversarial code review
 ```
 
@@ -309,6 +310,11 @@ Or run all phases in sequence:
 /apex:execute <task-description>     # Full workflow: research → plan → implement → ship
 ```
 
+### 🐛 Debugging Command
+```bash
+/apex:debug <task-id|error>          # Systematic debugging with pattern learning
+```
+
 ### ✅ Quality Commands
 ```bash
 /apex:review-pr                      # Adversarial code review with specialized agents
@@ -390,12 +396,13 @@ your-project/
 │       └── T001.md                 # Task brief with research, plan, evidence
 │
 # Plugin components (in apex package)
-├── skills/                         # 6 workflow skills
+├── skills/                         # 7 workflow skills
 │   ├── research/SKILL.md           # Intelligence gathering
 │   ├── plan/SKILL.md               # Architecture design
 │   ├── implement/SKILL.md          # Build and validate
 │   ├── ship/SKILL.md               # Review and reflect
 │   ├── execute/SKILL.md            # Full workflow orchestrator
+│   ├── debug/SKILL.md              # Systematic debugging
 │   └── using-apex-mcp/SKILL.md     # MCP tools reference
 ├── agents/                         # 12 specialized agents
 │   ├── intelligence-gatherer.md    # Orchestrates research

@@ -7,8 +7,8 @@ An intelligent memory layer for AI coding assistants that provides pattern disco
 This plugin provides:
 
 - **MCP Server**: 13 intelligent tools for pattern discovery, task tracking, and reflection
-- **6 Skills**: Workflow phases (research, plan, implement, ship, execute) + MCP reference guide
-- **6 Slash Commands**: `/apex:research`, `/apex:plan`, `/apex:implement`, `/apex:ship`, `/apex:execute`, `/apex:review-pr`
+- **7 Skills**: Workflow phases (research, plan, implement, ship, execute, debug) + MCP reference guide
+- **7 Slash Commands**: `/apex:research`, `/apex:plan`, `/apex:implement`, `/apex:ship`, `/apex:execute`, `/apex:debug`, `/apex:review-pr`
 - **12 Agents**: Specialized AI agents for intelligence gathering, code review, and analysis
 
 ## Features
@@ -33,7 +33,7 @@ This plugin provides:
 - **Learning & Reflection**
   - `apex_reflect` - Submit outcomes to update pattern trust scores
 
-### Skills (6 Available)
+### Skills (7 Available)
 
 Skills provide workflow guidance and are auto-triggered based on context:
 
@@ -43,11 +43,12 @@ Skills provide workflow guidance and are auto-triggered based on context:
 - `implement` - Build and validate loop with pattern guidance
 - `ship` - Review, commit, and reflection phase
 - `execute` - Full workflow orchestrator (research → plan → implement → ship)
+- `debug` - Systematic debugging with hypothesis-driven investigation and pattern learning
 
 **Reference Skill:**
 - `using-apex-mcp` - Complete MCP tools reference with schemas and examples
 
-### Slash Commands (6 Available)
+### Slash Commands (7 Available)
 
 ```bash
 /apex:research <task>      # Gather intelligence via parallel agents
@@ -55,6 +56,7 @@ Skills provide workflow guidance and are auto-triggered based on context:
 /apex:implement <task-id>  # Build and validate code
 /apex:ship <task-id>       # Review, commit, and reflect
 /apex:execute <task>       # Run full workflow in sequence
+/apex:debug <task-id>      # Systematic debugging with pattern learning
 /apex:review-pr            # Adversarial code review
 ```
 
@@ -286,12 +288,13 @@ The `using-apex-mcp` skill loads automatically when:
 apex/
 ├── .claude-plugin/
 │   └── plugin.json           # Plugin manifest
-├── skills/                   # 6 workflow skills
+├── skills/                   # 7 workflow skills
 │   ├── research/SKILL.md     # Intelligence gathering
 │   ├── plan/SKILL.md         # Architecture design
 │   ├── implement/SKILL.md    # Build and validate
 │   ├── ship/SKILL.md         # Review and reflect
 │   ├── execute/SKILL.md      # Full workflow orchestrator
+│   ├── debug/SKILL.md        # Systematic debugging
 │   └── using-apex-mcp/       # MCP reference
 │       ├── SKILL.md
 │       └── apex-reflect-guide.md
