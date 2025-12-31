@@ -1,6 +1,6 @@
 ---
+name: risk-analyst
 description: Surfaces novel risks and edge cases using structured reasoning. Complements historical failure data with forward-looking analysis.
-model: sonnet
 color: red
 ---
 

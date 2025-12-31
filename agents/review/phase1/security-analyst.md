@@ -1,8 +1,7 @@
 ---
 name: review-security-analyst
 description: Identify security vulnerabilities in code changes with evidence-based analysis
-tools: Read, Grep, Glob, Bash
-model: sonnet
+tools: [Read, Grep, Glob, Bash]
 color: red
 ---
 

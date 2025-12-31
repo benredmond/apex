@@ -1,8 +1,7 @@
 ---
 name: review-architecture-analyst
 description: Validate architectural integrity, design patterns, and system consistency in code changes
-tools: Read, Grep, Glob, Bash
-model: sonnet
+tools: [Read, Grep, Glob, Bash]
 color: blue
 ---
 

@@ -1,7 +1,7 @@
 ---
+name: gemini-orchestrator
 argument-hint: [complexity-score] [focus-area]
 description: Orchestrates AI-to-AI discussions with Gemini for architecture reviews, security analysis, and complex problem solving.
-model: sonnet
 color: purple
 ---
 

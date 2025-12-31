@@ -1,7 +1,8 @@
 ---
+name: pattern-discovery
 argument-hint: [directory-or-scope]
 description: Mines codebase to discover new reusable patterns (3+ occurrences). Use after successful implementations to build pattern library.
-model: sonnet
+color: cyan
 ---
 
 # Pattern Discovery - Codebase Mining Specialist

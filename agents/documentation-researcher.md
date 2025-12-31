@@ -1,7 +1,7 @@
 ---
+name: documentation-researcher
 argument-hint: [task-description-or-context]
 description: Searches project markdown documentation for relevant context, past decisions, and historical learnings
-model: sonnet
 color: blue
 ---
 

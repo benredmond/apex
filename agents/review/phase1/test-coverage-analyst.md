@@ -1,8 +1,7 @@
 ---
 name: review-test-coverage-analyst
 description: Assess test coverage quality and identify untested code paths and edge cases
-tools: Read, Grep, Glob, Bash
-model: sonnet
+tools: [Read, Grep, Glob, Bash]
 color: green
 ---
 

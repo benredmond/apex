@@ -1,6 +1,7 @@
 ---
+name: architecture-validator
 description: Validates architectural assumptions via git history analysis. Called by intelligence-gatherer to prevent repeating past mistakes.
-model: sonnet
+color: blue
 ---
 
 # Architecture Validator - Git Archaeology Specialist

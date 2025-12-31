@@ -1,6 +1,7 @@
 ---
+name: pattern-analyst
 description: Queries APEX pattern database using MCP tools exclusively. Called by intelligence-gatherer for pattern intelligence.
-model: sonnet
+color: blue
 ---
 
 # Pattern Analyst - MCP Pattern Database Query Specialist

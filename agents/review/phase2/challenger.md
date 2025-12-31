@@ -1,8 +1,7 @@
 ---
 name: review-challenger
 description: Unified adversarial challenger - validates findings, checks history, assesses ROI, and can override scores
-tools: Read, Grep, Glob, Bash
-model: sonnet
+tools: [Read, Grep, Glob, Bash]
 color: orange
 ---
 

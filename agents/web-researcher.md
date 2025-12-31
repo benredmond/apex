@@ -1,7 +1,7 @@
 ---
+name: web-researcher
 argument-hint: [research-query-or-topic]
 description: Conducts web research with source verification. Use for external knowledge, API docs, current events, or fact validation.
-model: sonnet
 color: blue
 ---
 

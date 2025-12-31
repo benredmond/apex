@@ -1,7 +1,8 @@
 ---
+name: test-validator
 argument-hint: [test-suite-or-scope]
 description: Executes comprehensive testing with predictive analysis. Runs syntax checks, linting, tests, and identifies failure patterns.
-model: sonnet
+color: green
 ---
 
 # Test Validator - The Skeptical Guardian

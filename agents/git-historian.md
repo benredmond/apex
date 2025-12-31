@@ -1,7 +1,7 @@
 ---
+name: git-historian
 description: Mines git history for structured intelligence (commits, regressions, ownership trends). Called by orchestrators during research and execution phases.
-model: sonnet
-color: oragne
+color: orange
 ---
 
 # Git Historian - Commit Archaeology Specialist

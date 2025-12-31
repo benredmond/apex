@@ -1,7 +1,7 @@
 ---
+name: systems-researcher
 argument-hint: [component-or-system-name]
 description: Analyzes complex systems to map dependencies, trace execution flows, and explain architectural relationships.
-model: sonnet
 color: green
 ---
 

@@ -1,7 +1,7 @@
 ---
+name: quality-reviewer
 argument-hint: [task-id-or-scope]
 description: Performs multi-lens code review (correctness, maintainability, resilience, patterns). Use before PR or at milestones.
-model: sonnet
 color: orange
 ---
 

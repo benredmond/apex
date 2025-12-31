@@ -1,7 +1,7 @@
 ---
+name: intelligence-gatherer
 argument-hint: [task-id]
 description: Orchestrates comprehensive intelligence gathering and context assembly for task execution, coordinating parallel subagent calls to create a unified context pack.
-model: sonnet
 color: purple
 ---
 

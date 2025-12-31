@@ -1,6 +1,7 @@
 ---
+name: failure-predictor
 description: Predicts likely failures from historical patterns (failures.jsonl). Called by intelligence-gatherer for risk analysis.
-model: sonnet
+color: yellow
 ---
 
 # Failure Predictor - Historical Risk Analysis

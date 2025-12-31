@@ -1,7 +1,7 @@
 ---
+name: implementation-pattern-extractor
 argument-hint: [task-description-or-context]
 description: Extracts concrete implementation patterns from the current codebase with file:line references and reusable code examples
-model: sonnet
 color: green
 ---
 

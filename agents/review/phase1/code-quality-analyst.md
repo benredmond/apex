@@ -1,8 +1,7 @@
 ---
 name: review-code-quality-analyst
 description: Assess code readability, maintainability, complexity, and adherence to coding standards
-tools: Read, Grep, Glob, Bash
-model: sonnet
+tools: [Read, Grep, Glob, Bash]
 color: cyan
 ---
 

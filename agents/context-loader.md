@@ -1,6 +1,7 @@
 ---
+name: context-loader
 description: Loads relevant code context with token budget management. Called by intelligence-gatherer, not typically invoked directly.
-model: sonnet
+color: green
 ---
 
 # Context Loader - Token-Optimized File Loading

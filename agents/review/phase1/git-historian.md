@@ -1,8 +1,7 @@
 ---
 name: review-git-historian
 description: Analyze git history for pattern violations, regressions, and codebase inconsistencies
-tools: Read, Grep, Glob, Bash
-model: sonnet
+tools: [Read, Grep, Glob, Bash]
 color: purple
 ---
 
