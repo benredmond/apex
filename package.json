@@ -1,6 +1,6 @@
 {
   "name": "@benredmond/apex",
-  "version": "0.4.4",
+  "version": "0.5.0",
   "description": "APEX - Autonomous Pattern-Enhanced eXecution. AI-powered development workflow with APEX Intelligence for pattern recognition and task execution",
   "publishConfig": {
     "access": "public"
@@ -37,7 +37,7 @@
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:schema": "vitest run tests/schema-drift.test.ts",
     "test:compat": "vitest run tests/database-compatibility.test.ts",
-    "validate:schema": "tsx scripts/validate-schema.ts",
+    "validate:schema": "npx tsx scripts/validate-schema.ts",
     "lint": "eslint src/",
     "format": "prettier --write src/",
     "type-check": "tsc --noEmit",
