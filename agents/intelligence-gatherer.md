@@ -1,7 +1,7 @@
 ---
 name: intelligence-gatherer
 argument-hint: [task-id]
-description: Orchestrates comprehensive intelligence gathering and context assembly for task execution, coordinating parallel subagent calls to create a unified context pack.
+description: Queries APEX MCP tools for patterns and task context, loads relevant code files, and synthesizes execution strategy. Focused on APEX database intelligence - git/risk/systems analysis handled by dedicated agents.
 color: purple
 ---
 
@@ -546,9 +546,9 @@ if identified_components_or_themes:
 - `apex_task_find_similar`: When context shows gaps in similar task coverage
 - `apex_task_find`: When specific component/theme patterns need investigation
 
-### Phase 2: Direct Intelligence Gathering
+### Phase 2: Focused Intelligence Gathering
 
-Execute these operations directly (subagents cannot spawn other subagents):
+Execute these operations directly. Other agents handle git archaeology (git-historian), failure prediction (failure-predictor/risk-analyst), and systems research (systems-researcher).
 
 #### 2A. Pattern Analysis (MCP Tools Only)
 
@@ -606,52 +606,7 @@ if critical_pattern:
 
 For each file, document: path, tokens, relevance, purpose, key_sections.
 
-#### 2C. Architecture Validation (Git Archaeology)
-
-**Execute in parallel**:
-```bash
-# Find when system was introduced
-git log -S "system_name" --oneline
-
-# Check for replacements
-git log --grep="switch\|change\|replace\|migrate" --oneline -20
-
-# Find removal commits
-git log --diff-filter=D --summary | grep "delete mode"
-```
-
-**Red Flags** (set validation_status to "blocked" if found):
-- 🚨 Current state from reverting previous change
-- 🚨 Task implements something previously removed
-- 🚨 Hidden dependencies not in task description
-- 🚨 Conflicting architectural decisions
-
-**Assumption Verification**: For each assumption, find evidence via git blame/log and calculate confidence.
-
-#### 2D. Failure Prediction
-
-**Search failures.jsonl** for patterns matching:
-- Similar component names
-- Similar error types
-- Related file paths
-
-**For each predicted failure**:
-- pattern: What typically fails
-- probability: 0.0-1.0
-- impact: low|medium|high|critical
-- prevention: How to avoid
-- detection: How to spot early
-
-#### 2E. Systems Research
-
-**Trace for affected components**:
-1. Execution flows (entry points → exit points)
-2. Data flows (inputs → transformations → outputs)
-3. State management (where state lives, how it changes)
-4. Side effects (external calls, file writes, DB updates)
-5. Hidden dependencies (implicit requirements)
-
-#### 2F. Strategy Synthesis
+#### 2C. Strategy Synthesis
 
 After gathering all intelligence:
 1. Merge and deduplicate findings
