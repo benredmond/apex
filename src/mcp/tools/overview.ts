@@ -126,10 +126,8 @@ export interface OverviewResponse {
  * Provides filterable, paginated overview of all patterns
  */
 export class PatternOverviewService {
-  private statsCache: Map<
-    string,
-    { stats: OverviewStats; timestamp: number }
-  > = new Map();
+  private statsCache: Map<string, { stats: OverviewStats; timestamp: number }> =
+    new Map();
   private readonly STATS_CACHE_TTL = 60000; // 1 minute
   private rateLimiter: RateLimiter;
 
@@ -314,7 +312,11 @@ export class PatternOverviewService {
       "updated_at",
     ];
     const orderBy = supportedOrderByFields.includes(request.order_by)
-      ? (request.order_by as "trust_score" | "usage_count" | "created_at" | "updated_at")
+      ? (request.order_by as
+          | "trust_score"
+          | "usage_count"
+          | "created_at"
+          | "updated_at")
       : "trust_score";
 
     const options: ListOptions = {

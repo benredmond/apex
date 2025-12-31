@@ -385,7 +385,8 @@ export function getToolsList(): Tool[] {
     },
     {
       name: "apex_patterns_overview",
-      description: "Get filterable, paginated list of patterns with optional statistics",
+      description:
+        "Get filterable, paginated list of patterns with optional statistics",
       inputSchema: generateToolSchema(
         OverviewRequestSchema,
         "OverviewRequest",
