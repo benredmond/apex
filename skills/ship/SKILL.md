@@ -1,0 +1,359 @@
+---
+name: ship
+description: Review and finalize (REVIEWER + DOCUMENTER phases) - runs adversarial code review, commits changes, completes task, and submits reflection to update pattern trust scores.
+argument-hint: [task-identifier]
+---
+
+<skill name="apex:ship" phase="ship">
+
+<overview>
+Final phase: Review implementation with adversarial agents, commit changes, complete task, and submit reflection.
+
+Combines REVIEWER (adversarial code review) and DOCUMENTER (commit, complete, reflect).
+</overview>
+
+<phase-gate requires="implement" sets="complete">
+  <reads-file>./.apex/tasks/[ID].md</reads-file>
+  <requires-section>implementation</requires-section>
+  <appends-section>ship</appends-section>
+</phase-gate>
+
+<mandatory-actions>
+This phase requires THREE mandatory actions in order:
+1. **Adversarial Review** - Launch review agents
+2. **Git Commit** - Commit all changes
+3. **apex_reflect** - Submit pattern outcomes
+
+YOU CANNOT SKIP ANY OF THESE.
+</mandatory-actions>
+
+<initial-response>
+<if-no-arguments>
+I'll review and finalize the implementation. Please provide the task identifier.
+
+You can find active tasks in `./.apex/tasks/` or run with:
+`/apex ship [identifier]`
+</if-no-arguments>
+<if-arguments>Load task file and begin review.</if-arguments>
+</initial-response>
+
+<workflow>
+
+<step id="1" title="Load task and verify phase">
+<instructions>
+1. Read `./.apex/tasks/[identifier].md`
+2. Verify frontmatter `phase: implement`
+3. Parse all sections for full context
+4. If phase != implement, refuse with: "Task is in [phase] phase. Expected: implement"
+</instructions>
+</step>
+
+<step id="2" title="Gather review context">
+<extract>
+- `<implementation><files-modified>` - What changed
+- `<implementation><files-created>` - What's new
+- `<implementation><patterns-used>` - Patterns to validate
+- `<implementation><validation-results>` - Test status
+- `<implementation><reviewer-handoff>` - Key points for review
+- `<plan><architecture-decision>` - Original intentions
+- `<plan><warnings>` - Risks to verify mitigated
+</extract>
+
+<get-diffs>
+```bash
+git diff HEAD~N  # or appropriate range for this task's changes
+git log --oneline -10
+```
+</get-diffs>
+</step>
+
+<step id="3" title="Phase 1: Launch review agents">
+<critical>
+Launch ALL 5 Phase 1 agents in a SINGLE message for true parallelism.
+</critical>
+
+<agents parallel="true">
+
+<agent type="apex:review:phase1:review-security-analyst">
+**Task ID**: [taskId]
+**Code Changes**: [Full diff]
+**Journey Context**: Architecture warnings, implementation decisions, test results
+
+Review for security vulnerabilities. Return YAML with id, severity, confidence, location, issue, evidence, mitigations_found.
+</agent>
+
+<agent type="apex:review:phase1:review-performance-analyst">
+**Task ID**: [taskId]
+**Code Changes**: [Full diff]
+**Journey Context**: Architecture warnings, implementation decisions
+
+Review for performance issues. Return YAML findings.
+</agent>
+
+<agent type="apex:review:phase1:review-architecture-analyst">
+**Task ID**: [taskId]
+**Code Changes**: [Full diff]
+**Journey Context**: Original architecture from plan, pattern selections
+
+Review for architecture violations and pattern consistency. Return YAML findings.
+</agent>
+
+<agent type="apex:review:phase1:review-test-coverage-analyst">
+**Task ID**: [taskId]
+**Code Changes**: [Full diff]
+**Validation Results**: [From implementation section]
+
+Review for test coverage gaps. Return YAML findings.
+</agent>
+
+<agent type="apex:review:phase1:review-code-quality-analyst">
+**Task ID**: [taskId]
+**Code Changes**: [Full diff]
+**Journey Context**: Patterns applied, conventions followed
+
+Review for maintainability and code quality. Return YAML findings.
+</agent>
+
+</agents>
+
+<wait-for-all>WAIT for ALL 5 agents to complete before Phase 2.</wait-for-all>
+</step>
+
+<step id="4" title="Phase 2: Adversarial challenge">
+<agents parallel="true">
+
+<agent type="apex:review:phase2:review-challenger">
+**Phase 1 Findings**: [YAML from all 5 Phase 1 agents]
+**Original Code**: [Relevant snippets]
+**Journey Context**: Plan rationale, implementation justifications
+
+Challenge EVERY finding for:
+- Code accuracy (did Phase 1 read correctly?)
+- Pattern applicability (does framework prevent this?)
+- Evidence quality (Strong/Medium/Weak)
+
+Return: challenge_result (UPHELD|DOWNGRADED|DISMISSED), evidence_quality, recommended_confidence
+</agent>
+
+<agent type="apex:review:phase2:review-context-defender">
+**Phase 1 Findings**: [Findings affecting existing code]
+**Repository**: [Path and git info]
+
+Use git history to find justifications for seemingly problematic patterns.
+Return: Context justifications for historical code choices.
+</agent>
+
+</agents>
+
+<wait-for-all>WAIT for both agents to complete.</wait-for-all>
+</step>
+
+<step id="5" title="Synthesize review results">
+<confidence-adjustment>
+For each finding:
+  finalConfidence = phase1Confidence
+  finalConfidence *= challengeImpact  # UPHELD=1.0, DOWNGRADED=0.6, DISMISSED=0.2
+  finalConfidence *= (0.5 + evidence_score * 0.5)
+  if context_justified: finalConfidence *= 0.3
+</confidence-adjustment>
+
+<action-decision>
+- confidence < 0.3 → DISMISS
+- critical AND confidence > 0.5 → FIX_NOW
+- high AND confidence > 0.6 → FIX_NOW
+- confidence > 0.7 → SHOULD_FIX
+- else → NOTE
+</action-decision>
+
+<review-decision>
+- 0 FIX_NOW → APPROVE (proceed to commit)
+- 1-2 FIX_NOW minor → CONDITIONAL (fix or accept with docs)
+- 3+ FIX_NOW or critical security → REJECT (return to /apex implement)
+</review-decision>
+</step>
+
+<step id="6" title="Git commit">
+<critical>
+Commit BEFORE apex_reflect - reflection validates git evidence.
+</critical>
+
+<commands>
+```bash
+git status --short
+git add [relevant files]
+git commit -m "[Task ID]: [Description]
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+git log -1 --oneline  # Capture commit SHA
+```
+</commands>
+
+<checkpoint>Commit SHA captured for evidence.</checkpoint>
+</step>
+
+<step id="7" title="apex_task_complete">
+<call>
+```javascript
+apex_task_complete({
+  id: taskId,
+  outcome: "success" | "partial" | "failure",
+  key_learning: "Main lesson from this task",
+  patterns_used: ["PAT:ID:FROM:PLAN"]  // Only patterns from plan
+})
+```
+</call>
+
+<returns>ReflectionDraft - use as basis for apex_reflect</returns>
+</step>
+
+<step id="8" title="apex_reflect">
+<critical>
+YOU MUST CALL apex_reflect. THIS IS NOT OPTIONAL.
+
+Without apex_reflect:
+- Pattern trust scores don't update
+- Learnings aren't captured
+- Future tasks don't benefit
+</critical>
+
+<call>
+```javascript
+apex_reflect({
+  task: { id: taskId, title: taskTitle },
+  outcome: "success",
+  batch_patterns: [
+    {
+      pattern: "PAT:ID",  // Must exist in plan's pattern list
+      outcome: "worked-perfectly"  // or worked-with-tweaks, partial-success, failed-minor-issues, failed-completely
+    }
+  ]
+})
+```
+</call>
+
+<valid-outcomes>
+- "worked-perfectly" → 100% success
+- "worked-with-tweaks" → 70% success
+- "partial-success" → 50% success
+- "failed-minor-issues" → 30% success
+- "failed-completely" → 0% success
+</valid-outcomes>
+</step>
+
+<step id="9" title="Write ship section to task file">
+<output-format>
+Append to `<ship>` section:
+
+```xml
+<ship>
+<metadata>
+  <timestamp>[ISO]</timestamp>
+  <outcome>success|partial|failure</outcome>
+  <commit-sha>[SHA]</commit-sha>
+</metadata>
+
+<review-summary>
+  <phase1-findings count="X">
+    <by-severity critical="N" high="N" medium="N" low="N"/>
+    <by-agent security="N" performance="N" architecture="N" testing="N" quality="N"/>
+  </phase1-findings>
+  <phase2-challenges>
+    <upheld>N</upheld>
+    <downgraded>N</downgraded>
+    <dismissed>N</dismissed>
+  </phase2-challenges>
+  <false-positive-rate>[X%]</false-positive-rate>
+</review-summary>
+
+<action-items>
+  <fix-now>
+    <item id="[ID]" severity="[S]" confidence="[C]" location="[file:line]">
+      [Issue and fix]
+    </item>
+  </fix-now>
+  <should-fix>[Deferred items]</should-fix>
+  <accepted>[Accepted risks with justification]</accepted>
+  <dismissed>[False positives with reasons]</dismissed>
+</action-items>
+
+<commit>
+  <sha>[Full SHA]</sha>
+  <message>[Commit message]</message>
+  <files>[List of files]</files>
+</commit>
+
+<reflection>
+  <patterns-reported>
+    <pattern id="PAT:X:Y" outcome="[outcome]"/>
+  </patterns-reported>
+  <key-learning>[Main lesson]</key-learning>
+  <apex-reflect-status>submitted|failed</apex-reflect-status>
+</reflection>
+
+<final-summary>
+  <what-was-built>[Concise description]</what-was-built>
+  <patterns-applied count="N">[List]</patterns-applied>
+  <test-status passed="X" failed="Y"/>
+  <documentation-updated>[What docs changed]</documentation-updated>
+</final-summary>
+</ship>
+```
+</output-format>
+
+<update-frontmatter>
+Set `phase: complete`, `status: complete`, and `updated: [ISO timestamp]`
+</update-frontmatter>
+</step>
+
+<step id="10" title="Final report to user">
+<template>
+✅ **Task Complete**: [Title]
+
+📊 **Metrics**:
+- Complexity: [X]/10
+- Files modified: [N]
+- Files created: [N]
+- Tests: [passed]/[total]
+
+💬 **Summary**: [Concise description of what was built]
+
+📚 **Patterns**:
+- Applied: [N] patterns
+- Reflection: ✅ Submitted
+
+🔍 **Review**:
+- Phase 1 findings: [N]
+- Dismissed as false positives: [N] ([X]%)
+- Action items: [N] (all resolved)
+
+⏭️ **Next**: Task complete. No further action required.
+</template>
+</step>
+
+</workflow>
+
+<completion-verification>
+BEFORE reporting to user, verify ALL actions completed:
+
+- [ ] Phase 1 review agents launched and returned?
+- [ ] Phase 2 challenge agents launched and returned?
+- [ ] Git commit created? (verify with git log -1)
+- [ ] apex_task_complete called? (received ReflectionDraft?)
+- [ ] apex_reflect called? (received ok: true?)
+
+**If ANY unchecked → GO BACK AND COMPLETE IT.**
+</completion-verification>
+
+<success-criteria>
+- Adversarial review completed (8 agents total)
+- All FIX_NOW items resolved (or explicitly accepted)
+- Git commit created with proper message
+- apex_task_complete called
+- apex_reflect called and succeeded
+- Task file updated with complete ship section
+- Frontmatter shows phase: complete, status: complete
+</success-criteria>
+
+</skill>
