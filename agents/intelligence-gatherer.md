@@ -546,204 +546,120 @@ if identified_components_or_themes:
 - `apex_task_find_similar`: When context shows gaps in similar task coverage
 - `apex_task_find`: When specific component/theme patterns need investigation
 
-### Phase 2: Parallel Intelligence Gathering
+### Phase 2: Direct Intelligence Gathering
 
-Execute ALL operations in a single message for true parallelism:
+Execute these operations directly (subagents cannot spawn other subagents):
 
-```markdown
-<Task subagent_type="pattern-analyst" description="Deep pattern analysis">
-**Task ID**: [TASK_ID provided in prompt]
-**Task Brief**: [Enhanced task intent/brief from prompt]
-**Full Context**: [Complete task description, requirements, acceptance criteria]
+#### 2A. Pattern Analysis (MCP Tools Only)
 
-**CRITICAL ANTI-HALLUCINATION DIRECTIVE**:
+**CRITICAL**: Use ONLY MCP tools for pattern operations. NEVER fabricate patterns.
 
-- ONLY return patterns that actually exist in MCP tool responses
-- If NO patterns found, return: {"patterns_found": false, "reason": "No patterns in database"}
-- NEVER create example patterns or placeholder IDs
-- Report empty arrays as empty, not with fabricated content
+```python
+# 1. Primary pattern lookup
+patterns = mcp__apex_patterns_lookup(
+    task=task_description,
+    code_context={"current_file": file, "imports": imports},
+    project_signals={"language": lang, "framework": framework},
+    error_context=errors_if_any
+)
 
-**Required MCP Operations**:
+# 2. If patterns found, get semantic discovery for related patterns
+if patterns.results:
+    discovered = mcp__apex_patterns_discover(
+        query="natural language description",
+        context={"current_errors": errors, "current_file": file}
+    )
 
-1. Call `mcp__apex-mcp__apex_patterns_lookup` with comprehensive context:
-   - task: [detailed task description]
-   - current_file: [if applicable]
-   - framework: [detected framework]
-   - language: [primary language]
-   - error_context: [any errors mentioned]
-   - recent_errors: [from task description]
-
-2. ONLY IF patterns found in step 1:
-   Call `mcp__apex-mcp__apex_patterns_discover` for semantic search:
-   - Multiple queries for different aspects
-   - Include error messages as queries
-   - Search for similar functionality patterns
-   - Look for architectural patterns
-
-3. ONLY IF specific patterns exist:
-   Call `mcp__apex-mcp__apex_patterns_explain` for existing patterns:
-   - Get detailed explanations
-   - Understand application strategies
-   - Learn from previous uses
-
-**Analysis Requirements**:
-
-- Return ONLY patterns from actual MCP responses
-- If no patterns exist, explicitly state this fact
-- Never fill gaps with invented patterns
-- Document actual relationships from MCP data only
-- When no patterns found, suggest manual implementation approach
-
-**Return Structure**:
-
-- patterns_found: boolean (true/false based on actual MCP results)
-- total_patterns: number (actual count from MCP)
-- architecture: [] (ONLY ARCH:\* patterns from MCP - empty if none)
-- implementation: [] (ONLY PAT:\* patterns from MCP - empty if none)
-- testing: [] (ONLY PAT:TEST:\* patterns from MCP - empty if none)
-- fixes: [] (ONLY FIX:\* patterns from MCP - empty if none)
-- anti_patterns: [] (ONLY ANTI:\* patterns from MCP - empty if none)
-- fallback_strategy: (when patterns_found=false)
-  - no_patterns_reason: string
-  - recommended_approach: string
-  - manual_discovery_needed: boolean
-  - overview_snapshot:
-      top_patterns: [] # Up to 5 high-trust patterns from overview response (id, title, trust_score, updated_at)
-      stats: {} # Key stats (totals, avg_trust_score, recently_updated) from overview response
-    </Task>
-
-<Task subagent_type="context-loader" description="Comprehensive context loading">
-**Task ID**: [TASK_ID provided in prompt]
-**Task Brief**: [Enhanced task brief from prompt]
-**Requirements**: [Full requirements and acceptance criteria]
-
-**Context Loading Strategy**:
-
-1. Primary targets (files to modify)
-2. Dependencies (files that import/use targets)
-3. Consumers (files that depend on targets)
-4. Tests (existing test coverage)
-5. Configuration (build, lint, format settings)
-6. Documentation (architecture, API contracts)
-7. Examples (similar implementations)
-
-**For Each File**:
-
-- Calculate precise relevance score
-- Identify key sections and line ranges
-- Document modification strategy
-- Note relationships to other files
-- Extract critical patterns and conventions
-
-**Quality Checks**:
-
-- Ensure all acceptance criteria have context
-- Verify test coverage for changes
-- Check for configuration constraints
-- Identify missing dependencies
-
-**Return**: Complete loaded_context structure with all categories
-</Task>
-
-<Task subagent_type="architecture-validator" description="Deep validation and archaeology">
-**Task ID**: [TASK_ID provided in prompt]
-**Task Brief**: [Enhanced task brief from prompt]
-**Planned Changes**: [What will be modified based on brief]
-
-**Validation Operations**:
-
-1. Git archaeology:
-   - Trace component history
-   - Find previous attempts
-   - Identify rollbacks and their reasons
-   - Discover technical debt
-
-2. Assumption verification:
-   - Test each assumption with evidence
-   - Calculate confidence levels
-   - Identify risks if assumptions wrong
-
-3. Dependency analysis:
-   - Check all internal dependencies
-   - Verify external library status
-   - Identify version constraints
-   - Check for deprecations
-
-4. System impact analysis:
-   - Map change propagation
-   - Identify affected consumers
-   - Check for breaking changes
-   - Verify backwards compatibility
-
-**Return**: Complete validation_results and system_evolution
-</Task>
-
-<Task subagent_type="failure-predictor" description="Predictive failure analysis">
-**Task ID**: [TASK_ID provided in prompt]
-**Task Brief**: [Enhanced task brief from prompt]
-**Implementation Plan**: [Planned approach based on brief]
-
-**Failure Prediction**:
-
-1. Historical analysis:
-   - Search failures.jsonl for patterns
-   - Match against similar tasks
-   - Identify recurring issues
-
-2. Risk assessment:
-   - Calculate failure probabilities
-   - Assess impact levels
-   - Determine detection methods
-
-3. Prevention planning:
-   - Map each risk to prevention strategy
-   - Link to patterns that prevent failures
-   - Define recovery procedures
-
-4. Edge case analysis:
-   - Identify boundary conditions
-   - Check for race conditions
-   - Verify error handling
-   - Test resource constraints
-
-**Return**: Complete failure_analysis with predictions and preventions
-</Task>
-
-<Task subagent_type="systems-researcher" description="Deep system understanding">
-**Task ID**: [TASK_ID provided in prompt]
-**Task Brief**: [Enhanced task brief from prompt]
-**Focus Area**: [Component or system to research based on brief]
-
-**Research Operations**:
-
-1. Trace execution flows
-2. Map data flows
-3. Identify state management
-4. Document side effects
-5. Find hidden dependencies
-6. Discover undocumented behaviors
-
-**Return**: System insights and hidden complexities
-</Task>
-
-<Task description="Strategic planning">
-**Task ID**: [TASK_ID provided in prompt]
-**Task Brief**: [Enhanced task brief from prompt]
-**Intelligence Gathered**: [Summary of findings]
-
-**Strategy Development**:
-
-1. Synthesize all intelligence
-2. Design optimal approach
-3. Sequence implementation steps
-4. Plan validation methods
-5. Prepare Gemini prompts if needed
-6. Identify parallelization opportunities
-7. Create risk mitigation plans
-
-**Return**: Complete execution_strategy structure
-</Task>
+# 3. For critical patterns, get detailed explanations
+if critical_pattern:
+    explanation = mcp__apex_patterns_explain(
+        pattern_id="PAT:CATEGORY:NAME",
+        verbosity="detailed"
+    )
 ```
+
+**Anti-Hallucination Rules**:
+- Return ONLY patterns from actual MCP responses
+- If NO patterns found: `{"patterns_found": false, "reason": "No patterns in database"}`
+- NEVER create example patterns or placeholder IDs
+- Empty arrays are valid - don't fill with fabricated content
+
+#### 2B. Context Loading (Token-Optimized)
+
+**Task Classification Keywords**:
+- test_fix: "test", "fix test", "test failure", "coverage"
+- feature_implementation: "implement", "add", "create feature"
+- bug_fix: "fix", "error", "bug", "issue"
+- refactor: "refactor", "improve", "optimize"
+
+**Loading Strategy** (30k token budget):
+1. Start with primary files (direct implementation targets)
+2. Add dependencies (files that import/use targets)
+3. Include tests (existing test coverage)
+4. Add configuration (build, lint, format settings)
+5. Stop at 24,000 tokens (80% of budget)
+
+**Relevance Scoring**:
+- Direct mention in task: 0.9-1.0
+- Related component: 0.7-0.8
+- General pattern/convention: 0.5-0.6
+
+For each file, document: path, tokens, relevance, purpose, key_sections.
+
+#### 2C. Architecture Validation (Git Archaeology)
+
+**Execute in parallel**:
+```bash
+# Find when system was introduced
+git log -S "system_name" --oneline
+
+# Check for replacements
+git log --grep="switch\|change\|replace\|migrate" --oneline -20
+
+# Find removal commits
+git log --diff-filter=D --summary | grep "delete mode"
+```
+
+**Red Flags** (set validation_status to "blocked" if found):
+- 🚨 Current state from reverting previous change
+- 🚨 Task implements something previously removed
+- 🚨 Hidden dependencies not in task description
+- 🚨 Conflicting architectural decisions
+
+**Assumption Verification**: For each assumption, find evidence via git blame/log and calculate confidence.
+
+#### 2D. Failure Prediction
+
+**Search failures.jsonl** for patterns matching:
+- Similar component names
+- Similar error types
+- Related file paths
+
+**For each predicted failure**:
+- pattern: What typically fails
+- probability: 0.0-1.0
+- impact: low|medium|high|critical
+- prevention: How to avoid
+- detection: How to spot early
+
+#### 2E. Systems Research
+
+**Trace for affected components**:
+1. Execution flows (entry points → exit points)
+2. Data flows (inputs → transformations → outputs)
+3. State management (where state lives, how it changes)
+4. Side effects (external calls, file writes, DB updates)
+5. Hidden dependencies (implicit requirements)
+
+#### 2F. Strategy Synthesis
+
+After gathering all intelligence:
+1. Merge and deduplicate findings
+2. Cross-reference patterns to similar tasks
+3. Calculate overall confidence score
+4. Sequence implementation steps
+5. Plan validation methods
+6. Create risk mitigation plans
 
 ### Phase 3: Intelligence Synthesis
 
