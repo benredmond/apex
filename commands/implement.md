@@ -1,5 +1,5 @@
 ---
-name: implement
+name: apex:implement
 description: Run APEX implement phase - build and validate code
 argument-hint: [task-identifier]
 ---

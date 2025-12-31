@@ -8,7 +8,7 @@ This plugin provides:
 
 - **MCP Server**: 13 intelligent tools for pattern discovery, task tracking, and reflection
 - **6 Skills**: Workflow phases (research, plan, implement, ship, execute) + MCP reference guide
-- **6 Slash Commands**: `/research`, `/plan`, `/implement`, `/ship`, `/execute`, `/review-pr`
+- **6 Slash Commands**: `/apex:research`, `/apex:plan`, `/apex:implement`, `/apex:ship`, `/apex:execute`, `/apex:review-pr`
 - **12 Agents**: Specialized AI agents for intelligence gathering, code review, and analysis
 
 ## Features
@@ -50,12 +50,12 @@ Skills provide workflow guidance and are auto-triggered based on context:
 ### Slash Commands (6 Available)
 
 ```bash
-/research <task>      # Gather intelligence via parallel agents
-/plan <task-id>       # Transform research into architecture
-/implement <task-id>  # Build and validate code
-/ship <task-id>       # Review, commit, and reflect
-/execute <task>       # Run full workflow in sequence
-/review-pr            # Adversarial code review
+/apex:research <task>      # Gather intelligence via parallel agents
+/apex:plan <task-id>       # Transform research into architecture
+/apex:implement <task-id>  # Build and validate code
+/apex:ship <task-id>       # Review, commit, and reflect
+/apex:execute <task>       # Run full workflow in sequence
+/apex:review-pr            # Adversarial code review
 ```
 
 ### Agents (12 Available)
@@ -124,10 +124,10 @@ claude
 After restarting Claude Code:
 
 1. **Check MCP tools are available**: The APEX MCP server should start automatically
-2. **Verify commands loaded**: Type `/` and look for `/research`, `/plan`, `/implement`, `/ship`, `/execute`
+2. **Verify commands loaded**: Type `/` and look for `/apex:research`, `/apex:plan`, `/apex:implement`, `/apex:ship`, `/apex:execute`
 3. **Verify agents loaded**: Type `/agents` to see all 12 APEX agents listed
 4. **Verify skills loaded**: All 6 skills auto-trigger based on workflow context
-5. **Test with a command**: Try `/execute "Write a hello world function"`
+5. **Test with a command**: Try `/apex:execute "Write a hello world function"`
 
 ## Usage
 
@@ -135,13 +135,13 @@ After restarting Claude Code:
 
 ```bash
 # Full workflow (recommended)
-/execute "Implement user authentication"
+/apex:execute "Implement user authentication"
 
 # Or step-by-step for more control
-/research "Implement user authentication"   # Creates task, gathers intel
-/plan T001                                   # Design architecture
-/implement T001                              # Build and test
-/ship T001                                   # Review, commit, reflect
+/apex:research "Implement user authentication"   # Creates task, gathers intel
+/apex:plan T001                                   # Design architecture
+/apex:implement T001                              # Build and test
+/apex:ship T001                                   # Review, commit, reflect
 ```
 
 ### Direct MCP Tool Usage
@@ -194,16 +194,16 @@ Skills and commands map to the APEX workflow:
 
 | Phase | Command | Skill | Key Agents |
 |-------|---------|-------|------------|
-| Research | `/research` | `research` | intelligence-gatherer, git-historian, systems-researcher |
-| Plan | `/plan` | `plan` | (interactive design with user) |
-| Implement | `/implement` | `implement` | pattern-discovery, test-validator |
-| Ship | `/ship` | `ship` | quality-reviewer, gemini-orchestrator |
+| Research | `/apex:research` | `research` | intelligence-gatherer, git-historian, systems-researcher |
+| Plan | `/apex:plan` | `plan` | (interactive design with user) |
+| Implement | `/apex:implement` | `implement` | pattern-discovery, test-validator |
+| Ship | `/apex:ship` | `ship` | quality-reviewer, gemini-orchestrator |
 
 ### How Components Work Together
 
 **Commands → Skills**
-- `/research` invokes the `research` skill which spawns parallel agents
-- `/execute` chains all 4 skills in sequence
+- `/apex:research` invokes the `research` skill which spawns parallel agents
+- `/apex:execute` chains all 4 skills in sequence
 
 **Skills → Agents**
 - `research` skill spawns 7 agents in parallel for intelligence gathering

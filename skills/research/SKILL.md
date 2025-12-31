@@ -124,15 +124,15 @@ status: active
 </research>
 
 <plan>
-<!-- Populated by /apex plan -->
+<!-- Populated by /apex:plan -->
 </plan>
 
 <implementation>
-<!-- Populated by /apex implement -->
+<!-- Populated by /apex:implement -->
 </implementation>
 
 <ship>
-<!-- Populated by /apex ship -->
+<!-- Populated by /apex:ship -->
 </ship>
 ```
 </instructions>
@@ -510,7 +510,7 @@ Append to `<research>` section:
 </recommendations>
 
 <next-steps>
-Run `/apex plan [identifier]` to create architecture from these findings.
+Run `/apex:plan [identifier]` to create architecture from these findings.
 </next-steps>
 </research>
 ```
@@ -542,7 +542,7 @@ Set `updated: [ISO timestamp]` and verify `phase: research`
 </success-criteria>
 
 <next-phase>
-`/apex plan [identifier]` - Architecture and design decisions
+`/apex:plan [identifier]` - Architecture and design decisions
 </next-phase>
 
 </skill>

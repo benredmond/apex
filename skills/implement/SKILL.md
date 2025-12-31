@@ -30,7 +30,7 @@ Combines BUILDER (write code) and VALIDATOR (run tests) in a tight loop.
 I'll implement the planned architecture. Please provide the task identifier.
 
 You can find active tasks in `./.apex/tasks/` or run with:
-`/apex implement [identifier]`
+`/apex:implement [identifier]`
 </if-no-arguments>
 <if-arguments>Load task file and begin implementation.</if-arguments>
 </initial-response>
@@ -269,7 +269,7 @@ Append to `<implementation>` section:
 </reviewer-handoff>
 
 <next-steps>
-Run `/apex ship [identifier]` to review and finalize.
+Run `/apex:ship [identifier]` to review and finalize.
 </next-steps>
 </implementation>
 ```
@@ -317,7 +317,7 @@ YOU CANNOT FABRICATE PATTERNS.
 
 Only claim patterns that exist in `<plan><patterns><applying>`.
 In `<patterns-used>`, only list patterns from the plan.
-Pattern IDs claimed here will be validated during `/apex ship`.
+Pattern IDs claimed here will be validated during `/apex:ship`.
 
 VIOLATION: Claiming "PAT:NEW:THING" that was never in the plan
 CONSEQUENCE: apex_reflect will reject, trust scores become meaningless
@@ -355,7 +355,7 @@ If implementation reveals spec ambiguity:
 </success-criteria>
 
 <next-phase>
-`/apex ship [identifier]` - Review, document, and reflect
+`/apex:ship [identifier]` - Review, document, and reflect
 </next-phase>
 
 </skill>

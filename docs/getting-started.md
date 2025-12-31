@@ -78,13 +78,13 @@ apex prime
 In Claude Code, use slash commands:
 ```bash
 # Full workflow (recommended)
-/execute "Add user authentication to the app"
+/apex:execute "Add user authentication to the app"
 
 # Or step-by-step
-/research "Add user authentication"   # Creates task, gathers intel
-/plan T001                            # Design architecture
-/implement T001                       # Build and test
-/ship T001                            # Review, commit, reflect
+/apex:research "Add user authentication"   # Creates task, gathers intel
+/apex:plan T001                            # Design architecture
+/apex:implement T001                       # Build and test
+/apex:ship T001                            # Review, commit, reflect
 ```
 
 APEX will:
@@ -97,26 +97,26 @@ APEX will:
 
 ## The APEX Workflow
 
-### Phase 1: Research (`/research`)
+### Phase 1: Research (`/apex:research`)
 Gather intelligence before coding:
 - **Parallel agents**: intelligence-gatherer, git-historian, systems-researcher
 - **Pattern lookup**: Find relevant patterns from database
 - **Similar tasks**: Learn from past implementations
 - **Creates**: Task file at `.apex/tasks/T001.md`
 
-### Phase 2: Plan (`/plan`)
+### Phase 2: Plan (`/apex:plan`)
 Design the architecture:
 - **5 artifacts**: Chain of Thought, Tree of Thought, Chain of Draft, YAGNI, Pattern Selection
 - **Interactive**: Review and refine with user
 - **Appends**: Plan section to task file
 
-### Phase 3: Implement (`/implement`)
+### Phase 3: Implement (`/apex:implement`)
 Build and validate:
 - **Pattern-guided**: Apply trusted patterns
 - **Test loop**: Build → test → iterate until green
 - **Evidence tracking**: Log decisions and outcomes
 
-### Phase 4: Ship (`/ship`)
+### Phase 4: Ship (`/apex:ship`)
 Review and finalize:
 - **Adversarial review**: quality-reviewer agent
 - **Commit**: With contextual message
@@ -178,7 +178,7 @@ Edit `.apex/config.json`:
 
 ### Patterns not being applied
 - Check pattern trust score with `apex patterns list`
-- Ensure you complete workflows with `/ship` to update trust scores
+- Ensure you complete workflows with `/apex:ship` to update trust scores
 - Verify MCP server is running: `apex mcp info`
 
 ### MCP tools not responding

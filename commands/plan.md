@@ -1,5 +1,5 @@
 ---
-name: plan
+name: apex:plan
 description: Run APEX plan phase - transform research into architecture
 argument-hint: [task-identifier]
 ---

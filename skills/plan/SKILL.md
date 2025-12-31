@@ -31,7 +31,7 @@ Produces 5 mandatory artifacts: Chain of Thought, Tree of Thought, Chain of Draf
 I'll create a rigorous technical architecture. Please provide the task identifier.
 
 You can find active tasks in `./.apex/tasks/` or run with:
-`/apex plan [identifier]`
+`/apex:plan [identifier]`
 </if-no-arguments>
 <if-arguments>Load task file and begin architecture process.</if-arguments>
 </initial-response>
@@ -354,7 +354,7 @@ Append to `<plan>` section:
 </builder-handoff>
 
 <next-steps>
-Run `/apex implement [identifier]` to begin implementation.
+Run `/apex:implement [identifier]` to begin implementation.
 </next-steps>
 </plan>
 ```
@@ -419,7 +419,7 @@ apex_task_checkpoint(taskId, "ARCHITECT: Architecture complete, ready for BUILDE
 </success-criteria>
 
 <next-phase>
-`/apex implement [identifier]` - Build and validate loop
+`/apex:implement [identifier]` - Build and validate loop
 </next-phase>
 
 </skill>

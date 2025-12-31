@@ -84,12 +84,12 @@ apex mcp install        # Setup MCP integration
 
 ### 🚀 Workflow Commands (Claude Code Plugin)
 ```bash
-/research <task>        # Gather intelligence via parallel agents
-/plan <task-id>         # Transform research into architecture
-/implement <task-id>    # Build and validate code
-/ship <task-id>         # Review, commit, and reflect
-/execute <task>         # Run full workflow (research → plan → implement → ship)
-/review-pr              # Adversarial code review
+/apex:research <task>     # Gather intelligence via parallel agents
+/apex:plan <task-id>      # Transform research into architecture
+/apex:implement <task-id> # Build and validate code
+/apex:ship <task-id>      # Review, commit, and reflect
+/apex:execute <task>      # Run full workflow (research → plan → implement → ship)
+/apex:review-pr           # Adversarial code review
 ```
 
 ## Your First APEX Workflow
@@ -101,16 +101,16 @@ Let's fix a bug using APEX intelligence:
 npx @benredmond/apex start
 
 # 2. In Claude Code, run the full workflow
-/execute "Fix authentication test timeout error"
+/apex:execute "Fix authentication test timeout error"
 ```
 
 Or step-by-step for more control:
 
 ```bash
-/research "Fix authentication test timeout error"  # Creates task, gathers intel
-/plan T001                                         # Design the fix
-/implement T001                                    # Build and test
-/ship T001                                         # Review, commit, reflect
+/apex:research "Fix authentication test timeout error"  # Creates task, gathers intel
+/apex:plan T001                                         # Design the fix
+/apex:implement T001                                    # Build and test
+/apex:ship T001                                         # Review, commit, reflect
 ```
 
 ### What APEX Does Behind the Scenes
@@ -164,10 +164,10 @@ const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
 Every task follows a proven methodology via skills and commands:
 
 ```
-/research → /plan → /implement → /ship
-    ↓          ↓          ↓          ↓
- Gather    Architect    Build     Review &
- Intel     Design       & Test    Reflect
+/apex:research → /apex:plan → /apex:implement → /apex:ship
+       ↓              ↓              ↓              ↓
+    Gather       Architect        Build        Review &
+    Intel         Design         & Test        Reflect
 ```
 
 Each phase is powered by specialized agents and MCP tools:
@@ -196,13 +196,13 @@ Organize work the way you think:
 
 ```bash
 # Run full workflow
-/execute "Fix flaky user creation test"
+/apex:execute "Fix flaky user creation test"
 
 # Or step by step:
-/research "Fix flaky user creation test"   # → Creates T001
-/plan T001
-/implement T001
-/ship T001
+/apex:research "Fix flaky user creation test"   # → Creates T001
+/apex:plan T001
+/apex:implement T001
+/apex:ship T001
 ```
 
 **APEX in Action:**
@@ -232,7 +232,7 @@ Organize work the way you think:
 **Scenario**: Add email notifications to your application.
 
 ```bash
-/execute "Add email notification system with SendGrid"
+/apex:execute "Add email notification system with SendGrid"
 ```
 
 **APEX Intelligence Throughout:**
@@ -263,10 +263,10 @@ Organize work the way you think:
 **Scenario**: Modernize callback-based code to async/await.
 
 ```bash
-/research "Refactor payment.js from callbacks to async/await"
-/plan T001
-/implement T001
-/ship T001
+/apex:research "Refactor payment.js from callbacks to async/await"
+/apex:plan T001
+/apex:implement T001
+/apex:ship T001
 ```
 
 **Pattern Discovery in Action:**
@@ -298,20 +298,20 @@ Organize work the way you think:
 The primary workflow uses 4 phase-based commands:
 
 ```bash
-/research <task-description>    # Phase 1: Spawn agents, gather intelligence
-/plan <task-id>                 # Phase 2: Design architecture with 5 artifacts
-/implement <task-id>            # Phase 3: Build code, run tests, iterate
-/ship <task-id>                 # Phase 4: Review, commit, reflect
+/apex:research <task-description>    # Phase 1: Spawn agents, gather intelligence
+/apex:plan <task-id>                 # Phase 2: Design architecture with 5 artifacts
+/apex:implement <task-id>            # Phase 3: Build code, run tests, iterate
+/apex:ship <task-id>                 # Phase 4: Review, commit, reflect
 ```
 
 Or run all phases in sequence:
 ```bash
-/execute <task-description>     # Full workflow: research → plan → implement → ship
+/apex:execute <task-description>     # Full workflow: research → plan → implement → ship
 ```
 
 ### ✅ Quality Commands
 ```bash
-/review-pr                      # Adversarial code review with specialized agents
+/apex:review-pr                      # Adversarial code review with specialized agents
 ```
 
 ### ⚙️ CLI Commands (Terminal)
@@ -403,11 +403,11 @@ your-project/
 │   ├── systems-researcher.md       # Codebase deep dives
 │   └── ...                         # And 9 more
 └── commands/                       # Slash commands
-    ├── research.md                 # /research
-    ├── plan.md                     # /plan
-    ├── implement.md                # /implement
-    ├── ship.md                     # /ship
-    └── execute.md                  # /execute
+    ├── research.md                 # /apex:research
+    ├── plan.md                     # /apex:plan
+    ├── implement.md                # /apex:implement
+    ├── ship.md                     # /apex:ship
+    └── execute.md                  # /apex:execute
 ```
 
 ## Troubleshooting
@@ -416,7 +416,7 @@ your-project/
 
 **Skills/commands not appearing in Claude Code**
 - Verify plugin is installed: `/plugins` in Claude Code
-- Reinstall: `/plugins install apex@apex`
+- Reinstall: `/plugins install apex`
 - Check MCP server: `apex mcp info`
 
 **Patterns not being applied**

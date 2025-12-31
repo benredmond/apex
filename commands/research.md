@@ -1,5 +1,5 @@
 ---
-name: research
+name: apex:research
 description: Run APEX research phase - gather intelligence via parallel agents
 argument-hint: [task-description|ticket-id|file-path|task-id]
 ---

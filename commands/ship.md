@@ -1,5 +1,5 @@
 ---
-name: ship
+name: apex:ship
 description: Run APEX ship phase - review, commit, and reflect
 argument-hint: [task-identifier]
 ---

@@ -32,7 +32,7 @@ YOU CANNOT SKIP ANY OF THESE.
 I'll review and finalize the implementation. Please provide the task identifier.
 
 You can find active tasks in `./.apex/tasks/` or run with:
-`/apex ship [identifier]`
+`/apex:ship [identifier]`
 </if-no-arguments>
 <if-arguments>Load task file and begin review.</if-arguments>
 </initial-response>
@@ -174,7 +174,7 @@ For each finding:
 <review-decision>
 - 0 FIX_NOW → APPROVE (proceed to commit)
 - 1-2 FIX_NOW minor → CONDITIONAL (fix or accept with docs)
-- 3+ FIX_NOW or critical security → REJECT (return to /apex implement)
+- 3+ FIX_NOW or critical security → REJECT (return to /apex:implement)
 </review-decision>
 </step>
 

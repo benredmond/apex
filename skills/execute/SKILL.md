@@ -9,10 +9,10 @@ argument-hint: [task-description|ticket-id|file-path]
 <overview>
 Meta-skill that chains all 4 APEX phases in sequence:
 
-1. `/apex research` - Intelligence gathering
-2. `/apex plan` - Architecture design
-3. `/apex implement` - Build and validate
-4. `/apex ship` - Review and reflect
+1. `/apex:research` - Intelligence gathering
+2. `/apex:plan` - Architecture design
+3. `/apex:implement` - Build and validate
+4. `/apex:ship` - Review and reflect
 
 Use this for single-session task completion. For multi-session work, invoke individual skills.
 </overview>
@@ -37,7 +37,7 @@ I'll run the full APEX workflow. Please provide:
 - Ticket ID (e.g., "APE-59")
 - Path to task file
 
-Example: `/apex execute "add user authentication"`
+Example: `/apex:execute "add user authentication"`
 </if-no-arguments>
 <if-arguments>Begin full workflow.</if-arguments>
 </initial-response>
@@ -83,7 +83,7 @@ Plan phase is interactive. If user input needed:
 </on-needs-input>
 
 <on-failure>
-Stop and report: "Plan phase failed. Run `/apex plan [identifier]` to retry."
+Stop and report: "Plan phase failed. Run `/apex:plan [identifier]` to retry."
 </on-failure>
 </step>
 
@@ -119,7 +119,7 @@ Pass the identifier.
 </verify>
 
 <on-failure>
-Stop and report: "Ship phase failed. Run `/apex ship [identifier]` to retry."
+Stop and report: "Ship phase failed. Run `/apex:ship [identifier]` to retry."
 </on-failure>
 </step>
 
@@ -157,7 +157,7 @@ Task complete. Full history in `./.apex/tasks/[identifier].md`
 If any phase fails:
 1. Report which phase failed
 2. Report current state of task file
-3. Suggest manual intervention: "Run `/apex [phase] [identifier]` to retry"
+3. Suggest manual intervention: "Run `/apex:[phase] [identifier]` to retry"
 4. Do NOT continue to next phase
 </phase-failure>
 

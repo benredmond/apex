@@ -1,5 +1,5 @@
 ---
-name: execute
+name: apex:execute
 description: Run full APEX workflow (research -> plan -> implement -> ship)
 argument-hint: [task-description|ticket-id|file-path]
 ---
