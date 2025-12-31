@@ -131,8 +131,14 @@ Challenge EVERY finding for:
 - Code accuracy (did Phase 1 read correctly?)
 - Pattern applicability (does framework prevent this?)
 - Evidence quality (Strong/Medium/Weak)
+- ROI Analysis:
+  - fix_effort: trivial | minor | moderate | significant | major
+  - benefit_type: security | reliability | performance | maintainability | correctness
+  - roi_score: 0.0-1.0 (benefit / effort ratio)
+  - override_decision: pull_forward | keep | push_back
+  - override_reason: [Why changing priority]
 
-Return: challenge_result (UPHELD|DOWNGRADED|DISMISSED), evidence_quality, recommended_confidence
+Return: challenge_result (UPHELD|DOWNGRADED|DISMISSED), evidence_quality, recommended_confidence, roi_analysis
 </agent>
 
 <agent type="apex:review:phase2:review-context-defender">
@@ -170,6 +176,54 @@ For each finding:
 - 1-2 FIX_NOW minor → CONDITIONAL (fix or accept with docs)
 - 3+ FIX_NOW or critical security → REJECT (return to /apex implement)
 </review-decision>
+</step>
+
+<step id="5.5" title="Documentation Updates">
+<purpose>
+Ensure documentation stays in sync with code changes.
+</purpose>
+
+<documentation-checklist>
+**If task modified workflow or architecture**:
+- [ ] CLAUDE.md - Check for stale references to changed behavior
+- [ ] README.md - Update any affected workflow descriptions
+- [ ] Related design docs - Search in docs/ directory
+
+**If task modified API or CLI**:
+- [ ] API documentation files
+- [ ] CLI command documentation
+- [ ] Usage examples in docs
+
+**If task modified data structures**:
+- [ ] Type definition docs
+- [ ] Schema documentation
+- [ ] Migration notes if breaking change
+
+**Search strategy**:
+```bash
+# Find docs that might reference changed files
+for file in [modified_files]; do
+  grep -r "$(basename $file .ts)" docs/ README.md CLAUDE.md
+done
+```
+</documentation-checklist>
+
+<update-procedure>
+1. Search for references to modified code
+2. Read each found doc FULLY
+3. Update outdated references
+4. Verify accuracy after update
+5. Add to git staging for commit
+</update-procedure>
+
+<docs-to-update-output>
+Record in `<implementation><docs-updated>`:
+```xml
+<docs-updated>
+  <doc path="[path]" reason="[Why updated]"/>
+</docs-updated>
+```
+</docs-to-update-output>
 </step>
 
 <step id="6" title="Git commit">
@@ -218,7 +272,8 @@ Without apex_reflect:
 - Future tasks don't benefit
 </critical>
 
-<call>
+<format-choice>
+**batch_patterns** (simple, for most cases):
 ```javascript
 apex_reflect({
   task: { id: taskId, title: taskTitle },
@@ -226,20 +281,106 @@ apex_reflect({
   batch_patterns: [
     {
       pattern: "PAT:ID",  // Must exist in plan's pattern list
-      outcome: "worked-perfectly"  // or worked-with-tweaks, partial-success, failed-minor-issues, failed-completely
+      outcome: "worked-perfectly",
+      notes: "Optional notes about usage"
     }
   ]
 })
 ```
-</call>
+
+**claims** (advanced, for new patterns/anti-patterns/learnings):
+```javascript
+apex_reflect({
+  task: { id: taskId, title: taskTitle },
+  outcome: "success",
+  claims: {
+    // Patterns used from plan (updates trust scores)
+    patterns_used: [{
+      pattern_id: "PAT:ID",
+      evidence: [{
+        kind: "git_lines",
+        file: "src/auth.ts",
+        sha: "HEAD",  // or commit SHA
+        start: 45,
+        end: 78
+      }]
+    }],
+
+    // Trust score updates (required for patterns_used)
+    trust_updates: [{
+      pattern_id: "PAT:ID",
+      outcome: "worked-perfectly"
+    }],
+
+    // NEW patterns discovered during implementation
+    new_patterns: [{
+      title: "Error Boundary Pattern",
+      summary: "Wrap async operations with consistent error handling",
+      snippets: [{
+        snippet_id: "error-boundary-1",
+        source_ref: {
+          kind: "git_lines",
+          file: "src/utils/errors.ts",
+          sha: "HEAD",
+          start: 10,
+          end: 35
+        }
+      }],
+      evidence: []
+    }],
+
+    // Anti-patterns to AVOID
+    anti_patterns: [{
+      title: "Direct Database Access in Handler",
+      reason: "Bypasses transaction management and audit logging",
+      evidence: [{
+        kind: "git_lines",
+        file: "src/handlers/user.ts",
+        sha: "HEAD",
+        start: 100,
+        end: 110
+      }]
+    }],
+
+    // General learnings
+    learnings: [{
+      assertion: "JWT refresh tokens require httpOnly cookies for security",
+      evidence: [{
+        kind: "git_lines",
+        file: "src/auth/tokens.ts",
+        sha: "HEAD",
+        start: 50,
+        end: 65
+      }]
+    }]
+  }
+})
+```
+</format-choice>
+
+<evidence-kinds>
+| Kind | Required Fields | When to Use |
+|------|-----------------|-------------|
+| `git_lines` | file, sha, start, end | Code at specific lines |
+| `commit` | sha | Entire commit as evidence |
+| `pr` | number, repo | Pull request reference |
+| `ci_run` | id, provider | CI/CD run evidence |
+</evidence-kinds>
 
 <valid-outcomes>
-- "worked-perfectly" → 100% success
-- "worked-with-tweaks" → 70% success
-- "partial-success" → 50% success
-- "failed-minor-issues" → 30% success
-- "failed-completely" → 0% success
+- "worked-perfectly" → 100% success (alpha: 1.0, beta: 0.0)
+- "worked-with-tweaks" → 70% success (alpha: 0.7, beta: 0.3)
+- "partial-success" → 50% success (alpha: 0.5, beta: 0.5)
+- "failed-minor-issues" → 30% success (alpha: 0.3, beta: 0.7)
+- "failed-completely" → 0% success (alpha: 0.0, beta: 1.0)
 </valid-outcomes>
+
+<common-errors>
+1. **Mixing formats**: Use batch_patterns OR claims, not both
+2. **Missing SHA**: Always include sha (use "HEAD" if current)
+3. **Fabricated patterns**: Only claim patterns from plan
+4. **Not committing first**: Evidence validation fails without commit
+</common-errors>
 </step>
 
 <step id="9" title="Write ship section to task file">
@@ -338,7 +479,8 @@ Set `phase: complete`, `status: complete`, and `updated: [ISO timestamp]`
 BEFORE reporting to user, verify ALL actions completed:
 
 - [ ] Phase 1 review agents launched and returned?
-- [ ] Phase 2 challenge agents launched and returned?
+- [ ] Phase 2 challenge agents launched and returned (with ROI analysis)?
+- [ ] Documentation checklist completed?
 - [ ] Git commit created? (verify with git log -1)
 - [ ] apex_task_complete called? (received ReflectionDraft?)
 - [ ] apex_reflect called? (received ok: true?)
@@ -347,11 +489,13 @@ BEFORE reporting to user, verify ALL actions completed:
 </completion-verification>
 
 <success-criteria>
-- Adversarial review completed (8 agents total)
+- Adversarial review completed (7 agents: 5 Phase 1 + 2 Phase 2)
+- ROI analysis included in challenger findings
+- Documentation checklist completed (grep → read → update → verify)
 - All FIX_NOW items resolved (or explicitly accepted)
 - Git commit created with proper message
 - apex_task_complete called
-- apex_reflect called and succeeded
+- apex_reflect called with proper format (batch_patterns or claims)
 - Task file updated with complete ship section
 - Frontmatter shows phase: complete, status: complete
 </success-criteria>

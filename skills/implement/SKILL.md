@@ -44,6 +44,12 @@ You can find active tasks in `./.apex/tasks/` or run with:
 3. Parse `<plan>` section, especially `<builder-handoff>`
 4. If phase != plan, refuse with: "Task is in [phase] phase. Expected: plan"
 </instructions>
+
+<mcp-checkpoint>
+```javascript
+apex_task_checkpoint(taskId, "BUILDER: Starting implementation phase", 0.5)
+```
+</mcp-checkpoint>
 </step>
 
 <step id="2" title="Extract implementation directives">
@@ -120,6 +126,48 @@ apex_task_checkpoint(taskId, "Completed [step]: [summary]", confidence)
 </checkpoint-after-each-step>
 
 </loop>
+</step>
+
+<step id="4.5" title="Pattern Evidence Gate">
+<critical>
+Before running full validation, verify all patterns you intend to claim.
+</critical>
+
+<verification-checklist>
+For each pattern in `<patterns-used>`:
+1. [ ] Pattern exists in `<plan><patterns><applying>`
+2. [ ] Trust score matches what's in the plan
+3. [ ] Location (file:line) is accurate and verifiable
+4. [ ] Outcome is honest (worked|tweaked|failed)
+</verification-checklist>
+
+<evidence-collection>
+```javascript
+// Record pattern usage evidence BEFORE validation
+for (const pattern of patterns_used) {
+  apex_task_append_evidence(taskId, "pattern",
+    `Applied ${pattern.id} at ${pattern.location}`,
+    {
+      pattern_id: pattern.id,
+      file: pattern.file,
+      line_start: pattern.line_start,
+      line_end: pattern.line_end,
+      outcome: pattern.outcome
+    }
+  )
+}
+```
+</evidence-collection>
+
+<fabrication-check>
+IF any pattern in `<patterns-used>` is NOT in `<plan><patterns><applying>`:
+→ REMOVE it from patterns-used
+→ Document as "unplanned pattern discovered"
+→ Do NOT claim it in apex_reflect
+
+Unplanned patterns can be submitted as `new_patterns` in apex_reflect,
+but NOT as `patterns_used` (which updates trust scores).
+</fabrication-check>
 </step>
 
 <step id="5" title="Comprehensive validation">
@@ -230,6 +278,34 @@ Run `/apex ship [identifier]` to review and finalize.
 <update-frontmatter>
 Set `phase: implement` and `updated: [ISO timestamp]`
 </update-frontmatter>
+
+<mcp-calls>
+```javascript
+// Update task phase in database
+apex_task_update({
+  id: taskId,
+  phase: "VALIDATOR",  // Moving to review phase
+  handoff: reviewer_handoff_content,
+  confidence: 0.85,
+  files: [...files_modified, ...files_created]
+})
+
+// Record implementation summary as evidence
+apex_task_append_evidence(taskId, "learning",
+  "Implementation complete: " + summary,
+  {
+    files_modified: files_modified.length,
+    files_created: files_created.length,
+    patterns_applied: patterns_used.length,
+    tests_passed: validation_results.tests.passed,
+    iterations: metadata.iterations
+  }
+)
+
+// Checkpoint for phase completion
+apex_task_checkpoint(taskId, "BUILDER: Implementation complete, ready for review", 0.85)
+```
+</mcp-calls>
 </step>
 
 </workflow>
@@ -270,9 +346,12 @@ If implementation reveals spec ambiguity:
 - All validation gates passed
 - Full test suite passing
 - No syntax errors
-- Patterns used are from plan only
+- Patterns used are from plan only (Pattern Evidence Gate passed)
 - Deviations documented with reasons
 - Task file updated at ./.apex/tasks/[ID].md
+- apex_task_checkpoint called at start, per-step, and end
+- apex_task_append_evidence called for pattern usage
+- apex_task_update called to transition to VALIDATOR phase
 </success-criteria>
 
 <next-phase>

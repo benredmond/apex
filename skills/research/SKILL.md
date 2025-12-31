@@ -47,7 +47,52 @@ Store `taskId` and `identifier` for all subsequent operations.
 </instructions>
 </step>
 
-<step id="2" title="Read mentioned files FULLY">
+<step id="2" title="Optimize and improve prompt">
+<purpose>
+Vague task briefs lead to wasted research effort. Enhance before proceeding.
+</purpose>
+
+<optimization-steps>
+1. **Clarify Intent**: What is the user REALLY trying to accomplish?
+   - Look for implicit goals behind explicit requests
+   - Identify the "why" behind the "what"
+
+2. **Add Specificity**: Transform vague terms into concrete requirements
+   - "improve performance" → "reduce API response time below 200ms"
+   - "fix the bug" → "prevent null pointer when user has no profile"
+
+3. **Structure Requirements**: Break into testable acceptance criteria
+   - Given [context], When [action], Then [expected result]
+
+4. **Include Testing**: How will we verify success?
+   - Unit test expectations
+   - Integration test scenarios
+   - Manual verification steps
+
+5. **Pattern Enhancement**: Check APEX patterns for similar past tasks
+   - What worked before?
+   - What failed and why?
+</optimization-steps>
+
+<enhanced-prompt-format>
+```yaml
+original_prompt: "[User's original request]"
+enhanced_prompt:
+  intent: "[Clarified goal]"
+  scope:
+    in: ["[Specific inclusions]"]
+    out: ["[Explicit exclusions]"]
+  acceptance_criteria:
+    - "[Testable criterion 1]"
+    - "[Testable criterion 2]"
+  success_metrics:
+    - "[Measurable outcome]"
+  related_patterns: ["[PAT:IDs from quick lookup]"]
+```
+</enhanced-prompt-format>
+</step>
+
+<step id="3" title="Read mentioned files FULLY">
 <critical>
 Before ANY analysis or spawning agents:
 - If user mentions specific files, READ THEM FULLY first
@@ -57,7 +102,7 @@ Before ANY analysis or spawning agents:
 </critical>
 </step>
 
-<step id="3" title="Create task file">
+<step id="4" title="Create task file">
 <instructions>
 Create `./.apex/tasks/[identifier].md` with frontmatter:
 
@@ -93,7 +138,7 @@ status: active
 </instructions>
 </step>
 
-<step id="4" title="Spawn parallel research agents">
+<step id="5" title="Spawn parallel research agents">
 <agents parallel="true">
 
 <agent type="intelligence-gatherer" required="true">
@@ -128,6 +173,19 @@ Analyze git history for similar changes, regressions, ownership.
 Return: Structured git intelligence.
 </agent>
 
+<agent type="apex:documentation-researcher" required="true">
+**Scope**: Project markdown documentation
+**Focus**: [Task-relevant topics]
+
+Search project docs for:
+- Architecture context and design decisions
+- Past decisions and rationale (ADRs)
+- Historical learnings and gotchas
+- Related documentation that may need updating
+
+Return: YAML with architecture_context, past_decisions, historical_learnings, docs_to_update.
+</agent>
+
 <agent type="apex:systems-researcher" signal-based="true">
 **Trigger**: Cross-component changes, architectural impacts
 **Focus Area**: [Component or subsystem]
@@ -146,7 +204,7 @@ Surface forward-looking risks, edge cases, monitoring gaps, mitigations.
 <wait-for-all>CRITICAL: Wait for ALL agents to complete before proceeding.</wait-for-all>
 </step>
 
-<step id="5" title="Synthesize findings">
+<step id="6" title="Synthesize findings">
 <priority-order>
 1. Live codebase = primary truth (what actually exists)
 2. Implementation patterns = concrete project conventions
@@ -166,7 +224,196 @@ Surface forward-looking risks, edge cases, monitoring gaps, mitigations.
 </synthesis-tasks>
 </step>
 
-<step id="6" title="Generate Tree of Thought recommendations">
+<step id="7" title="Display Intelligence Report">
+<purpose>Give user visibility into gathered intelligence before gates.</purpose>
+
+<display-format>
+```
+## Intelligence Report
+
+**Task**: [Title]
+**Agents Deployed**: [N]
+**Files Analyzed**: [X]
+
+### Baseline Metrics
+- Complexity estimate: [1-10]
+- Risk level: [Low/Medium/High]
+- Pattern coverage: [X patterns found, Y% high-trust]
+
+### Pattern Intelligence
+- High-trust patterns (★★★★☆+): [N] patterns applicable
+- Similar past tasks: [N] found, [X]% success rate
+- Predicted failure points: [N] identified
+
+### Historical Intelligence
+- Related commits: [N] in last 9 months
+- Previous attempts: [List any failed/reverted changes]
+- Key maintainers: [Names/areas]
+
+### Execution Strategy
+- Recommended approach: [Brief]
+- Parallelization opportunities: [Yes/No]
+- Estimated scope: [Small/Medium/Large]
+
+### Key Insights
+1. [Most important finding]
+2. [Second most important]
+3. [Third most important]
+```
+</display-format>
+</step>
+
+<step id="8" title="Ambiguity Detection Gate (Phase 1)">
+<critical>
+Ambiguity is a BLOCKING condition that ONLY users can resolve.
+DO NOT proceed with unclear requirements.
+</critical>
+
+<ambiguity-checklist>
+Check for these ambiguity indicators:
+
+**Vague Goals**:
+- "improve", "enhance", "optimize" without metrics
+- "fix the bug" without reproduction steps
+- "make it better" without criteria
+
+**Unclear Scope**:
+- No defined boundaries (what's in/out)
+- Multiple interpretations possible
+- Dependencies on undefined behavior
+
+**Technical Choices**:
+- Multiple valid approaches with different tradeoffs
+- Architecture decisions user should make
+- Technology/library selection needed
+
+**Missing Constraints**:
+- No performance requirements
+- No security requirements specified
+- No compatibility requirements
+</ambiguity-checklist>
+
+<assessment-logic>
+```python
+def assess_ambiguity(enhanced_prompt, intelligence):
+    ambiguities = []
+
+    # Check each category
+    if has_vague_goals(enhanced_prompt):
+        ambiguities.append({"type": "vague_goal", "question": "..."})
+
+    if has_unclear_scope(enhanced_prompt):
+        ambiguities.append({"type": "unclear_scope", "question": "..."})
+
+    if needs_technical_choice(intelligence):
+        ambiguities.append({"type": "technical_choice", "question": "..."})
+
+    if missing_constraints(enhanced_prompt):
+        ambiguities.append({"type": "missing_constraint", "question": "..."})
+
+    return ambiguities
+```
+</assessment-logic>
+
+<decision>
+- **0 ambiguities**: PROCEED to Technical Adequacy
+- **1+ ambiguities**: ASK USER before proceeding
+
+**Question Format**:
+```
+Before I proceed with research, I need to clarify:
+
+[For each ambiguity, ONE focused question]
+
+1. **[Category]**: [Specific question]?
+   - Option A: [Choice with implication]
+   - Option B: [Choice with implication]
+   - Option C: [Let me know your preference]
+```
+</decision>
+
+<max-rounds>
+Maximum 1 clarification round. After user responds:
+- Incorporate answers into enhanced_prompt
+- Proceed to Technical Adequacy (do NOT ask more questions)
+</max-rounds>
+</step>
+
+<step id="9" title="Technical Adequacy Gate (Phase 2)">
+<purpose>
+Verify we have sufficient intelligence to architect a solution.
+</purpose>
+
+<scoring-dimensions>
+**Technical Context (30% weight)**:
+- [ ] Primary files identified with line numbers
+- [ ] Dependencies mapped
+- [ ] Integration points documented
+- [ ] Current behavior understood
+
+**Risk Assessment (20% weight)**:
+- [ ] Security concerns identified
+- [ ] Performance implications assessed
+- [ ] Breaking change potential evaluated
+- [ ] Rollback strategy considered
+
+**Dependency Mapping (15% weight)**:
+- [ ] Upstream dependencies known
+- [ ] Downstream consumers identified
+- [ ] External API constraints documented
+- [ ] Version compatibility checked
+
+**Pattern Availability (35% weight)**:
+- [ ] Relevant APEX patterns found (trust ≥ 0.5)
+- [ ] Similar past tasks reviewed
+- [ ] Implementation patterns from codebase extracted
+- [ ] Anti-patterns identified to avoid
+</scoring-dimensions>
+
+<confidence-calculation>
+```python
+def calculate_adequacy(checklist_results):
+    weights = {
+        "technical_context": 0.30,
+        "risk_assessment": 0.20,
+        "dependency_mapping": 0.15,
+        "pattern_availability": 0.35
+    }
+
+    score = sum(
+        weights[dim] * (checked / total)
+        for dim, (checked, total) in checklist_results.items()
+    )
+
+    return score  # 0.0 to 1.0
+```
+</confidence-calculation>
+
+<decision-thresholds>
+- **≥ 0.8**: PROCEED to Tree of Thought
+- **0.6-0.8**: PROCEED with caution, note gaps
+- **< 0.6**: INSUFFICIENT - spawn recovery agents or escalate
+
+**If INSUFFICIENT**:
+```
+## Insufficient Context
+
+Adequacy Score: [X]% (threshold: 60%)
+
+**Gaps Identified**:
+- [Dimension]: [What's missing]
+
+**Recovery Options**:
+1. Spawn additional agents for [specific gap]
+2. Ask user for [specific information]
+3. Proceed with documented limitations
+
+Which approach should I take?
+```
+</decision-thresholds>
+</step>
+
+<step id="10" title="Generate Tree of Thought recommendations">
 <instructions>
 Produce exactly 3 distinct solution approaches:
 
@@ -183,7 +430,7 @@ Produce exactly 3 distinct solution approaches:
 </instructions>
 </step>
 
-<step id="7" title="Write research section to task file">
+<step id="11" title="Write research section to task file">
 <output-format>
 Append to `<research>` section:
 
@@ -194,7 +441,20 @@ Append to `<research>` section:
   <agents-deployed>[N]</agents-deployed>
   <files-analyzed>[X]</files-analyzed>
   <confidence>[0-10]</confidence>
+  <adequacy-score>[0.0-1.0]</adequacy-score>
+  <ambiguities-resolved>[N]</ambiguities-resolved>
 </metadata>
+
+<context-pack-refs>
+  <!-- Shorthand for downstream phases -->
+  ctx.patterns = apex-patterns section
+  ctx.impl = codebase-patterns section
+  ctx.web = web-research section
+  ctx.history = git-history section
+  ctx.docs = documentation section (from documentation-researcher)
+  ctx.risks = risks section
+  ctx.exec = recommendations.winner section
+</context-pack-refs>
 
 <executive-summary>
 [2-3 paragraphs synthesizing ALL findings]
@@ -219,6 +479,13 @@ Append to `<research>` section:
   <pattern id="PAT:X:Y" trust="★★★★☆" uses="N" success="X%">[Relevance]</pattern>
   <anti-patterns>[Patterns to avoid with reasons]</anti-patterns>
 </apex-patterns>
+
+<documentation>
+  <architecture-context>[Relevant architecture docs found]</architecture-context>
+  <past-decisions>[ADRs and design decisions]</past-decisions>
+  <historical-learnings>[Gotchas and lessons from docs]</historical-learnings>
+  <docs-to-update>[Files that may need updating after this task]</docs-to-update>
+</documentation>
 
 <git-history>
   <similar-changes>[Commits with lessons]</similar-changes>
@@ -257,15 +524,21 @@ Set `updated: [ISO timestamp]` and verify `phase: research`
 </workflow>
 
 <success-criteria>
+- Prompt optimized and enhanced with specificity
 - All mentioned files read fully
-- All parallel agents completed
+- All parallel agents completed (including documentation-researcher)
 - Implementation patterns extracted with file:line refs
 - Web research validated against official docs
 - APEX patterns analyzed with trust scores
+- Documentation context gathered
 - Git history examined
+- Intelligence report displayed to user
+- Ambiguity detection completed (0 ambiguities OR user clarified)
+- Technical adequacy score ≥ 0.6
 - 3 solution approaches generated (Tree of Thought)
 - Risks identified with mitigations
 - Task file created/updated at ./.apex/tasks/[ID].md
+- Context pack refs documented for downstream phases
 </success-criteria>
 
 <next-phase>
