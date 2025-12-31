@@ -71,9 +71,9 @@ npm install -g @benredmond/apex
 apex start
 ```
 
-### 🛠️ Available Commands (MVP)
+### 🛠️ CLI Commands
 ```bash
-apex start              # Quick setup (simplified from apex init)
+apex start              # Initialize APEX in your project
 apex patterns list      # View available patterns
 apex patterns search    # Find patterns by text
 apex tasks list         # View tasks
@@ -82,32 +82,47 @@ apex doctor             # System health check
 apex mcp install        # Setup MCP integration
 ```
 
+### 🚀 Workflow Commands (Claude Code Plugin)
+```bash
+/research <task>        # Gather intelligence via parallel agents
+/plan <task-id>         # Transform research into architecture
+/implement <task-id>    # Build and validate code
+/ship <task-id>         # Review, commit, and reflect
+/execute <task>         # Run full workflow (research → plan → implement → ship)
+/review-pr              # Adversarial code review
+```
+
 ## Your First APEX Workflow
 
-Let's fix a bug using APEX intelligence - this takes less than 5 minutes:
+Let's fix a bug using APEX intelligence:
 
 ```bash
-# 1. In your project with a failing test
+# 1. In your project
 npx @benredmond/apex start
 
-# 2. Open your AI assistant (Claude Code, Cursor, etc.)
+# 2. In Claude Code, run the full workflow
+/execute "Fix authentication test timeout error"
+```
 
-# 3. Create a task for the bug
-/create_task "Fix authentication test timeout error"
+Or step-by-step for more control:
 
-# 4. Let APEX guide the fix
-/task T001
+```bash
+/research "Fix authentication test timeout error"  # Creates task, gathers intel
+/plan T001                                         # Design the fix
+/implement T001                                    # Build and test
+/ship T001                                         # Review, commit, reflect
 ```
 
 ### What APEX Does Behind the Scenes
 
 ```
-🧠 ANALYZING... Complexity: 3/10
-📚 LOADING... Found 3 similar past fixes
-⚡ PATTERN... Applying [FIX:TEST:ASYNC_TIMEOUT] (★★★★★ 98% success)
-🛡️ PREVENTING... Warning: This error often caused by missing await
-✅ EXECUTING... Test fixed in one try (vs 3 tries typically)
-📈 LEARNING... Pattern trust score increased
+🔍 RESEARCH... Spawning parallel agents for intelligence gathering
+📚 PATTERNS... Found 3 relevant patterns from database
+🏗️ PLAN... Designing architecture with 5 mandatory artifacts
+🔨 IMPLEMENT... Building with pattern-guided development
+✅ VALIDATE... Running tests until green
+🔎 REVIEW... Adversarial code review via specialized agents
+📝 REFLECT... Updating pattern trust scores based on outcome
 ```
 
 ## Core Concepts
@@ -144,22 +159,22 @@ Real example:
 const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
 ```
 
-### 🔄 5-Phase Workflow
+### 🔄 4-Phase Workflow
 
-Every task follows a proven methodology:
+Every task follows a proven methodology via skills and commands:
 
 ```
-ARCHITECT → BUILDER → VALIDATOR → REVIEWER → DOCUMENTER
-    ↓          ↓          ↓           ↓            ↓
- Research   Implement    Test      Review    Learn & Document
+/research → /plan → /implement → /ship
+    ↓          ↓          ↓          ↓
+ Gather    Architect    Build     Review &
+ Intel     Design       & Test    Reflect
 ```
 
-This isn't just process - it's intelligence-driven:
-- **ARCHITECT**: Loads similar task solutions
-- **BUILDER**: Applies proven patterns
-- **VALIDATOR**: Runs learned test strategies  
-- **REVIEWER**: AI + Gemini review (complex tasks)
-- **DOCUMENTER**: Captures new patterns
+Each phase is powered by specialized agents and MCP tools:
+- **RESEARCH**: Parallel agents gather patterns, git history, similar tasks
+- **PLAN**: 5 mandatory design artifacts (Chain of Thought, Tree of Thought, etc.)
+- **IMPLEMENT**: Pattern-guided development with continuous validation
+- **SHIP**: Adversarial review, commit, and reflection to update trust scores
 
 ### 📋 Task Hierarchy
 
@@ -180,40 +195,36 @@ Organize work the way you think:
 **Scenario**: Your test suite has a flaky test that fails intermittently.
 
 ```bash
-# Create the bug fix task
-/create_task "Fix flaky user creation test"
-# Output: Created task T001
+# Run full workflow
+/execute "Fix flaky user creation test"
 
-# Execute with APEX intelligence
-/task T001
+# Or step by step:
+/research "Fix flaky user creation test"   # → Creates T001
+/plan T001
+/implement T001
+/ship T001
 ```
 
 **APEX in Action:**
 ```
-🧠 ANALYZING... 
-- Complexity: 3/10 (single test file)
-- Similar issues: Found 5 flaky test fixes
-- Pattern match: [FIX:TEST:ASYNC_RACE] likely applies
+🔍 RESEARCH PHASE:
+- Spawning: intelligence-gatherer, git-historian, failure-predictor
+- Found 5 similar flaky test fixes in history
+- Pattern match: [FIX:TEST:ASYNC_RACE] (★★★★★ 94% success)
 
-📚 INTELLIGENCE LOADED:
-- TX089: Fixed similar race condition (2h → 15min with pattern)
-- Pattern: Always await user.save() before assertions
-- Warning: db.clean() must complete before test
+🏗️ PLAN PHASE:
+- Chain of Thought: Race condition in async setup
+- Tree of Thought: 3 approaches evaluated
+- Selected: Add proper await + cleanup pattern
 
-🔨 IMPLEMENTING...
-Applied [FIX:TEST:ASYNC_RACE] pattern:
-  - Added await before user.save()
-  - Wrapped in act() for React updates
-  - Added afterEach cleanup
+🔨 IMPLEMENT PHASE:
+- Applied [FIX:TEST:ASYNC_RACE] pattern
+- Tests green after 2 iterations
 
-✅ VALIDATING...
-- Ran test 50x: 0 failures (was failing 30% before)
-- All related tests still passing
-
-📝 DOCUMENTING...
-- Pattern success rate: 94% → 95%
-- Saved to learning database
-- Estimated time saved: 1.5 hours
+🚀 SHIP PHASE:
+- Adversarial review: No issues found
+- Committed: "fix: resolve race condition in user test"
+- Reflection submitted: Pattern trust 94% → 95%
 ```
 
 ### 🚀 Workflow 2: Adding a Feature
@@ -221,37 +232,30 @@ Applied [FIX:TEST:ASYNC_RACE] pattern:
 **Scenario**: Add email notifications to your application.
 
 ```bash
-# Create a sprint for the feature
-/sprint M01 "Email Integration" 
-# Output: Created sprint S03
-
-# Break down into tasks
-/create_task "Design email template system" --sprint S03
-/create_task "Integrate SendGrid API" --sprint S03  
-/create_task "Add email preferences to user model" --sprint S03
-
-# Execute first task
-/task T001
+/execute "Add email notification system with SendGrid"
 ```
 
 **APEX Intelligence Throughout:**
 ```
-ARCHITECT PHASE:
-🧠 Loading email patterns from 12 previous implementations
-📊 Complexity: 6/10 - Will engage Gemini for architecture review
-🎯 Suggested approach: Template-based with provider abstraction
+🔍 RESEARCH:
+- 7 agents spawned in parallel
+- Found 12 email implementation patterns
+- Similar tasks: T089 (email templates), T102 (SendGrid)
 
-BUILDER PHASE:
-⚡ Auto-applied patterns:
-- [PAT:EMAIL:TEMPLATE_ENGINE] - Handlebars with layouts
-- [PAT:API:RETRY_LOGIC] - Exponential backoff for sends
-- [PAT:CONFIG:ENV_VALIDATION] - Ensure API keys present
+🏗️ PLAN:
+- 5 design artifacts created
+- Architecture: Template-based with provider abstraction
+- YAGNI check: Removed unnecessary multi-provider support
 
-VALIDATOR PHASE:
-✅ Tests generated using [PAT:TEST:EMAIL_MOCK] pattern
-🛡️ Prevented common issue: Emails sending in test environment
+🔨 IMPLEMENT:
+- Applied patterns: [PAT:EMAIL:TEMPLATE], [PAT:API:RETRY]
+- Tests passing after 3 iterations
+- Coverage: 87%
 
-RESULT: Feature complete in 2.5h (vs 5h estimated)
+🚀 SHIP:
+- Review agents found 1 medium issue (fixed)
+- New pattern discovered: SendGrid webhook validation
+- Reflection: 3 patterns updated, 1 new pattern added
 ```
 
 ### 🔧 Workflow 3: Refactoring Legacy Code
@@ -259,79 +263,65 @@ RESULT: Feature complete in 2.5h (vs 5h estimated)
 **Scenario**: Modernize callback-based code to async/await.
 
 ```bash
-# Create refactoring task
-/create_task "Refactor payment.js from callbacks to async/await"
-
-# Execute with intelligence
-/task T001
+/research "Refactor payment.js from callbacks to async/await"
+/plan T001
+/implement T001
+/ship T001
 ```
 
 **Pattern Discovery in Action:**
 ```
-🧠 ANALYZING payment.js...
-- 147 callback chains detected
-- Error handling inconsistent
-- Similar refactor: TX142 (saved 3 hours)
+🔍 RESEARCH:
+- systems-researcher: Mapped 147 callback chains
+- git-historian: Found similar refactor in commit abc123
+- Pattern: [PAT:REFACTOR:CALLBACK_TO_ASYNC] ★★★★★
 
-📋 APPLYING PATTERNS:
-1. [PAT:REFACTOR:CALLBACK_TO_ASYNC] ★★★★★
-   - Preserve error handling semantics
-   - Maintain callback API for backwards compatibility
+🏗️ PLAN:
+- Progressive refactoring strategy
+- 12 files identified, priority ordered
+- Risk analysis: High-churn payment.js needs extra tests
 
-2. [PAT:REFACTOR:PROGRESSIVE] ★★★★☆  
-   - Refactor in testable chunks
-   - Keep tests green throughout
+🔨 IMPLEMENT:
+- Refactored in 4 batches, tests green each batch
+- Applied [PAT:REFACTOR:PROGRESSIVE] pattern
 
-🔄 DISCOVERING NEW PATTERN:
-Found repeated pattern not in database:
-- Payment providers need .catch() → try/catch wrapper
-- Adding to CONVENTIONS.pending.md for validation
-
-✅ RESULT:
-- 147 callbacks → clean async/await
-- All tests passing
-- 0 production issues after deploy
-- New pattern discovered for future use
+🚀 SHIP:
+- Review: Clean, no issues
+- New pattern discovered: Payment provider error mapping
+- Reflection submitted with evidence
 ```
 
 ## Command Reference
 
-APEX commands are organized by development phase:
+### 🚀 Workflow Commands (Claude Code)
 
-### 📅 Planning Commands
+The primary workflow uses 4 phase-based commands:
+
 ```bash
-/milestone "Project Goal"           # Create high-level milestone
-/sprint M01 "Sprint Name"          # Create sprint in milestone  
-/create_task "Task" --sprint S01   # Create task in sprint
-/plan                              # View current plan
+/research <task-description>    # Phase 1: Spawn agents, gather intelligence
+/plan <task-id>                 # Phase 2: Design architecture with 5 artifacts
+/implement <task-id>            # Phase 3: Build code, run tests, iterate
+/ship <task-id>                 # Phase 4: Review, commit, reflect
 ```
 
-### 🚀 Execution Commands
+Or run all phases in sequence:
 ```bash
-/task T001                         # Execute task with full intelligence
-/task                             # Continue current task
-/yolo                            # Autonomous multi-task mode
+/execute <task-description>     # Full workflow: research → plan → implement → ship
 ```
 
 ### ✅ Quality Commands
 ```bash
-/review                          # AI code review with learning
-/test                           # Run tests with pattern analysis
-/debug "error message"          # Debug with failure database
-/design "component"             # Architecture assistance
+/review-pr                      # Adversarial code review with specialized agents
 ```
 
-### 📝 Finalization Commands
+### ⚙️ CLI Commands (Terminal)
 ```bash
-/commit                         # Smart commit with context
-/reflect                       # Extract and save learnings
-```
-
-### ⚙️ System Commands
-```bash
-apex start                     # Initialize APEX patterns database (in terminal)
-/prime                        # Load APEX context into AI
-/verify                      # Check APEX health
+apex start                      # Initialize APEX in your project
+apex patterns list              # View discovered patterns
+apex patterns search <query>    # Search patterns
+apex tasks list                 # View tasks
+apex doctor                     # System health check
+apex mcp install                # Setup MCP integration
 ```
 
 ## Advanced Usage
@@ -387,43 +377,57 @@ Fine-tune APEX behavior:
 
 ## Project Structure
 
-APEX creates an intelligent project organization:
+APEX uses a centralized database and plugin architecture:
 
 ```
-your-project/
-├── .apex/                          # APEX Intelligence Hub
-│   ├── CONVENTIONS.md              # Trusted patterns (★★★★☆+)
-│   ├── CONVENTIONS.pending.md      # Testing patterns (<3 uses)
-│   ├── 09_LEARNING/               
-│   │   ├── failures.jsonl          # What went wrong & how to prevent
-│   │   └── TASK_LEARNINGS.md       # Successful approaches
-│   └── PATTERN_METADATA.json       # Pattern statistics & trust scores
+~/.apex/                            # Global APEX data directory
+├── <repo-id>/                      # Per-repository intelligence
+│   └── patterns.db                 # SQLite database (patterns, tasks, reflections)
 │
-└── .claude/commands/apex/          # AI command templates
-    ├── 01_plan/                    # Planning phase commands
-    ├── 02_execute/                 # Execution with intelligence
-    ├── 03_quality/                 # Smart testing & review
-    └── 04_finalize/                # Learning capture
+your-project/
+├── .apex/                          # Project-specific files (optional)
+│   └── tasks/                      # Task files created by /research
+│       └── T001.md                 # Task brief with research, plan, evidence
+│
+# Plugin components (in apex package)
+├── skills/                         # 6 workflow skills
+│   ├── research/SKILL.md           # Intelligence gathering
+│   ├── plan/SKILL.md               # Architecture design
+│   ├── implement/SKILL.md          # Build and validate
+│   ├── ship/SKILL.md               # Review and reflect
+│   ├── execute/SKILL.md            # Full workflow orchestrator
+│   └── using-apex-mcp/SKILL.md     # MCP tools reference
+├── agents/                         # 12 specialized agents
+│   ├── intelligence-gatherer.md    # Orchestrates research
+│   ├── git-historian.md            # Git history analysis
+│   ├── systems-researcher.md       # Codebase deep dives
+│   └── ...                         # And 9 more
+└── commands/                       # Slash commands
+    ├── research.md                 # /research
+    ├── plan.md                     # /plan
+    ├── implement.md                # /implement
+    ├── ship.md                     # /ship
+    └── execute.md                  # /execute
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-**"Command not found" in AI assistant**
-- Run `/prime` to load APEX commands into context
-- Ensure you ran `apex start` in your project root
-- Check that `.claude/commands/apex/` exists
+**Skills/commands not appearing in Claude Code**
+- Verify plugin is installed: `/plugins` in Claude Code
+- Reinstall: `/plugins install apex@apex`
+- Check MCP server: `apex mcp info`
 
 **Patterns not being applied**
 - Check pattern trust score - must be ★★★☆☆ or higher
 - Verify pattern context matches your use case
-- Run `apex patterns stats` to see pattern health
+- Run `apex patterns list` to see available patterns
 
-**High complexity score on simple task**
-- Review task description for trigger words
-- Check if task touches multiple systems
-- Complexity can be manually overridden in task file
+**MCP tools not responding**
+- Run `apex doctor` to check system health
+- Verify database exists: `ls ~/.apex/`
+- Check MCP server: `apex mcp serve` (manual test)
 
 ### FAQ
 
@@ -532,16 +536,17 @@ MIT License - see [LICENSE](LICENSE) for details
 
 ## Changelog
 
-### v1.0.0 - Universal Compatibility
-- ✨ Works on any Node.js 14+ without compilation
-- 📦 93% package size reduction
-- 🚀 Three-tier adapter system with automatic selection
-- 🛡️ WebAssembly fallback ensures it always works
+### v0.5.0 - Skill-Based Workflow
+- ✨ New 4-phase workflow: /research → /plan → /implement → /ship
+- 🚀 6 skills for modular, composable workflows
+- 🤖 12 specialized agents for parallel intelligence gathering
+- 📝 Slash commands for direct skill invocation
+- 🔧 Agent architecture refactored and streamlined
 
-### v0.4.4 - Previous Release
-- MCP integration
-- Pattern discovery improvements
-- Task similarity search
+### v0.4.4 - Universal Compatibility
+- Works on any Node.js 14+ without compilation
+- Three-tier SQLite adapter system
+- MCP integration improvements
 
 See full [release history](https://github.com/benredmond/apex/releases)
 

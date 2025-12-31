@@ -1,15 +1,15 @@
 # APEX Claude Code Plugin
 
-An intelligent memory layer for AI coding assistants that provides pattern discovery, task tracking, and continuous learning through 12 MCP tools.
+An intelligent memory layer for AI coding assistants that provides pattern discovery, task tracking, and continuous learning through MCP tools and a 4-phase workflow.
 
 ## What's Included
 
 This plugin provides:
 
-- **MCP Server**: 12 intelligent tools for pattern discovery, task tracking, and reflection
-- **Agent Skill**: `using-apex-mcp` - Complete reference guide for all APEX MCP tools with schemas, trust score interpretation, and workflow integration
-- **Slash Commands**: 2 powerful workflow commands (`/execute_task`, `/apex_init`)
-- **Subagents**: 12 specialized AI agents for intelligence gathering, pattern discovery, quality review, and more
+- **MCP Server**: 13 intelligent tools for pattern discovery, task tracking, and reflection
+- **6 Skills**: Workflow phases (research, plan, implement, ship, execute) + MCP reference guide
+- **6 Slash Commands**: `/research`, `/plan`, `/implement`, `/ship`, `/execute`, `/review-pr`
+- **12 Agents**: Specialized AI agents for intelligence gathering, code review, and analysis
 
 ## Features
 
@@ -33,53 +33,52 @@ This plugin provides:
 - **Learning & Reflection**
   - `apex_reflect` - Submit outcomes to update pattern trust scores
 
-### Agent Skill: using-apex-mcp
+### Skills (6 Available)
 
-Provides comprehensive guidance including:
+Skills provide workflow guidance and are auto-triggered based on context:
 
-- Quick reference table for all 12 MCP tools
-- Trust score interpretation (★★★★★ ratings)
-- Typical workflow patterns
-- 5-phase execution integration (ARCHITECT → BUILDER → VALIDATOR → REVIEWER → DOCUMENTER)
-- Complete apex_reflect documentation with validation rules
+**Workflow Skills:**
+- `research` - Intelligence gathering phase, spawns parallel agents
+- `plan` - Architecture design with 5 mandatory artifacts
+- `implement` - Build and validate loop with pattern guidance
+- `ship` - Review, commit, and reflection phase
+- `execute` - Full workflow orchestrator (research → plan → implement → ship)
 
-### Slash Commands
+**Reference Skill:**
+- `using-apex-mcp` - Complete MCP tools reference with schemas and examples
 
-**`/execute_task`** - Main task execution workflow
-- 5-phase ARCHITECT → BUILDER → VALIDATOR → REVIEWER → DOCUMENTER workflow
-- Automatic intelligence gathering via MCP tools
-- Pattern-driven development with trust-scored recommendations
-- Comprehensive evidence tracking and reflection
-- Usage: `/execute_task "Implement user authentication"`
+### Slash Commands (6 Available)
 
-**`/apex_init`** - Initialize pattern database from codebase
-- Discovers reusable patterns from existing code
-- Seeds APEX database with project-specific patterns
-- Analyzes architecture, conventions, and best practices
-- One-time setup or periodic refresh
-- Usage: `/apex_init`
+```bash
+/research <task>      # Gather intelligence via parallel agents
+/plan <task-id>       # Transform research into architecture
+/implement <task-id>  # Build and validate code
+/ship <task-id>       # Review, commit, and reflect
+/execute <task>       # Run full workflow in sequence
+/review-pr            # Adversarial code review
+```
 
-### Subagents (12 Available)
+### Agents (12 Available)
 
 Claude can automatically invoke these specialized agents when relevant:
 
-**Core Intelligence:**
-- `intelligence-gatherer` - Orchestrates parallel intelligence gathering and context assembly
-- `systems-researcher` - Deep codebase analysis, architecture mapping, dependency tracing
+**Research & Intelligence:**
+- `intelligence-gatherer` - Orchestrates APEX MCP queries and context loading
+- `systems-researcher` - Deep codebase analysis, architecture mapping
+- `git-historian` - Git history analysis for patterns and regressions
+- `documentation-researcher` - Searches project markdown documentation
+- `web-researcher` - External research with source verification
+
+**Pattern & Analysis:**
 - `pattern-discovery` - Discovers new reusable patterns from codebases
-- `pattern-analyst` - Analyzes pattern quality and effectiveness
+- `implementation-pattern-extractor` - Extracts concrete patterns with file:line refs
+- `failure-predictor` - Predicts failures from historical patterns
+- `risk-analyst` - Surfaces novel risks and edge cases
 
 **Quality & Validation:**
-- `quality-reviewer` - Code quality review and best practices enforcement
-- `test-validator` - Test coverage validation and quality assessment
-- `architecture-validator` - Architecture pattern validation and design review
-
-**Specialized Utilities:**
-- `failure-predictor` - Predicts failures based on historical patterns
-- `context-loader` - Loads relevant context for task execution
-- `ui-debugger` - Frontend/UI debugging and troubleshooting
-- `ml-prompt-engineer` - Optimizes prompts for ML/AI tasks
-- `gemini-orchestrator` - Routes complex tasks to Gemini AI
+- `quality-reviewer` - Multi-lens code review (correctness, maintainability, resilience)
+- `test-validator` - Comprehensive testing with predictive analysis
+- `gemini-orchestrator` - AI-to-AI discussions for complex problems
 
 ## Installation
 
@@ -125,14 +124,27 @@ claude
 After restarting Claude Code:
 
 1. **Check MCP tools are available**: The APEX MCP server should start automatically
-2. **Verify commands loaded**: Run `/help` and look for `/execute_task` and `/apex_init`
-3. **Verify agents loaded**: Type `/agents` to see all 12 APEX subagents listed
-4. **Verify skill loaded**: The `using-apex-mcp` skill is automatically available when APEX tools are mentioned
-5. **Test with a command**: Try `/execute_task "Write a hello world function"`
+2. **Verify commands loaded**: Type `/` and look for `/research`, `/plan`, `/implement`, `/ship`, `/execute`
+3. **Verify agents loaded**: Type `/agents` to see all 12 APEX agents listed
+4. **Verify skills loaded**: All 6 skills auto-trigger based on workflow context
+5. **Test with a command**: Try `/execute "Write a hello world function"`
 
 ## Usage
 
-### Quick Start
+### Quick Start - Slash Commands
+
+```bash
+# Full workflow (recommended)
+/execute "Implement user authentication"
+
+# Or step-by-step for more control
+/research "Implement user authentication"   # Creates task, gathers intel
+/plan T001                                   # Design architecture
+/implement T001                              # Build and test
+/ship T001                                   # Review, commit, reflect
+```
+
+### Direct MCP Tool Usage
 
 ```typescript
 // 1. Create a task
@@ -176,38 +188,36 @@ Patterns include trust scores that indicate reliability:
 
 **Rule**: Apply patterns with ★★★★☆+ (trust ≥ 0.7) confidently.
 
-### 5-Phase Workflow Integration
+### 4-Phase Workflow Integration
 
-APEX tools map to execution phases:
+Skills and commands map to the APEX workflow:
 
-- **ARCHITECT**: `apex_patterns_lookup` with `workflow_phase: "architect"`
-- **BUILDER**: Implement with patterns, track via `apex_task_update`
-- **VALIDATOR**: Test patterns with `workflow_phase: "validator"`
-- **REVIEWER**: Review journey with `apex_task_context`
-- **DOCUMENTER**: Capture learnings via `apex_task_complete` + `apex_reflect`
+| Phase | Command | Skill | Key Agents |
+|-------|---------|-------|------------|
+| Research | `/research` | `research` | intelligence-gatherer, git-historian, systems-researcher |
+| Plan | `/plan` | `plan` | (interactive design with user) |
+| Implement | `/implement` | `implement` | pattern-discovery, test-validator |
+| Ship | `/ship` | `ship` | quality-reviewer, gemini-orchestrator |
 
 ### How Components Work Together
 
-**Commands → MCP Tools**
-- `/execute_task` orchestrates the 5-phase workflow using MCP tools internally
-- Creates tasks with `apex_task_create`, gets intelligence with `apex_task_context`
-- Tracks progress with `apex_task_update`, submits reflections with `apex_reflect`
+**Commands → Skills**
+- `/research` invokes the `research` skill which spawns parallel agents
+- `/execute` chains all 4 skills in sequence
 
-**Commands → Subagents**
-- `/execute_task` automatically invokes specialized subagents for each phase
-- ARCHITECT phase: Uses `intelligence-gatherer`, `systems-researcher`
-- BUILDER phase: Uses `pattern-discovery`, `pattern-analyst`
-- VALIDATOR phase: Uses `test-validator`, `quality-reviewer`
+**Skills → Agents**
+- `research` skill spawns 7 agents in parallel for intelligence gathering
+- `ship` skill invokes `quality-reviewer` for adversarial code review
 
-**Subagents → MCP Tools**
-- All subagents have access to relevant APEX MCP tools
-- `intelligence-gatherer` uses full MCP toolkit for comprehensive analysis
-- Domain-specific agents use focused tool subsets
+**Agents → MCP Tools**
+- `intelligence-gatherer` uses `apex_patterns_lookup`, `apex_task_context`
+- `quality-reviewer` uses `apex_patterns_discover` for pattern validation
+- All agents can access relevant MCP tools for their domain
 
-**Skills → Everything**
-- `using-apex-mcp` skill provides reference documentation
-- Auto-loads when commands, agents, or direct MCP tool usage is detected
-- Ensures correct tool usage across all components
+**Skills → MCP Tools**
+- Skills use MCP tools directly for task management
+- `apex_task_create` at research start, `apex_reflect` at ship end
+- `apex_task_update` tracks phase transitions
 
 ## Database Location
 
@@ -276,10 +286,27 @@ The `using-apex-mcp` skill loads automatically when:
 apex/
 ├── .claude-plugin/
 │   └── plugin.json           # Plugin manifest
-├── skills/
-│   └── using-apex-mcp/
-│       ├── SKILL.md          # Main skill reference
-│       └── apex-reflect-guide.md  # Deep dive on apex_reflect
+├── skills/                   # 6 workflow skills
+│   ├── research/SKILL.md     # Intelligence gathering
+│   ├── plan/SKILL.md         # Architecture design
+│   ├── implement/SKILL.md    # Build and validate
+│   ├── ship/SKILL.md         # Review and reflect
+│   ├── execute/SKILL.md      # Full workflow orchestrator
+│   └── using-apex-mcp/       # MCP reference
+│       ├── SKILL.md
+│       └── apex-reflect-guide.md
+├── agents/                   # 12 specialized agents
+│   ├── intelligence-gatherer.md
+│   ├── git-historian.md
+│   ├── systems-researcher.md
+│   └── ... (9 more)
+├── commands/                 # Slash commands
+│   ├── research.md
+│   ├── plan.md
+│   ├── implement.md
+│   ├── ship.md
+│   ├── execute.md
+│   └── review-pr.md
 └── README-PLUGIN.md          # This file
 ```
 
@@ -287,7 +314,8 @@ apex/
 
 - **Main Repository**: https://github.com/benredmond/apex
 - **NPM Package**: https://www.npmjs.com/package/@benredmond/apex
-- **Skill Documentation**: See `skills/using-apex-mcp/SKILL.md`
+- **Workflow Skills**: See `skills/research/`, `skills/plan/`, `skills/implement/`, `skills/ship/`
+- **MCP Reference**: See `skills/using-apex-mcp/SKILL.md`
 - **Reflection Guide**: See `skills/using-apex-mcp/apex-reflect-guide.md`
 
 ## License

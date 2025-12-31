@@ -73,58 +73,54 @@ For other AI assistants:
 apex prime
 ```
 
-### 3. Create Your First Task
+### 3. Run a Workflow
 
-In your AI assistant:
-```
-/apex plan.task "Add user authentication to the app"
-```
+In Claude Code, use slash commands:
+```bash
+# Full workflow (recommended)
+/execute "Add user authentication to the app"
 
-### 4. Execute with Intelligence
-
-```
-/apex execute.task T001
+# Or step-by-step
+/research "Add user authentication"   # Creates task, gathers intel
+/plan T001                            # Design architecture
+/implement T001                       # Build and test
+/ship T001                            # Review, commit, reflect
 ```
 
 APEX will:
-1. Analyze the task complexity
-2. Search for relevant patterns
-3. Check for similar past failures
-4. Guide through 5-phase execution
-5. Learn from the implementation
+1. Spawn parallel agents for intelligence gathering
+2. Search for relevant patterns from the database
+3. Design architecture with 5 mandatory artifacts
+4. Build code with pattern-guided development
+5. Run adversarial code review
+6. Submit reflection to update pattern trust scores
 
 ## The APEX Workflow
 
-### Phase 1: Plan
-Define what you want to build:
-- **Milestones**: Major features or versions
-- **Sprints**: Time-boxed work periods
-- **Tasks**: Specific implementations
+### Phase 1: Research (`/research`)
+Gather intelligence before coding:
+- **Parallel agents**: intelligence-gatherer, git-historian, systems-researcher
+- **Pattern lookup**: Find relevant patterns from database
+- **Similar tasks**: Learn from past implementations
+- **Creates**: Task file at `.apex/tasks/T001.md`
 
-### Phase 2: Execute
-Implement with intelligence:
-- **ARCHITECT**: Design the solution
-- **BUILDER**: Write the code
-- **VALIDATOR**: Test thoroughly  
-- **REVIEWER**: Ensure quality
-- **DOCUMENTER**: Capture learnings
+### Phase 2: Plan (`/plan`)
+Design the architecture:
+- **5 artifacts**: Chain of Thought, Tree of Thought, Chain of Draft, YAGNI, Pattern Selection
+- **Interactive**: Review and refine with user
+- **Appends**: Plan section to task file
 
-### Phase 3: Quality
-Ensure excellence:
-- **Review**: Code quality checks
-- **Test**: Automated testing
-- **Debug**: Systematic problem solving
+### Phase 3: Implement (`/implement`)
+Build and validate:
+- **Pattern-guided**: Apply trusted patterns
+- **Test loop**: Build → test → iterate until green
+- **Evidence tracking**: Log decisions and outcomes
 
-### Phase 4: Finalize
-Complete the work:
-- **Commit**: Contextual git commits
-- **Reflect**: Extract patterns and learnings
-
-### Phase 5: System
-Manage APEX itself:
-- **Verify**: Check system health
-- **Patterns**: View discovered patterns
-- **Stats**: See intelligence metrics
+### Phase 4: Ship (`/ship`)
+Review and finalize:
+- **Adversarial review**: quality-reviewer agent
+- **Commit**: With contextual message
+- **Reflect**: Update pattern trust scores via `apex_reflect`
 
 ## Understanding Patterns
 
@@ -171,21 +167,26 @@ Edit `.apex/config.json`:
 
 ## Troubleshooting
 
-### APEX not initialized
+### Commands not appearing in Claude Code
 ```bash
-apex verify  # Check installation
-apex init    # Reinitialize if needed
+# Verify plugin is installed
+/plugins
+
+# Reinstall if needed
+/plugins install apex@apex
 ```
 
-### Patterns not being discovered
-- Ensure you complete full task workflows
-- Check `.apex/CONVENTIONS.pending.md` for pending patterns
-- Verify pattern threshold in config
+### Patterns not being applied
+- Check pattern trust score with `apex patterns list`
+- Ensure you complete workflows with `/ship` to update trust scores
+- Verify MCP server is running: `apex mcp info`
 
-### AI assistant doesn't recognize commands
-1. Run `apex prime` to load context
-2. Ensure `.claude/commands/apex/` exists
-3. Check AI assistant supports custom commands
+### MCP tools not responding
+```bash
+apex doctor           # Check system health
+apex mcp serve        # Test MCP server manually
+ls ~/.apex/           # Verify database exists
+```
 
 ## Next Steps
 

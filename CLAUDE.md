@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-APEX (Autonomous Pattern-Enhanced eXecution) is an AI-powered development workflow tool that enhances AI coding assistants through pattern recognition, hierarchical task management, and a 5-phase execution workflow.
+APEX (Autonomous Pattern-Enhanced eXecution) is an AI-powered development workflow tool that enhances AI coding assistants through pattern recognition, task tracking, and a 4-phase skill-based workflow (research → plan → implement → ship).
 
 ## Development Commands
 
@@ -38,31 +38,35 @@ npm run release:major     # Release major version (1.x.x)
    - `failure-tracker.js` - Tracks and learns from failures
    - `trust-calculator.js` - Calculates pattern trust scores
 
-3. **Command Templates** (`/src/commands/`)
-   - Markdown templates for AI assistants organized by domain
-   - Previously used by `apex init` (deprecated) to create command structure
+3. **Plugin Components** (Claude Code integration)
+   - `/skills/` - 6 workflow skills (research, plan, implement, ship, execute, using-apex-mcp)
+   - `/agents/` - 12 specialized agents for intelligence gathering and review
+   - `/commands/` - Slash commands that invoke skills
 
 ### Key Concepts
 
 - **Pattern Format**: `[TYPE:CATEGORY:SPECIFIC]` (e.g., `[PAT:AUTH:JWT]`)
-- **Pattern Lifecycle**: Patterns start in `CONVENTIONS.pending.md`, promote to `CONVENTIONS.md` after 3+ uses with >80% success
+- **Pattern Lifecycle**: Patterns evolve based on reflection outcomes; trust scores updated via `apex_reflect`
 - **Trust Score**: Based on usage count and success rate, visualized with star ratings (★★★★★)
-- **5-Phase Workflow**: ARCHITECT → BUILDER → VALIDATOR → REVIEWER → DOCUMENTER
+- **4-Phase Workflow**: `/research` → `/plan` → `/implement` → `/ship`
 
-### Project Structure (legacy - created by deprecated `apex init`)
+### Project Structure
 
 ```
-.apex/
-├── 01_PROJECT_DOCS/          # Architecture & specifications
-├── 02_PLANNING/MILESTONES/   # Hierarchical planning
-├── 03_ACTIVE_SPRINTS/        # Current sprint work
-├── 04_GENERAL_TASKS/         # Non-sprint tasks
-├── 09_LEARNING/              # Failure patterns database
-├── 10_KNOWLEDGE/             # Domain knowledge
-├── CONVENTIONS.md            # Active patterns (★★★★☆+)
-├── CONVENTIONS.pending.md    # Testing patterns (<3 uses)
-├── PATTERN_METADATA.json     # Pattern statistics
-└── config.json              # APEX configuration
+~/.apex/<repo-id>/            # Per-project database
+└── patterns.db               # SQLite: patterns, tasks, reflections
+
+# Plugin components
+skills/
+├── research/SKILL.md         # Intelligence gathering phase
+├── plan/SKILL.md             # Architecture design phase
+├── implement/SKILL.md        # Build and validate phase
+├── ship/SKILL.md             # Review and reflect phase
+├── execute/SKILL.md          # Full workflow orchestrator
+└── using-apex-mcp/SKILL.md   # MCP tools reference
+
+agents/                       # 12 specialized agents
+commands/                     # 6 slash commands
 ```
 
 ## Important Implementation Details
