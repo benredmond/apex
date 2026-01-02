@@ -1,0 +1,5 @@
+#!/bin/sh
+# Sync APEX skills to Codex after each commit
+
+cp -r "$(dirname "$0")/../skills/"* ~/.codex/skills/ 2>/dev/null
+echo "APEX skills synced to ~/.codex/skills/"

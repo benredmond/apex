@@ -16,11 +16,23 @@ export type {
   ServerCapabilities,
 } from "@modelcontextprotocol/sdk/types.js";
 
+function redirectStdoutLogsToStderr(): void {
+  const redirect =
+    (fn: (...args: any[]) => void) =>
+    (...args: any[]) =>
+      fn(...args);
+
+  console.log = redirect(console.error);
+  console.info = redirect(console.error);
+  console.debug = redirect(console.error);
+}
+
 /**
  * Create and start a stdio MCP server
  * This is the main entry point for running the server
  */
 export async function startMCPServer(): Promise<void> {
+  redirectStdoutLogsToStderr();
   const { ApexMCPServer } = await import("./server.js");
 
   const server = new ApexMCPServer({
