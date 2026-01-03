@@ -103,22 +103,29 @@ export function scoreScope(
       for (const signalFw of signals.frameworks) {
         if (patternFw.name.toLowerCase() === signalFw.name.toLowerCase()) {
           if (patternFw.range && signalFw.version) {
-            const cacheKey = `${patternFw.name}:${signalFw.version}:${patternFw.range}`;
-            const cached = cache?.semver?.get(cacheKey);
+            const validVersion = semver.valid(signalFw.version);
+            if (validVersion) {
+              const cacheKey = `${patternFw.name}:${validVersion}:${patternFw.range}`;
+              const cached = cache?.semver?.get(cacheKey);
 
-            const satisfies =
-              cached ?? semver.satisfies(signalFw.version, patternFw.range);
-            if (cached === undefined) {
-              cache?.semver?.set(cacheKey, satisfies);
-            }
+              const satisfies =
+                cached ?? semver.satisfies(validVersion, patternFw.range);
+              if (cached === undefined) {
+                cache?.semver?.set(cacheKey, satisfies);
+              }
 
-            if (satisfies) {
-              frameworkPoints = 15;
-              frameworkMatch = `${patternFw.name}@${signalFw.version}`;
+              if (satisfies) {
+                frameworkPoints = 15;
+                frameworkMatch = `${patternFw.name}@${validVersion}`;
+              } else {
+                frameworkPoints = Math.max(frameworkPoints, 8);
+                frameworkMatch =
+                  frameworkMatch || `${patternFw.name} (version mismatch)`;
+              }
             } else {
               frameworkPoints = Math.max(frameworkPoints, 8);
               frameworkMatch =
-                frameworkMatch || `${patternFw.name} (version mismatch)`;
+                frameworkMatch || `${patternFw.name} (version unknown)`;
             }
           } else {
             frameworkPoints = Math.max(frameworkPoints, 8);
@@ -131,18 +138,22 @@ export function scoreScope(
       if (signals.deps && signals.deps[patternFw.name]) {
         const version = signals.deps[patternFw.name];
         if (patternFw.range) {
-          const cacheKey = `${patternFw.name}:${version}:${patternFw.range}`;
+          const validVersion = semver.valid(version);
+          if (!validVersion) {
+            continue;
+          }
+          const cacheKey = `${patternFw.name}:${validVersion}:${patternFw.range}`;
           const cached = cache?.semver?.get(cacheKey);
 
           const satisfies =
-            cached ?? semver.satisfies(version, patternFw.range);
+            cached ?? semver.satisfies(validVersion, patternFw.range);
           if (cached === undefined) {
             cache?.semver?.set(cacheKey, satisfies);
           }
 
           if (satisfies) {
             frameworkPoints = 15;
-            frameworkMatch = `${patternFw.name}@${version}`;
+            frameworkMatch = `${patternFw.name}@${validVersion}`;
           }
         }
       }

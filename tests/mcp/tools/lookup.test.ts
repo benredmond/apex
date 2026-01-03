@@ -101,7 +101,23 @@ describe("Pattern Lookup MCP Tool", () => {
           test_framework: "jest",
           build_tool: "webpack",
         },
-        workflow_phase: "builder",
+        workflow_phase: "research",
+      });
+
+      expect(response).toBeDefined();
+      expect(response.pattern_pack).toBeDefined();
+    });
+
+    it("should accept boolean dependency flags", async () => {
+      const response = await lookupService.lookup({
+        task: "check dependency flags",
+        project_signals: {
+          dependencies: {
+            yfinance: true,
+            fredapi: false,
+            numpy: "1.26.0",
+          },
+        },
       });
 
       expect(response).toBeDefined();
@@ -183,15 +199,6 @@ describe("Pattern Lookup MCP Tool", () => {
             type: "feature",
             confidence: 1.5, // Above 1.0
           },
-        }),
-      ).rejects.toThrow();
-    });
-
-    it("should throw InvalidParamsError for invalid workflow_phase", async () => {
-      await expect(
-        lookupService.lookup({
-          task: "test task",
-          workflow_phase: "invalid_phase" as any,
         }),
       ).rejects.toThrow();
     });

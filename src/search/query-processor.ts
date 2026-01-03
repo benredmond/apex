@@ -4,6 +4,29 @@ import { SynonymExpander } from "./synonym-expander.js";
 import { FuzzyMatcher } from "./fuzzy-matcher.js";
 import type { Pattern } from "../storage/types.js";
 
+function normalizeQueryInput(query: string): string {
+  const truncated = query.slice(0, 500);
+  return truncated
+    .replace(/--/g, " ")
+    .replace(/\/\*/g, " ")
+    .replace(/\*\//g, " ")
+    .replace(/[;`\\]/g, " ")
+    .replace(/["']/g, " ")
+    .replace(/[()[\]{}]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildSimpleFtsQuery(query: string): string {
+  const terms = query.split(/\s+/).filter(Boolean);
+  if (terms.length === 0) {
+    return '""';
+  }
+  return terms
+    .map((term) => `"${term.replace(/"/g, '""')}"`)
+    .join(" ");
+}
+
 export interface ProcessedQuery {
   original: string;
   ftsQuery: string;
@@ -46,8 +69,14 @@ export class QueryProcessor {
     } = options;
 
     // Step 1: Parse and sanitize for FTS5
-    const parseResult = this.parser.parse(query);
-    let ftsQuery = parseResult.ftsQuery;
+    let ftsQuery = "";
+    try {
+      const parseResult = this.parser.parse(query);
+      ftsQuery = parseResult.ftsQuery;
+    } catch {
+      const normalized = normalizeQueryInput(query);
+      ftsQuery = buildSimpleFtsQuery(normalized);
+    }
 
     // Step 2: Synonym expansion (if enabled and not in performance mode)
     let expandedTerms: string[] = [];

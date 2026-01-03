@@ -20,6 +20,97 @@ import {
 import type { QueryFacets } from "../../storage/types.js";
 import type { PatternPack } from "../../ranking/types.js";
 
+const TASK_INTENT_TYPE_ALIASES: Record<string, string> = {
+  bug: "bug_fix",
+  bugfix: "bug_fix",
+  bug_fix: "bug_fix",
+  fix: "bug_fix",
+  issue: "bug_fix",
+  feature: "feature",
+  feat: "feature",
+  refactor: "refactor",
+  test: "test",
+  testing: "test",
+  perf: "perf",
+  performance: "perf",
+  docs: "docs",
+  doc: "docs",
+  documentation: "docs",
+};
+
+const WORKFLOW_PHASE_ALIASES: Record<string, string> = {
+  research: "architect",
+  plan: "architect",
+  planning: "architect",
+  design: "architect",
+  architect: "architect",
+  implement: "builder",
+  implementation: "builder",
+  build: "builder",
+  builder: "builder",
+  validate: "validator",
+  validation: "validator",
+  test: "validator",
+  testing: "validator",
+  validator: "validator",
+  review: "reviewer",
+  reviewer: "reviewer",
+  ship: "reviewer",
+  shipping: "reviewer",
+  document: "documenter",
+  documentation: "documenter",
+  doc: "documenter",
+  docs: "documenter",
+  documenter: "documenter",
+};
+
+function normalizeTaskIntentType(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  const raw = String(value).trim();
+  if (!raw) return undefined;
+  const normalized = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  return TASK_INTENT_TYPE_ALIASES[normalized] || normalized;
+}
+
+function normalizeWorkflowPhase(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  const raw = String(value).trim();
+  if (!raw) return undefined;
+  const normalized = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  return WORKFLOW_PHASE_ALIASES[normalized] || normalized;
+}
+
+function normalizeDependencies(
+  value: unknown,
+): Record<string, string> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const result: Record<string, string> = {};
+  for (const [key, rawValue] of Object.entries(
+    value as Record<string, unknown>,
+  )) {
+    if (rawValue === undefined || rawValue === null) continue;
+    if (typeof rawValue === "string") {
+      const trimmed = rawValue.trim();
+      if (trimmed) result[key] = trimmed;
+      continue;
+    }
+    if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+      result[key] = String(rawValue);
+      continue;
+    }
+    if (typeof rawValue === "boolean") {
+      if (rawValue) {
+        result[key] = "present";
+      }
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
 // Request validation schema
 // [PAT:VALIDATION:ZOD_DISCRIMINATED_UNION] ★★★☆☆ (2 uses) - Zod validation pattern
 export const LookupRequestSchema = z.object({
@@ -34,8 +125,11 @@ export const LookupRequestSchema = z.object({
   // Enhanced context fields
   task_intent: z
     .object({
-      type: z.enum(["bug_fix", "feature", "refactor", "test", "perf", "docs"]),
-      confidence: z.number().min(0).max(1),
+      type: z.preprocess(
+        normalizeTaskIntentType,
+        z.string().min(1),
+      ).optional(),
+      confidence: z.number().min(0).max(1).optional(),
       sub_type: z.string().optional(),
     })
     .optional(),
@@ -83,12 +177,15 @@ export const LookupRequestSchema = z.object({
       test_framework: z.string().optional(),
       build_tool: z.string().optional(),
       ci_platform: z.string().optional(),
-      dependencies: z.record(z.string()).optional(),
+      dependencies: z.preprocess(
+        normalizeDependencies,
+        z.record(z.string()).optional(),
+      ),
     })
     .optional(),
 
   workflow_phase: z
-    .enum(["architect", "builder", "validator", "reviewer", "documenter"])
+    .preprocess(normalizeWorkflowPhase, z.string().min(1))
     .optional(),
 });
 
