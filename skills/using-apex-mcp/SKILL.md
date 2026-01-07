@@ -25,6 +25,15 @@ APEX is an intelligent memory layer for AI coding assistants that provides patte
 | `apex_task_append_evidence` | Add evidence | Tracking pattern usage, decisions |
 | `apex_reflect` | Submit outcomes (complex!) | After completion, update pattern trust |
 
+## Phase Model (Frontmatter vs Telemetry)
+
+APEX uses two related phase concepts:
+
+- **Frontmatter phase** (task file gating): `research → plan → implement → rework → complete`
+- **DB role/telemetry** (MCP `phase`): `RESEARCH → ARCHITECT → BUILDER → BUILDER_VALIDATOR → REVIEWER → DOCUMENTER`
+
+Legacy telemetry value `VALIDATOR` is still accepted for backward compatibility.
+
 ## Trust Score Interpretation
 
 Patterns include trust scores (0.0-1.0) that indicate reliability:
@@ -66,7 +75,7 @@ const patterns = await apex_patterns_lookup({
 // 4. Track progress through phases
 await apex_task_update({
   id: task.id,
-  phase: "BUILDER",  // ARCHITECT→BUILDER→VALIDATOR→REVIEWER→DOCUMENTER
+  phase: "BUILDER",  // RESEARCH→ARCHITECT→BUILDER→BUILDER_VALIDATOR→REVIEWER→DOCUMENTER (VALIDATOR is legacy)
   confidence: 0.75,
   files: ["src/auth.ts", "src/middleware/auth.ts"],
   handoff: "Architecture complete, implementing JWT auth"
@@ -221,7 +230,7 @@ await apex_reflect({
 
 ### Error: "InvalidParamsError"
 - Check required fields (`task`, `intent`, `id`, etc.)
-- Verify enum values (outcome, phase, type)
+- Verify enum values (outcome, phase, type). `phase` accepts legacy values.
 - Check length limits (task: 1-1000 chars, key_learning: 1-500 chars)
 
 ### Error: "Pattern not found"
@@ -243,13 +252,15 @@ await apex_reflect({
 - Configure via environment variables
 - Use caching (5-minute TTL on lookup/discover)
 
-## 5-Phase Workflow Integration
+## Workflow Integration
 
 APEX tools map to execution phases:
 
+- **RESEARCH**: Use `apex_task_create` + `apex_task_context` to seed intelligence
 - **ARCHITECT**: `apex_patterns_lookup` with `workflow_phase: "architect"`, get architecture patterns
 - **BUILDER**: `apex_patterns_lookup` with `workflow_phase: "builder"`, implement with patterns, track via `apex_task_update`
-- **VALIDATOR**: `apex_patterns_lookup` with `workflow_phase: "validator"`, test patterns
+- **BUILDER_VALIDATOR**: `apex_patterns_lookup` with `workflow_phase: "validator"`, test/validate patterns
+- **VALIDATOR** (legacy): accepted for older clients; prefer BUILDER_VALIDATOR going forward
 - **REVIEWER**: Use `apex_task_context` to review journey, check patterns applied
 - **DOCUMENTER**: `apex_task_complete` + `apex_reflect` to capture learnings
 

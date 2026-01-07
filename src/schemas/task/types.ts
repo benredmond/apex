@@ -25,10 +25,12 @@ export const TaskStatusEnum = z.enum([
 ]);
 export type TaskStatus = z.infer<typeof TaskStatusEnum>;
 
-// Phase enumeration for 5-phase workflow
+// Phase enumeration for workflow telemetry (legacy + current)
 export const PhaseEnum = z.enum([
+  "RESEARCH",
   "ARCHITECT",
   "BUILDER",
+  "BUILDER_VALIDATOR",
   "VALIDATOR",
   "REVIEWER",
   "DOCUMENTER",

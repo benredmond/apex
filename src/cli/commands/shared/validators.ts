@@ -212,8 +212,10 @@ export function validateOptions(options: any): {
   }
   if (options.phase) {
     const validPhases = [
+      "RESEARCH",
       "ARCHITECT",
       "BUILDER",
+      "BUILDER_VALIDATOR",
       "VALIDATOR",
       "REVIEWER",
       "DOCUMENTER",

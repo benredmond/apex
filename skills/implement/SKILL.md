@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Build and validate loop (BUILDER + VALIDATOR phases) - implements the architecture, runs tests, iterates until passing. Writes code following the plan.
+description: Build and validate loop (BUILDER + validation) - implements the architecture, runs tests, iterates until passing. Writes code following the plan.
 argument-hint: [task-identifier]
 ---
 
@@ -9,10 +9,21 @@ argument-hint: [task-identifier]
 <overview>
 Implement the architecture from the plan phase. Build code, run tests, iterate until all validations pass.
 
-Combines BUILDER (write code) and VALIDATOR (run tests) in a tight loop.
+Combines BUILDER (write code) and validation (run tests) in a tight loop.
 </overview>
 
-<phase-gate requires="plan" sets="implement">
+<phase-model>
+phase_model:
+  frontmatter: [research, plan, implement, rework, complete]
+  rework: enabled
+  db_role: [RESEARCH, ARCHITECT, BUILDER, BUILDER_VALIDATOR, REVIEWER, DOCUMENTER]
+  legacy_db_role: [VALIDATOR]
+source_of_truth:
+  gating: frontmatter.phase
+  telemetry: db_role
+</phase-model>
+
+<phase-gate requires="plan|rework" sets="implement">
   <reads-file>./.apex/tasks/[ID].md</reads-file>
   <requires-section>plan</requires-section>
   <appends-section>implementation</appends-section>
@@ -40,14 +51,15 @@ You can find active tasks in `./.apex/tasks/` or run with:
 <step id="1" title="Load task and verify phase">
 <instructions>
 1. Read `./.apex/tasks/[identifier].md`
-2. Verify frontmatter `phase: plan`
+2. Verify frontmatter `phase: plan` OR `phase: rework`
 3. Parse `<plan>` section, especially `<builder-handoff>`
-4. If phase != plan, refuse with: "Task is in [phase] phase. Expected: plan"
+4. If phase == rework, treat this as a Ship REJECT rework loop
+5. If phase not in [plan, rework], refuse with: "Task is in [phase] phase. Expected: plan or rework"
 </instructions>
 
 <mcp-checkpoint>
 ```javascript
-apex_task_checkpoint(taskId, "BUILDER: Starting implementation phase", 0.5)
+apex_task_checkpoint(taskId, "BUILDER_VALIDATOR: Starting implementation phase", 0.5)
 ```
 </mcp-checkpoint>
 </step>
@@ -284,7 +296,7 @@ Set `phase: implement` and `updated: [ISO timestamp]`
 // Update task phase in database
 apex_task_update({
   id: taskId,
-  phase: "VALIDATOR",  // Moving to review phase
+  phase: "BUILDER_VALIDATOR",  // Telemetry for build+validate completion
   handoff: reviewer_handoff_content,
   confidence: 0.85,
   files: [...files_modified, ...files_created]
@@ -303,7 +315,7 @@ apex_task_append_evidence(taskId, "learning",
 )
 
 // Checkpoint for phase completion
-apex_task_checkpoint(taskId, "BUILDER: Implementation complete, ready for review", 0.85)
+apex_task_checkpoint(taskId, "BUILDER_VALIDATOR: Implementation complete, ready for review", 0.85)
 ```
 </mcp-calls>
 </step>
@@ -351,7 +363,7 @@ If implementation reveals spec ambiguity:
 - Task file updated at ./.apex/tasks/[ID].md
 - apex_task_checkpoint called at start, per-step, and end
 - apex_task_append_evidence called for pattern usage
-- apex_task_update called to transition to VALIDATOR phase
+- apex_task_update called with db_role: BUILDER_VALIDATOR
 </success-criteria>
 
 <next-phase>

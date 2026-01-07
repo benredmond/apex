@@ -14,7 +14,14 @@ export interface PatternMetadata {
 export interface TaskContext {
   id: string;
   title: string;
-  phase: "ARCHITECT" | "BUILDER" | "VALIDATOR" | "REVIEWER" | "DOCUMENTER";
+  phase:
+    | "RESEARCH"
+    | "ARCHITECT"
+    | "BUILDER"
+    | "BUILDER_VALIDATOR"
+    | "VALIDATOR"
+    | "REVIEWER"
+    | "DOCUMENTER";
   status: "open" | "in_progress" | "completed" | "blocked";
   complexity?: number;
   patterns?: string[];

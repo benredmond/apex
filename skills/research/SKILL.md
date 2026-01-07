@@ -12,6 +12,17 @@ Conduct comprehensive research by orchestrating parallel sub-agents. Outputs to 
 This is the **first phase** of the APEX workflow. It gathers all intelligence needed for planning and implementation.
 </overview>
 
+<phase-model>
+phase_model:
+  frontmatter: [research, plan, implement, rework, complete]
+  rework: enabled
+  db_role: [RESEARCH, ARCHITECT, BUILDER, BUILDER_VALIDATOR, REVIEWER, DOCUMENTER]
+  legacy_db_role: [VALIDATOR]
+source_of_truth:
+  gating: frontmatter.phase
+  telemetry: db_role
+</phase-model>
+
 <phase-gate requires="none" sets="research">
   <creates-file>./.apex/tasks/[ID].md</creates-file>
   <appends-section>research</appends-section>

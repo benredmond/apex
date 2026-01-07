@@ -12,6 +12,17 @@ Transform research findings into battle-tested implementation plans through inte
 Produces 5 mandatory artifacts: Chain of Thought, Tree of Thought, Chain of Draft, YAGNI Declaration, Pattern Selection.
 </overview>
 
+<phase-model>
+phase_model:
+  frontmatter: [research, plan, implement, rework, complete]
+  rework: enabled
+  db_role: [RESEARCH, ARCHITECT, BUILDER, BUILDER_VALIDATOR, REVIEWER, DOCUMENTER]
+  legacy_db_role: [VALIDATOR]
+source_of_truth:
+  gating: frontmatter.phase
+  telemetry: db_role
+</phase-model>
+
 <phase-gate requires="research" sets="plan">
   <reads-file>./.apex/tasks/[ID].md</reads-file>
   <requires-section>research</requires-section>
@@ -366,10 +377,10 @@ Set `phase: plan` and `updated: [ISO timestamp]`
 
 <mcp-calls>
 ```javascript
-// Transition phase in database
+// Update DB telemetry for ARCHITECT phase
 apex_task_update({
   id: taskId,
-  phase: "BUILDER",
+  phase: "ARCHITECT",
   handoff: builder_handoff_content,
   confidence: 0.7,
   files: files_to_modify.concat(files_to_create),
@@ -414,7 +425,7 @@ apex_task_checkpoint(taskId, "ARCHITECT: Architecture complete, ready for BUILDE
 - Implementation sequence concrete with validation
 - Task file updated at ./.apex/tasks/[ID].md
 - apex_task_checkpoint called at start and end
-- apex_task_update called to transition to BUILDER phase
+- apex_task_update called with db_role: ARCHITECT
 - apex_task_append_evidence called to record artifacts
 </success-criteria>
 

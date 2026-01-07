@@ -12,6 +12,17 @@ Final phase: Review implementation with adversarial agents, commit changes, comp
 Combines REVIEWER (adversarial code review) and DOCUMENTER (commit, complete, reflect).
 </overview>
 
+<phase-model>
+phase_model:
+  frontmatter: [research, plan, implement, rework, complete]
+  rework: enabled
+  db_role: [RESEARCH, ARCHITECT, BUILDER, BUILDER_VALIDATOR, REVIEWER, DOCUMENTER]
+  legacy_db_role: [VALIDATOR]
+source_of_truth:
+  gating: frontmatter.phase
+  telemetry: db_role
+</phase-model>
+
 <phase-gate requires="implement" sets="complete">
   <reads-file>./.apex/tasks/[ID].md</reads-file>
   <requires-section>implementation</requires-section>
@@ -24,7 +35,8 @@ This phase requires THREE mandatory actions in order:
 2. **Git Commit** - Commit all changes
 3. **apex_reflect** - Submit pattern outcomes
 
-YOU CANNOT SKIP ANY OF THESE.
+YOU CANNOT SKIP ANY OF THESE for APPROVE or CONDITIONAL outcomes.
+If REJECT, stop after review, set frontmatter to `phase: rework`, and return to `/apex:implement`.
 </mandatory-actions>
 
 <initial-response>
@@ -176,6 +188,13 @@ For each finding:
 - 1-2 FIX_NOW minor → CONDITIONAL (fix or accept with docs)
 - 3+ FIX_NOW or critical security → REJECT (return to /apex:implement)
 </review-decision>
+
+<reject-flow>
+On REJECT:
+1. Write `<ship><decision>REJECT</decision>` with a brief rationale
+2. Update frontmatter: `phase: rework`, `updated: [ISO timestamp]`
+3. STOP. Do NOT commit or call apex_reflect. Return to `/apex:implement`.
+</reject-flow>
 </step>
 
 <step id="5.5" title="Documentation Updates">
@@ -444,6 +463,7 @@ Append to `<ship>` section:
 </output-format>
 
 <update-frontmatter>
+For APPROVE or CONDITIONAL only:
 Set `phase: complete`, `status: complete`, and `updated: [ISO timestamp]`
 </update-frontmatter>
 </step>

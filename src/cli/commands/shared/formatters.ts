@@ -358,8 +358,10 @@ export class TableFormatter implements Formatter {
     if (!phase) return chalk.gray("-");
 
     const phaseColors: Record<string, typeof chalk> = {
+      RESEARCH: chalk.gray,
       ARCHITECT: chalk.magenta,
       BUILDER: chalk.blue,
+      BUILDER_VALIDATOR: chalk.yellow,
       VALIDATOR: chalk.yellow,
       REVIEWER: chalk.cyan,
       DOCUMENTER: chalk.green,
