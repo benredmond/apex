@@ -52,9 +52,14 @@ You can find active tasks in `./.apex/tasks/` or run with:
 <instructions>
 1. Read `./.apex/tasks/[identifier].md`
 2. Verify frontmatter `phase: plan` OR `phase: rework`
-3. Parse `<plan>` section, especially `<builder-handoff>`
-4. If phase == rework, treat this as a Ship REJECT rework loop
-5. If phase not in [plan, rework], refuse with: "Task is in [phase] phase. Expected: plan or rework"
+3. Parse `<task-contract>` first and treat it as authoritative scope/ACs
+4. Parse `<plan>` section, especially `<builder-handoff>`
+5. If phase == rework, treat this as a Ship REJECT rework loop
+6. If phase not in [plan, rework], refuse with: "Task is in [phase] phase. Expected: plan or rework"
+
+Contract rules:
+- Implementation MUST satisfy all AC-* or explicitly document unmet criteria
+- If scope/ACs must change, append a <amendments><amendment ...> entry inside task-contract and bump its version
 </instructions>
 
 <mcp-checkpoint>
@@ -75,6 +80,10 @@ apex_task_checkpoint(taskId, "BUILDER_VALIDATOR: Starting implementation phase",
 - `<architecture-decision><files-to-modify>` - Existing files to change
 - `<architecture-decision><files-to-create>` - New files to add
 </extract-from-plan>
+
+<extract-from-contract>
+- `<task-contract><acceptance-criteria>` - AC-* to track and validate
+</extract-from-contract>
 
 <create-todo-list>
 Create TodoWrite items for each implementation step from the plan.
@@ -251,6 +260,10 @@ Append to `<implementation>` section:
   <coverage>[Percentage if available]</coverage>
 </validation-results>
 
+<acceptance-criteria-status>
+  <criterion id="AC-1" status="met|not-met">[Evidence or reason]</criterion>
+</acceptance-criteria-status>
+
 <patterns-used>
   <pattern id="PAT:X:Y" location="file:line" outcome="worked|tweaked|failed">
     [Notes on usage]
@@ -343,6 +356,12 @@ Before completing implementation:
 - DO NOT transition to ship with syntax errors
 </syntax-gate>
 
+<contract-gate>
+Before finishing:
+- Confirm all AC-* are met, or explicitly mark any unmet criteria with reasons
+- If contract scope/ACs changed, record an amendment with rationale and bump contract version
+</contract-gate>
+
 <spec-unclear-protocol>
 If implementation reveals spec ambiguity:
 1. Document the ambiguity
@@ -358,6 +377,7 @@ If implementation reveals spec ambiguity:
 - All validation gates passed
 - Full test suite passing
 - No syntax errors
+- Acceptance criteria status reported for all AC-*
 - Patterns used are from plan only (Pattern Evidence Gate passed)
 - Deviations documented with reasons
 - Task file updated at ./.apex/tasks/[ID].md

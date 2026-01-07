@@ -305,6 +305,8 @@ The primary workflow uses 4 phase-based commands:
 /apex:ship <task-id>                 # Phase 4: Review, commit, reflect
 ```
 
+Research now produces a versioned `task-contract` (intent, scope, ACs, NFRs). Plan/Implement/Ship must validate against it, and any scope changes require an explicit amendment with rationale and a version bump.
+
 Or run all phases in sequence:
 ```bash
 /apex:execute <task-description>     # Full workflow: research → plan → implement → ship

@@ -55,13 +55,19 @@ You can find active tasks in `./.apex/tasks/` or run with:
 <instructions>
 1. Read `./.apex/tasks/[identifier].md`
 2. Verify frontmatter `phase: implement`
-3. Parse all sections for full context
-4. If phase != implement, refuse with: "Task is in [phase] phase. Expected: implement"
+3. Parse `<task-contract>` first and note its latest version and any amendments
+4. Parse all sections for full context
+5. If phase != implement, refuse with: "Task is in [phase] phase. Expected: implement"
+
+Contract rules:
+- Final report MUST map changes to AC-* and confirm no out-of-scope work
+- If scope/ACs changed during implement, ensure amendments are recorded with rationale and version bump
 </instructions>
 </step>
 
 <step id="2" title="Gather review context">
 <extract>
+- `<task-contract>` - Authoritative scope/ACs and amendment history
 - `<implementation><files-modified>` - What changed
 - `<implementation><files-created>` - What's new
 - `<implementation><patterns-used>` - Patterns to validate
@@ -427,6 +433,15 @@ Append to `<ship>` section:
   <false-positive-rate>[X%]</false-positive-rate>
 </review-summary>
 
+<contract-verification>
+  <contract-version>[N]</contract-version>
+  <amendments-audited>[List amendments or "none"]</amendments-audited>
+  <acceptance-criteria-verification>
+    <criterion id="AC-1" status="met|not-met">[Evidence or exception]</criterion>
+  </acceptance-criteria-verification>
+  <out-of-scope-check>[Confirm no out-of-scope work slipped in]</out-of-scope-check>
+</contract-verification>
+
 <action-items>
   <fix-now>
     <item id="[ID]" severity="[S]" confidence="[C]" location="[file:line]">
@@ -484,6 +499,9 @@ Set `phase: complete`, `status: complete`, and `updated: [ISO timestamp]`
 - Applied: [N] patterns
 - Reflection: ✅ Submitted
 
+✅ **Acceptance Criteria**:
+- AC-* coverage: [met|not met with exceptions]
+
 🔍 **Review**:
 - Phase 1 findings: [N]
 - Dismissed as false positives: [N] ([X]%)
@@ -501,6 +519,7 @@ BEFORE reporting to user, verify ALL actions completed:
 - [ ] Phase 1 review agents launched and returned?
 - [ ] Phase 2 challenge agents launched and returned (with ROI analysis)?
 - [ ] Documentation checklist completed?
+- [ ] Contract verification completed (AC mapping + out-of-scope check)?
 - [ ] Git commit created? (verify with git log -1)
 - [ ] apex_task_complete called? (received ReflectionDraft?)
 - [ ] apex_reflect called? (received ok: true?)
@@ -512,6 +531,7 @@ BEFORE reporting to user, verify ALL actions completed:
 - Adversarial review completed (7 agents: 5 Phase 1 + 2 Phase 2)
 - ROI analysis included in challenger findings
 - Documentation checklist completed (grep → read → update → verify)
+- Contract verification completed with AC mapping and scope confirmation
 - All FIX_NOW items resolved (or explicitly accepted)
 - Git commit created with proper message
 - apex_task_complete called

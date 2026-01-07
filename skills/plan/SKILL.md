@@ -9,7 +9,7 @@ argument-hint: [task-identifier]
 <overview>
 Transform research findings into battle-tested implementation plans through interactive design.
 
-Produces 5 mandatory artifacts: Chain of Thought, Tree of Thought, Chain of Draft, YAGNI Declaration, Pattern Selection.
+Produces 5 mandatory artifacts: Design Rationale and Evidence, Tree of Thought, Chain of Draft, YAGNI Declaration, Pattern Selection.
 </overview>
 
 <phase-model>
@@ -53,9 +53,11 @@ You can find active tasks in `./.apex/tasks/` or run with:
 <instructions>
 1. Read `./.apex/tasks/[identifier].md`
 2. Verify frontmatter `phase: research`
-3. Parse `<research>` section for context
-4. If phase != research, refuse with: "Task is in [phase] phase. Expected: research"
-5. Extract context pack references from `<context-pack-refs>`:
+3. Parse `<task-contract>` from the research output FIRST and treat it as authoritative scope/ACs
+4. If `<task-contract>` is missing, STOP and ask to rerun research or add the contract with an explicit amendment rationale
+5. Parse `<research>` section for context
+6. If phase != research, refuse with: "Task is in [phase] phase. Expected: research"
+7. Extract context pack references from `<context-pack-refs>`:
    - ctx.patterns = research.apex-patterns
    - ctx.impl = research.codebase-patterns
    - ctx.web = research.web-research
@@ -63,6 +65,10 @@ You can find active tasks in `./.apex/tasks/` or run with:
    - ctx.docs = research.documentation
    - ctx.risks = research.risks
    - ctx.exec = research.recommendations.winner
+
+Contract rules:
+- Architecture artifacts MUST NOT contradict task-contract scope or ACs
+- If scope/ACs must change, append a <amendments><amendment ...> entry inside task-contract and bump its version
 </instructions>
 
 <mcp-checkpoint>
@@ -128,10 +134,10 @@ Does this structure align with your vision? Should I adjust?
 YOU CANNOT PROCEED WITHOUT ALL 5 ARTIFACTS.
 </critical>
 
-<artifact id="1" name="Chain of Thought Analysis">
-<purpose>Investigate: WHY exists? WHAT problems before? WHO depends? WHERE are landmines?</purpose>
+<artifact id="1" name="Design Rationale and Evidence">
+<purpose>Explain rationale and evidence: WHY exists? WHAT problems before? WHO depends? WHERE are landmines?</purpose>
 <schema>
-chain_of_thought:
+design_rationale:
   current_state:
     what_exists: [Component at file:line, purpose]
     how_it_got_here: [Git archaeology with commit SHA]
@@ -319,9 +325,21 @@ Append to `<plan>` section:
   <risk>[LOW|MEDIUM|HIGH]</risk>
 </metadata>
 
-<chain-of-thought>
+<contract-validation>
+  <contract-version>[N]</contract-version>
+  <status>aligned|amended</status>
+  <acceptance-criteria-coverage>
+    <criterion id="AC-1">[How the plan will satisfy this AC]</criterion>
+  </acceptance-criteria-coverage>
+  <out-of-scope-confirmation>[Confirm no out-of-scope work is planned]</out-of-scope-confirmation>
+  <amendments-made>
+    <amendment version="[N]" reason="[Rationale or 'none']"/>
+  </amendments-made>
+</contract-validation>
+
+<design-rationale>
   [Full artifact]
-</chain-of-thought>
+</design-rationale>
 
 <tree-of-thought>
   <solution id="A">[Full details]</solution>
@@ -389,7 +407,7 @@ apex_task_update({
 
 // Record architecture artifacts as evidence for learning
 apex_task_append_evidence(taskId, "pattern", "Architecture artifacts completed", {
-  chain_of_thought: "...",
+  design_rationale: "...",
   tree_of_thought: { winner: "...", solutions: 3 },
   yagni: { exclusions: N },
   patterns_selected: ["PAT:IDs"]
@@ -404,13 +422,14 @@ apex_task_checkpoint(taskId, "ARCHITECT: Architecture complete, ready for BUILDE
 </workflow>
 
 <self-review-checklist>
-- [ ] Chain of Thought: ALL hidden complexity identified?
+- [ ] Design Rationale and Evidence: ALL hidden complexity identified?
 - [ ] Tree of Thought: 3 FUNDAMENTALLY different solutions?
 - [ ] Chain of Draft: REAL evolution shown?
 - [ ] YAGNI: 3+ explicit exclusions?
 - [ ] Patterns: Trust scores and usage stats included?
 - [ ] Architecture decision: CONCRETE file paths?
 - [ ] New files: Test plan included for each?
+- [ ] Task contract validated with AC coverage and amendments recorded if any?
 
 **If ANY unchecked → STOP and revise**
 </self-review-checklist>
@@ -422,6 +441,7 @@ apex_task_checkpoint(taskId, "ARCHITECT: Architecture complete, ready for BUILDE
 - Pattern selections justified with trust scores (NO fabricated patterns)
 - 3 DISTINCT architectures in Tree of Thought
 - YAGNI boundaries explicit
+- Task contract validated; AC coverage documented; amendments (if any) recorded with version bump
 - Implementation sequence concrete with validation
 - Task file updated at ./.apex/tasks/[ID].md
 - apex_task_checkpoint called at start and end

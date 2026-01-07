@@ -113,7 +113,97 @@ Before ANY analysis or spawning agents:
 </critical>
 </step>
 
-<step id="4" title="Create task file">
+<step id="4" title="Triage scan + Ambiguity Gate (Pre-Agents)">
+<purpose>
+Run a low-cost scan to reduce ambiguity before spawning deep research agents.
+</purpose>
+
+<triage-scan>
+- Run cheap `rg` scans to locate entrypoints, tests, and likely target areas:
+  - `rg -n "main|entry|cli|index\\.(ts|js)|server\\.(ts|js)" src`
+  - `rg -n "describe\\(|it\\(" tests`
+  - `rg -n "[task keywords]" src tests docs` (derive keywords from enhanced_prompt)
+- Capture candidate files/areas to refine scope.
+- Do NOT open large files unless the user explicitly mentioned them.
+- Use this scan ONLY to detect ambiguity and shape clarifying questions.
+</triage-scan>
+
+<critical>
+Ambiguity is a BLOCKING condition that ONLY users can resolve.
+DO NOT spawn deep research agents with unclear requirements.
+</critical>
+
+<ambiguity-checklist>
+Check for these ambiguity indicators:
+
+**Vague Goals**:
+- "improve", "enhance", "optimize" without metrics
+- "fix the bug" without reproduction steps
+- "make it better" without criteria
+
+**Unclear Scope**:
+- No defined boundaries (what's in/out)
+- Multiple interpretations possible
+- Triage scan surfaces multiple plausible entrypoints/tests
+
+**Technical Choices**:
+- Triage scan shows multiple candidate libraries/approaches
+- Architecture decisions user should make
+- Technology/library selection needed
+
+**Missing Constraints**:
+- No performance requirements
+- No security requirements specified
+- No compatibility requirements
+</ambiguity-checklist>
+
+<assessment-logic>
+```python
+def assess_ambiguity(enhanced_prompt, triage_scan):
+    ambiguities = []
+
+    # Check each category
+    if has_vague_goals(enhanced_prompt):
+        ambiguities.append({"type": "vague_goal", "question": "..."})
+
+    if has_unclear_scope(enhanced_prompt, triage_scan):
+        ambiguities.append({"type": "unclear_scope", "question": "..."})
+
+    if needs_technical_choice(triage_scan):
+        ambiguities.append({"type": "technical_choice", "question": "..."})
+
+    if missing_constraints(enhanced_prompt):
+        ambiguities.append({"type": "missing_constraint", "question": "..."})
+
+    return ambiguities
+```
+</assessment-logic>
+
+<decision>
+- **0 ambiguities**: PROCEED to spawn parallel research agents
+- **1+ ambiguities**: ASK USER before spawning deep research agents
+
+**Question Format**:
+```
+Before I spawn deep research agents, I need to clarify:
+
+[For each ambiguity, ONE focused question]
+
+1. **[Category]**: [Specific question]?
+   - Option A: [Choice with implication]
+   - Option B: [Choice with implication]
+   - Option C: [Let me know your preference]
+```
+</decision>
+
+<max-rounds>
+Maximum 1 clarification round. After user responds:
+- Incorporate answers into enhanced_prompt
+- Proceed to spawn parallel research agents (do NOT ask more questions)
+</max-rounds>
+</step>
+
+<step id="5" title="Create task file">
 <instructions>
 Create `./.apex/tasks/[identifier].md` with frontmatter:
 
@@ -149,7 +239,10 @@ status: active
 </instructions>
 </step>
 
-<step id="5" title="Spawn parallel research agents">
+<step id="6" title="Spawn parallel research agents">
+<critical>
+Use the clarified enhanced_prompt (post-ambiguity resolution) as the source of truth for all agent prompts.
+</critical>
 <agents parallel="true">
 
 <agent type="intelligence-gatherer" required="true">
@@ -215,7 +308,7 @@ Surface forward-looking risks, edge cases, monitoring gaps, mitigations.
 <wait-for-all>CRITICAL: Wait for ALL agents to complete before proceeding.</wait-for-all>
 </step>
 
-<step id="6" title="Synthesize findings">
+<step id="7" title="Synthesize findings">
 <priority-order>
 1. Live codebase = primary truth (what actually exists)
 2. Implementation patterns = concrete project conventions
@@ -235,8 +328,8 @@ Surface forward-looking risks, edge cases, monitoring gaps, mitigations.
 </synthesis-tasks>
 </step>
 
-<step id="7" title="Display Intelligence Report">
-<purpose>Give user visibility into gathered intelligence before gates.</purpose>
+<step id="8" title="Display Intelligence Report">
+<purpose>Give user visibility into gathered intelligence before the technical adequacy gate.</purpose>
 
 <display-format>
 ```
@@ -272,82 +365,6 @@ Surface forward-looking risks, edge cases, monitoring gaps, mitigations.
 3. [Third most important]
 ```
 </display-format>
-</step>
-
-<step id="8" title="Ambiguity Detection Gate (Phase 1)">
-<critical>
-Ambiguity is a BLOCKING condition that ONLY users can resolve.
-DO NOT proceed with unclear requirements.
-</critical>
-
-<ambiguity-checklist>
-Check for these ambiguity indicators:
-
-**Vague Goals**:
-- "improve", "enhance", "optimize" without metrics
-- "fix the bug" without reproduction steps
-- "make it better" without criteria
-
-**Unclear Scope**:
-- No defined boundaries (what's in/out)
-- Multiple interpretations possible
-- Dependencies on undefined behavior
-
-**Technical Choices**:
-- Multiple valid approaches with different tradeoffs
-- Architecture decisions user should make
-- Technology/library selection needed
-
-**Missing Constraints**:
-- No performance requirements
-- No security requirements specified
-- No compatibility requirements
-</ambiguity-checklist>
-
-<assessment-logic>
-```python
-def assess_ambiguity(enhanced_prompt, intelligence):
-    ambiguities = []
-
-    # Check each category
-    if has_vague_goals(enhanced_prompt):
-        ambiguities.append({"type": "vague_goal", "question": "..."})
-
-    if has_unclear_scope(enhanced_prompt):
-        ambiguities.append({"type": "unclear_scope", "question": "..."})
-
-    if needs_technical_choice(intelligence):
-        ambiguities.append({"type": "technical_choice", "question": "..."})
-
-    if missing_constraints(enhanced_prompt):
-        ambiguities.append({"type": "missing_constraint", "question": "..."})
-
-    return ambiguities
-```
-</assessment-logic>
-
-<decision>
-- **0 ambiguities**: PROCEED to Technical Adequacy
-- **1+ ambiguities**: ASK USER before proceeding
-
-**Question Format**:
-```
-Before I proceed with research, I need to clarify:
-
-[For each ambiguity, ONE focused question]
-
-1. **[Category]**: [Specific question]?
-   - Option A: [Choice with implication]
-   - Option B: [Choice with implication]
-   - Option C: [Let me know your preference]
-```
-</decision>
-
-<max-rounds>
-Maximum 1 clarification round. After user responds:
-- Incorporate answers into enhanced_prompt
-- Proceed to Technical Adequacy (do NOT ask more questions)
-</max-rounds>
 </step>
 
 <step id="9" title="Technical Adequacy Gate (Phase 2)">
@@ -520,6 +537,23 @@ Append to `<research>` section:
   <winner id="[A|B|C]" reasoning="[Why]"/>
 </recommendations>
 
+<task-contract version="1">
+  <intent>[Single-sentence intent]</intent>
+  <in-scope>[Explicit inclusions]</in-scope>
+  <out-of-scope>[Explicit exclusions]</out-of-scope>
+  <acceptance-criteria>
+    <criterion id="AC-1">Given..., When..., Then...</criterion>
+  </acceptance-criteria>
+  <non-functional>
+    <performance>[Performance constraints]</performance>
+    <security>[Security constraints]</security>
+    <compatibility>[Compatibility constraints]</compatibility>
+  </non-functional>
+  <amendments>
+    <!-- Append amendments in plan/implement/ship with explicit rationale and version bump -->
+  </amendments>
+</task-contract>
+
 <next-steps>
 Run `/apex:plan [identifier]` to create architecture from these findings.
 </next-steps>
@@ -537,6 +571,7 @@ Set `updated: [ISO timestamp]` and verify `phase: research`
 <success-criteria>
 - Prompt optimized and enhanced with specificity
 - All mentioned files read fully
+- Triage scan completed and ambiguity resolved before spawning agents
 - All parallel agents completed (including documentation-researcher)
 - Implementation patterns extracted with file:line refs
 - Web research validated against official docs
@@ -548,6 +583,7 @@ Set `updated: [ISO timestamp]` and verify `phase: research`
 - Technical adequacy score ≥ 0.6
 - 3 solution approaches generated (Tree of Thought)
 - Risks identified with mitigations
+- Task contract created with intent, scope, ACs, and NFRs
 - Task file created/updated at ./.apex/tasks/[ID].md
 - Context pack refs documented for downstream phases
 </success-criteria>
