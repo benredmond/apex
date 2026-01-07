@@ -339,7 +339,15 @@ apex_reflect({
     patterns_used: [
       {
         pattern_id: "[PAT:ID]",
-        evidence: [{ type: "git_lines", file: "[file]", lines: "N-M" }],
+        evidence: [
+          {
+            kind: "git_lines",
+            file: "[file]",
+            sha: "HEAD",
+            start: 1,
+            end: 10
+          }
+        ],
         notes: "[how it helped]"
       }
     ],
@@ -357,7 +365,18 @@ apex_reflect({
       {
         title: "[Pattern title]",
         summary: "[What it does]",
-        snippets: ["[code example]"],
+        snippets: [
+          {
+            snippet_id: "[snippet id]",
+            source_ref: {
+              kind: "git_lines",
+              file: "[file]",
+              sha: "HEAD",
+              start: 1,
+              end: 10
+            }
+          }
+        ],
         evidence: [...]
       }
     ]

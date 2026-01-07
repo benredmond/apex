@@ -150,6 +150,40 @@ describe("Reflection MCP Tool", () => {
       expect(response.request_id).toBeDefined();
     });
 
+    it("should preprocess type + lines evidence into git_lines", async () => {
+      const response = await reflectionService.reflect({
+        task: {
+          id: "test-task-3b",
+          title: "Normalize evidence",
+        },
+        outcome: "success",
+        claims: {
+          patterns_used: [
+            {
+              pattern_id: "PAT:API:ERROR_HANDLING",
+              evidence: [
+                {
+                  type: "git_lines",
+                  file: "src/api.ts",
+                  lines: "5-15",
+                },
+              ],
+            },
+          ],
+          trust_updates: [
+            {
+              pattern_id: "PAT:API:ERROR_HANDLING",
+              outcome: "worked-with-tweaks",
+            },
+          ],
+        },
+      });
+
+      expect(response).toBeDefined();
+      expect(response.request_id).toBeDefined();
+      expect(response.preprocessing_corrections).toBeGreaterThan(0);
+    });
+
     it("should validate evidence with git_lines format", async () => {
       const response = await reflectionService.reflect({
         task: {

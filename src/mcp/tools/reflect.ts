@@ -88,6 +88,7 @@ class ReflectionMetrics {
   recordPreprocessing(corrections: {
     evidenceKind: number;
     evidenceFormat: number;
+    evidenceLines: number;
     missingSha: number;
     patternId: number;
   }): void {
@@ -105,6 +106,7 @@ class RequestPreprocessor {
   private corrections = {
     evidenceKind: 0,
     evidenceFormat: 0,
+    evidenceLines: 0,
     missingSha: 0,
     patternId: 0,
     batchPatterns: 0,
@@ -121,6 +123,7 @@ class RequestPreprocessor {
     // Apply corrections incrementally for metrics tracking
     this.fixEvidenceKind(processed);
     this.fixEvidenceFormat(processed);
+    this.fixEvidenceLines(processed);
     this.fixMissingSha(processed);
     this.fixPatternIds(processed);
     this.fixBatchPatterns(processed);
@@ -131,6 +134,7 @@ class RequestPreprocessor {
   getCorrections(): {
     evidenceKind: number;
     evidenceFormat: number;
+    evidenceLines: number;
     missingSha: number;
     patternId: number;
     batchPatterns: number;
@@ -154,6 +158,17 @@ class RequestPreprocessor {
     if (obj.kind === "code_lines") {
       obj.kind = "git_lines";
       this.corrections.evidenceKind++;
+    }
+
+    // Fix missing kind when "type" is provided (common mistake)
+    if (!obj.kind && obj.type) {
+      if (obj.type === "code_lines") {
+        obj.kind = "git_lines";
+        this.corrections.evidenceKind++;
+      } else if (["git_lines", "commit", "pr", "ci_run"].includes(obj.type)) {
+        obj.kind = obj.type;
+        this.corrections.evidenceKind++;
+      }
     }
 
     // Recurse into object properties
@@ -213,6 +228,53 @@ class RequestPreprocessor {
     for (const key in obj) {
       if (obj.hasOwnProperty(key) && key !== "evidence") {
         this.fixEvidenceFormat(obj[key]);
+      }
+    }
+  }
+
+  /**
+   * Fix evidence line ranges: "lines": "N-M" → start/end
+   */
+  private fixEvidenceLines(obj: any): void {
+    if (!obj || typeof obj !== "object") return;
+
+    // Handle arrays
+    if (Array.isArray(obj)) {
+      obj.forEach((item) => this.fixEvidenceLines(item));
+      return;
+    }
+
+    const kind = obj.kind ?? obj.type;
+    if (kind === "git_lines") {
+      if (
+        (obj.start === undefined || obj.end === undefined) &&
+        typeof obj.lines === "string"
+      ) {
+        const match = obj.lines.match(/^\s*(\d+)(?:\s*-\s*(\d+))?\s*$/);
+        if (match) {
+          const start = Number.parseInt(match[1], 10);
+          const end = match[2] ? Number.parseInt(match[2], 10) : start;
+          if (obj.start === undefined) obj.start = start;
+          if (obj.end === undefined) obj.end = end;
+          this.corrections.evidenceLines++;
+        }
+      }
+
+      if (typeof obj.start === "string" && /^\d+$/.test(obj.start)) {
+        obj.start = Number.parseInt(obj.start, 10);
+        this.corrections.evidenceLines++;
+      }
+
+      if (typeof obj.end === "string" && /^\d+$/.test(obj.end)) {
+        obj.end = Number.parseInt(obj.end, 10);
+        this.corrections.evidenceLines++;
+      }
+    }
+
+    // Recurse into object properties
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        this.fixEvidenceLines(obj[key]);
       }
     }
   }
