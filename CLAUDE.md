@@ -24,6 +24,13 @@ npm run release:minor     # Release minor version (x.1.x)
 npm run release:major     # Release major version (1.x.x)
 ```
 
+## Version Bumping (Plugin + npm Package)
+
+- Decide the next version (patch/minor/major).
+- Update `.claude-plugin/plugin.json` `version` and `package.json` `version` to the same value.
+- Update `package-lock.json` root version to match `package.json` if it changes.
+- For a publish, prefer the release scripts above; they run checks, bump npm version, and publish.
+
 ## Architecture Overview
 
 ### Core Components
