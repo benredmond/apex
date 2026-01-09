@@ -212,6 +212,11 @@ export class PatternDatabase {
   }
 
   private resolveDatabasePath(dbPath: string): string {
+    // Preserve SQLite in-memory database paths (don't resolve to filesystem)
+    if (dbPath === ":memory:" || dbPath.startsWith("file::memory:")) {
+      return dbPath;
+    }
+
     if (!path.isAbsolute(dbPath)) {
       const isMCP =
         process.argv.some((arg) => arg.includes("mcp")) &&
