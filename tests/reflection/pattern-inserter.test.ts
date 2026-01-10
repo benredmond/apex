@@ -190,6 +190,24 @@ describe("PatternInserter", () => {
       expect(result.type).toBe("CODEBASE");
     });
 
+    it("should store tags as JSON array string", () => {
+      const pattern: NewPattern = {
+        title: "Tag Storage Pattern",
+        summary: "Ensures tags are stored as JSON",
+        snippets: [],
+        evidence: [],
+      };
+
+      const patternId = inserter.insertNewPattern(pattern, "NEW_PATTERN");
+
+      const result = db
+        .prepare("SELECT tags FROM patterns WHERE id = ?")
+        .get(patternId) as any;
+
+      expect(() => JSON.parse(result.tags)).not.toThrow();
+      expect(JSON.parse(result.tags)).toEqual([]);
+    });
+
     it("should store anti-patterns with correct type", () => {
       const antiPattern: AntiPattern = {
         pattern_id: "TEST:ANTI",

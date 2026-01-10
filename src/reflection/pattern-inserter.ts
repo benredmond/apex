@@ -11,6 +11,19 @@ import { Pattern } from "../storage/types.js";
 // [PAT:IMPORT:ESM] ★★★★☆ (67 uses, 89% success) - From cache
 import { PATTERN_SCHEMA_VERSION } from "../config/constants.js";
 
+const parseTagsValue = (value: string | null | undefined): string[] => {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return value
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0);
+  }
+};
+
 export class PatternInserter {
   private db: DatabaseAdapter;
 
@@ -335,7 +348,12 @@ export class PatternInserter {
     const now = new Date().toISOString();
 
     // Extract search fields from canonical data
-    const tags = (canonicalData as any).tags?.join(",") || "";
+    const rawTags = Array.isArray((canonicalData as any).tags)
+      ? (canonicalData as any).tags
+      : Array.isArray((pattern as any).tags)
+        ? (pattern as any).tags
+        : [];
+    const tags = JSON.stringify(rawTags);
     const keywords = this.extractKeywords(canonicalData);
     const searchIndex = this.buildSearchIndex(canonicalData);
 
@@ -475,7 +493,7 @@ export class PatternInserter {
       created_at: row.created_at,
       updated_at: row.updated_at,
       source_repo: row.source_repo,
-      tags: row.tags ? JSON.parse(row.tags) : [], // [APE-63] JSON format
+      tags: parseTagsValue(row.tags), // [APE-63] JSON format with CSV fallback
       pattern_digest: row.pattern_digest,
       json_canonical: row.json_canonical,
       invalid: row.invalid === 1,

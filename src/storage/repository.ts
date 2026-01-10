@@ -22,6 +22,19 @@ import type {
   PatternVocab,
 } from "./types.js";
 
+const parseTagsValue = (value: string | null | undefined): string[] => {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return value
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0);
+  }
+};
+
 export class PatternRepository {
   private db: PatternDatabase;
   private cache: PatternCache;
@@ -409,7 +422,7 @@ export class PatternRepository {
   public async search(query: SearchQuery): Promise<PatternPack> {
     // [PAT:PERF:QUERY_MONITORING] - Monitor query performance
     const startTime = performance.now();
-    const { task = "", type, tags, k = 20 } = query;
+    const { task = "", type, tags, k = 20, languages, frameworks } = query;
 
     // Build FTS3 query
     let ftsQuery = task.trim();
@@ -452,6 +465,34 @@ export class PatternRepository {
 
     const params: any[] = [ftsQuery];
 
+    if (languages && languages.length > 0) {
+      const langPlaceholders = languages.map(() => "?").join(",");
+      sql += ` AND (
+        EXISTS (
+          SELECT 1 FROM pattern_languages pl
+          WHERE pl.pattern_id = p.id AND pl.lang IN (${langPlaceholders})
+        ) OR NOT EXISTS (
+          SELECT 1 FROM pattern_languages pl2
+          WHERE pl2.pattern_id = p.id
+        )
+      )`;
+      params.push(...languages);
+    }
+
+    if (frameworks && frameworks.length > 0) {
+      const frameworkPlaceholders = frameworks.map(() => "?").join(",");
+      sql += ` AND (
+        EXISTS (
+          SELECT 1 FROM pattern_frameworks pfw
+          WHERE pfw.pattern_id = p.id AND pfw.framework IN (${frameworkPlaceholders})
+        ) OR NOT EXISTS (
+          SELECT 1 FROM pattern_frameworks pfw2
+          WHERE pfw2.pattern_id = p.id
+        )
+      )`;
+      params.push(...frameworks);
+    }
+
     // Add type filter if specified
     // Handle type as array for consistency with SearchQuery interface
     if (type && Array.isArray(type) && type.length > 0) {
@@ -473,8 +514,8 @@ export class PatternRepository {
       params.push(...tags);
     }
 
-    // Order by FTS rank (lower rank = better match)
-    sql += ` ORDER BY fts_rank ASC LIMIT ?`;
+    // Order by FTS rank (higher rank = better match)
+    sql += ` ORDER BY fts_rank DESC LIMIT ?`;
     params.push(k);
 
     let rows: any[] = [];
@@ -879,7 +920,7 @@ export class PatternRepository {
   private rowToPattern(row: any): Pattern {
     return {
       ...row,
-      tags: row.tags ? JSON.parse(row.tags) : [],
+      tags: parseTagsValue(row.tags),
       invalid: row.invalid === 1,
       // Include enhanced metadata fields (APE-65)
       usage_count: row.usage_count,

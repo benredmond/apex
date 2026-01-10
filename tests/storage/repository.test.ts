@@ -190,6 +190,78 @@ describe("PatternRepository Tests", () => {
       }
     });
 
+    test("should order search results by trust score descending", async () => {
+      const { repository, cleanup } = await setupRepository();
+
+      try {
+        const highTrust = buildPattern("TEST:SEARCH:RANK:HIGH", {
+          title: "Authentication Pattern",
+          summary: "Handles authentication",
+          trust_score: 0.9,
+        });
+        const lowTrust = buildPattern("TEST:SEARCH:RANK:LOW", {
+          title: "Authentication Pattern",
+          summary: "Handles authentication",
+          trust_score: 0.1,
+        });
+
+        await repository.create(lowTrust);
+        await repository.create(highTrust);
+
+        const results = await repository.search({ task: "authentication" });
+
+        expect(results.patterns.length).toBeGreaterThanOrEqual(2);
+        expect(results.patterns[0]?.id).toBe(highTrust.id);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    test("should filter by language/framework and keep global patterns", async () => {
+      const { repository, cleanup } = await setupRepository();
+
+      try {
+        const scopedMatch = buildPattern("TEST:SEARCH:SCOPE:TS_REACT", {
+          title: "Authentication Pattern",
+          summary: "Handles authentication",
+          scope: { languages: ["typescript"], frameworks: ["react"] },
+        });
+        const scopedMismatch = buildPattern("TEST:SEARCH:SCOPE:PY_DJANGO", {
+          title: "Authentication Pattern",
+          summary: "Handles authentication",
+          scope: { languages: ["python"], frameworks: ["django"] },
+        });
+        const frameworkMismatch = buildPattern("TEST:SEARCH:SCOPE:TS_VUE", {
+          title: "Authentication Pattern",
+          summary: "Handles authentication",
+          scope: { languages: ["typescript"], frameworks: ["vue"] },
+        });
+        const globalPattern = buildPattern("TEST:SEARCH:SCOPE:GLOBAL", {
+          title: "Authentication Pattern",
+          summary: "Handles authentication",
+        });
+
+        await repository.create(scopedMatch);
+        await repository.create(scopedMismatch);
+        await repository.create(frameworkMismatch);
+        await repository.create(globalPattern);
+
+        const results = await repository.search({
+          task: "authentication",
+          languages: ["typescript"],
+          frameworks: ["react"],
+        });
+
+        const ids = results.patterns.map((pattern) => pattern.id);
+        expect(ids).toContain(scopedMatch.id);
+        expect(ids).toContain(globalPattern.id);
+        expect(ids).not.toContain(scopedMismatch.id);
+        expect(ids).not.toContain(frameworkMismatch.id);
+      } finally {
+        await cleanup();
+      }
+    });
+
     test("should filter patterns by tags", async () => {
       const { repository, cleanup } = await setupRepository();
 
