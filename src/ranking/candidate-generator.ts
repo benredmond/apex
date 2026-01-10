@@ -148,20 +148,36 @@ export class CandidateGenerator {
     let result = typeSet;
 
     // Filter by languages if specified
+    // Include patterns with no language restrictions as global
     if (signals.languages.length > 0) {
-      const langSet = new Set<number>();
+      const langMatchingSet = new Set<number>();
+      const noLangSet = new Set<number>();
+
       for (const lang of signals.languages) {
         const patterns = this.indices.byLang.get(lang.toLowerCase());
         if (patterns) {
           for (const id of patterns) {
-            langSet.add(id);
+            langMatchingSet.add(id);
           }
         }
       }
 
-      if (langSet.size > 0) {
-        result = this.intersection(result, langSet);
+      for (const id of result) {
+        const pattern = this.indices.patterns[id];
+        if (!pattern.scope?.languages || pattern.scope.languages.length === 0) {
+          noLangSet.add(id);
+        }
       }
+
+      const langResult = new Set<number>();
+      for (const id of langMatchingSet) {
+        if (result.has(id)) langResult.add(id);
+      }
+      for (const id of noLangSet) {
+        if (result.has(id)) langResult.add(id);
+      }
+
+      result = langResult;
     }
 
     // Filter by frameworks if specified

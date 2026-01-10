@@ -702,7 +702,11 @@ export class PatternDatabase {
    * Returns combined results from primary and fallback databases
    * Primary results take precedence over fallback
    */
-  public queryWithFallback(sql: string, params: any[] = []): any[] {
+  public queryWithFallback(
+    sql: string,
+    params: any[] = [],
+    options?: { fallbackSql?: string; fallbackParams?: any[] },
+  ): any[] {
     // Get results from primary database
     const primaryStmt = this.db.prepare(sql);
     const primaryResults =
@@ -715,9 +719,13 @@ export class PatternDatabase {
 
     // Get results from fallback database
     try {
-      const fallbackStmt = this.fallbackDb.prepare(sql);
+      const fallbackSql = options?.fallbackSql ?? sql;
+      const fallbackParams = options?.fallbackParams ?? params;
+      const fallbackStmt = this.fallbackDb.prepare(fallbackSql);
       const fallbackResults =
-        params.length > 0 ? fallbackStmt.all(...params) : fallbackStmt.all();
+        fallbackParams.length > 0
+          ? fallbackStmt.all(...fallbackParams)
+          : fallbackStmt.all();
 
       // Merge results - primary takes precedence
       // Deduplicate by pattern ID if present

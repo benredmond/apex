@@ -3,7 +3,7 @@ import path from "path";
 import type Database from "better-sqlite3";
 import type { DatabaseAdapter } from "./database-adapter.js";
 import { PatternDatabase } from "./database.js";
-import { escapeIdentifier } from "./database-utils.js";
+import { escapeIdentifier, tableExists } from "./database-utils.js";
 import { PatternCache } from "./cache.js";
 import { PatternLoader } from "./loader.js";
 import { FTSManager } from "./fts-manager.js";
@@ -452,79 +452,154 @@ export class PatternRepository {
       ftsQuery = ftsQuery.replace(/"/g, '""');
     }
 
-    // Build the SQL query using FTS3 MATCH
-    // Join on rowid for FTS3 virtual table
-    let sql = `
-      SELECT DISTINCT p.*,
-             (p.trust_score * 100 + p.usage_count) as fts_rank
-      FROM patterns p
-      JOIN patterns_fts pf ON p.rowid = pf.rowid
-      WHERE pf.patterns_fts MATCH ?
-        AND p.invalid = 0
-    `;
+    const buildFtsSearchQuery = (options: {
+      includeLanguages: boolean;
+      includeFrameworks: boolean;
+      includeTags: boolean;
+    }) => {
+      // Build the SQL query using FTS3 MATCH
+      // Join on rowid for FTS3 virtual table
+      let sql = `
+        SELECT DISTINCT p.*,
+               (p.trust_score * 100 + p.usage_count) as fts_rank
+        FROM patterns p
+        JOIN patterns_fts pf ON p.rowid = pf.rowid
+        WHERE pf.patterns_fts MATCH ?
+          AND p.invalid = 0
+      `;
 
-    const params: any[] = [ftsQuery];
+      const params: any[] = [ftsQuery];
 
-    if (languages && languages.length > 0) {
-      const langPlaceholders = languages.map(() => "?").join(",");
-      sql += ` AND (
-        EXISTS (
-          SELECT 1 FROM pattern_languages pl
-          WHERE pl.pattern_id = p.id AND pl.lang IN (${langPlaceholders})
-        ) OR NOT EXISTS (
-          SELECT 1 FROM pattern_languages pl2
-          WHERE pl2.pattern_id = p.id
-        )
-      )`;
-      params.push(...languages);
+      if (options.includeLanguages && languages && languages.length > 0) {
+        const langPlaceholders = languages.map(() => "?").join(",");
+        sql += ` AND (
+          EXISTS (
+            SELECT 1 FROM pattern_languages pl
+            WHERE pl.pattern_id = p.id AND pl.lang IN (${langPlaceholders})
+          ) OR NOT EXISTS (
+            SELECT 1 FROM pattern_languages pl2
+            WHERE pl2.pattern_id = p.id
+          )
+        )`;
+        params.push(...languages);
+      }
+
+      if (options.includeFrameworks && frameworks && frameworks.length > 0) {
+        const frameworkPlaceholders = frameworks.map(() => "?").join(",");
+        sql += ` AND (
+          EXISTS (
+            SELECT 1 FROM pattern_frameworks pfw
+            WHERE pfw.pattern_id = p.id AND pfw.framework IN (${frameworkPlaceholders})
+          ) OR NOT EXISTS (
+            SELECT 1 FROM pattern_frameworks pfw2
+            WHERE pfw2.pattern_id = p.id
+          )
+        )`;
+        params.push(...frameworks);
+      }
+
+      // Add type filter if specified
+      // Handle type as array for consistency with SearchQuery interface
+      if (type && Array.isArray(type) && type.length > 0) {
+        const typePlaceholders = type.map(() => "?").join(",");
+        sql += ` AND p.type IN (${typePlaceholders})`;
+        params.push(...type);
+      } else if (type && !Array.isArray(type)) {
+        // Handle single type for backward compatibility
+        sql += ` AND p.type = ?`;
+        params.push(type);
+      }
+
+      // Add tag filter if specified
+      if (options.includeTags && tags && tags.length > 0) {
+        const tagPlaceholders = tags.map(() => "?").join(",");
+        sql += ` AND p.id IN (
+          SELECT pattern_id FROM pattern_tags WHERE tag IN (${tagPlaceholders})
+        )`;
+        params.push(...tags);
+      }
+
+      // Order by FTS rank (higher rank = better match)
+      sql += ` ORDER BY fts_rank DESC LIMIT ?`;
+      params.push(k);
+
+      return { sql, params };
+    };
+
+    const buildTrustOnlyQuery = (options: { includeTags: boolean }) => {
+      let sql = `
+        SELECT DISTINCT p.*
+        FROM patterns p
+        WHERE p.invalid = 0
+      `;
+      const params: any[] = [];
+
+      if (type && Array.isArray(type) && type.length > 0) {
+        const typePlaceholders = type.map(() => "?").join(",");
+        sql += ` AND p.type IN (${typePlaceholders})`;
+        params.push(...type);
+      } else if (type && !Array.isArray(type)) {
+        sql += ` AND p.type = ?`;
+        params.push(type);
+      }
+
+      if (options.includeTags && tags && tags.length > 0) {
+        const tagPlaceholders = tags.map(() => "?").join(",");
+        sql += ` AND p.id IN (
+          SELECT pattern_id FROM pattern_tags WHERE tag IN (${tagPlaceholders})
+        )`;
+        params.push(...tags);
+      }
+
+      sql += ` ORDER BY p.trust_score DESC LIMIT ?`;
+      params.push(k);
+      return { sql, params };
+    };
+
+    const primaryQuery = buildFtsSearchQuery({
+      includeLanguages: true,
+      includeFrameworks: true,
+      includeTags: true,
+    });
+
+    let fallbackQuery:
+      | { sql: string; params: any[] }
+      | undefined = undefined;
+
+    if (this.db.hasFallback()) {
+      const fallbackDb = this.db.fallbackDatabase;
+      const supportsFts = fallbackDb
+        ? tableExists(fallbackDb, "patterns_fts")
+        : false;
+      const supportsLanguages = fallbackDb
+        ? tableExists(fallbackDb, "pattern_languages")
+        : false;
+      const supportsFrameworks = fallbackDb
+        ? tableExists(fallbackDb, "pattern_frameworks")
+        : false;
+      const supportsTags = fallbackDb
+        ? tableExists(fallbackDb, "pattern_tags")
+        : false;
+
+      fallbackQuery = supportsFts
+        ? buildFtsSearchQuery({
+            includeLanguages: supportsLanguages,
+            includeFrameworks: supportsFrameworks,
+            includeTags: supportsTags,
+          })
+        : buildTrustOnlyQuery({ includeTags: supportsTags });
     }
-
-    if (frameworks && frameworks.length > 0) {
-      const frameworkPlaceholders = frameworks.map(() => "?").join(",");
-      sql += ` AND (
-        EXISTS (
-          SELECT 1 FROM pattern_frameworks pfw
-          WHERE pfw.pattern_id = p.id AND pfw.framework IN (${frameworkPlaceholders})
-        ) OR NOT EXISTS (
-          SELECT 1 FROM pattern_frameworks pfw2
-          WHERE pfw2.pattern_id = p.id
-        )
-      )`;
-      params.push(...frameworks);
-    }
-
-    // Add type filter if specified
-    // Handle type as array for consistency with SearchQuery interface
-    if (type && Array.isArray(type) && type.length > 0) {
-      const typePlaceholders = type.map(() => "?").join(",");
-      sql += ` AND p.type IN (${typePlaceholders})`;
-      params.push(...type);
-    } else if (type && !Array.isArray(type)) {
-      // Handle single type for backward compatibility
-      sql += ` AND p.type = ?`;
-      params.push(type);
-    }
-
-    // Add tag filter if specified
-    if (tags && tags.length > 0) {
-      const tagPlaceholders = tags.map(() => "?").join(",");
-      sql += ` AND p.id IN (
-        SELECT pattern_id FROM pattern_tags WHERE tag IN (${tagPlaceholders})
-      )`;
-      params.push(...tags);
-    }
-
-    // Order by FTS rank (higher rank = better match)
-    sql += ` ORDER BY fts_rank DESC LIMIT ?`;
-    params.push(k);
 
     let rows: any[] = [];
     try {
       // [FIX:ASYNC:SYNC] ★★★★★ - SQLite operations are synchronous
       // Use fallback query if available
       rows = this.db.hasFallback()
-        ? this.db.queryWithFallback(sql, params)
-        : (this.db.prepare(sql).all(...params) as any[]);
+        ? this.db.queryWithFallback(primaryQuery.sql, primaryQuery.params, {
+            fallbackSql: fallbackQuery?.sql,
+            fallbackParams: fallbackQuery?.params,
+          })
+        : (this.db.prepare(primaryQuery.sql).all(...primaryQuery.params) as any[]);
     } catch (error) {
       console.error("[ERROR] FTS3 search failed:", error);
       console.error("[ERROR] Query:", { task: ftsQuery, type, tags });
@@ -601,10 +676,31 @@ export class PatternRepository {
     }
 
     // Build query
-    let sql = this.buildLookupQuery(queryFacets);
+    const sql = this.buildLookupQuery(queryFacets);
+
+    let fallbackSql: string | undefined;
+    if (this.db.hasFallback()) {
+      const fallbackDb = this.db.fallbackDatabase;
+      const supportsLanguages = fallbackDb
+        ? tableExists(fallbackDb, "pattern_languages")
+        : false;
+      const supportsFrameworks = fallbackDb
+        ? tableExists(fallbackDb, "pattern_frameworks")
+        : false;
+      const supportsTags = fallbackDb
+        ? tableExists(fallbackDb, "pattern_tags")
+        : false;
+
+      fallbackSql = this.buildLookupQuery(queryFacets, {
+        includeLanguages: supportsLanguages,
+        includeFrameworks: supportsFrameworks,
+        includeTags: supportsTags,
+      });
+    }
+
     // Use fallback query if available
     const rows = this.db.hasFallback()
-      ? this.db.queryWithFallback(sql, [])
+      ? this.db.queryWithFallback(sql, [], { fallbackSql })
       : (this.db.prepare(sql).all() as any[]);
 
     // Cache results
@@ -931,7 +1027,18 @@ export class PatternRepository {
     };
   }
 
-  private buildLookupQuery(facets: QueryFacets): string {
+  private buildLookupQuery(
+    facets: QueryFacets,
+    options: {
+      includeLanguages?: boolean;
+      includeFrameworks?: boolean;
+      includeTags?: boolean;
+    } = {},
+  ): string {
+    const includeLanguages = options.includeLanguages ?? true;
+    const includeFrameworks = options.includeFrameworks ?? true;
+    const includeTags = options.includeTags ?? true;
+
     let sql = "SELECT DISTINCT p.* FROM patterns p";
     const joins: string[] = [];
     const wheres: string[] = ["p.invalid = 0"];
@@ -945,15 +1052,27 @@ export class PatternRepository {
     }
 
     // Only add language filter if languages are specified and non-empty
-    if (facets.languages && facets.languages.length > 0) {
-      joins.push("JOIN pattern_languages l ON l.pattern_id = p.id");
+    if (includeLanguages && facets.languages && facets.languages.length > 0) {
       wheres.push(
-        `l.lang IN (${facets.languages.map((l) => `'${l}'`).join(",")})`,
+        `(
+          EXISTS (
+            SELECT 1 FROM pattern_languages l
+            WHERE l.pattern_id = p.id
+              AND l.lang IN (${facets.languages.map((l) => `'${l}'`).join(",")})
+          )
+          OR NOT EXISTS (
+            SELECT 1 FROM pattern_languages l2 WHERE l2.pattern_id = p.id
+          )
+        )`,
       );
     }
 
     // Only add framework filter if frameworks are specified and non-empty
-    if (facets.frameworks && facets.frameworks.length > 0) {
+    if (
+      includeFrameworks &&
+      facets.frameworks &&
+      facets.frameworks.length > 0
+    ) {
       joins.push("LEFT JOIN pattern_frameworks f ON f.pattern_id = p.id");
       const frameworkCondition = facets.frameworks
         .map((f) => `f.framework = '${f}'`)
@@ -961,7 +1080,7 @@ export class PatternRepository {
       wheres.push(`(f.framework IS NULL OR (${frameworkCondition}))`);
     }
 
-    if (facets.tags?.length) {
+    if (includeTags && facets.tags?.length) {
       joins.push("JOIN pattern_tags t ON t.pattern_id = p.id");
       wheres.push(`t.tag IN (${facets.tags.map((t) => `'${t}'`).join(",")})`);
     }

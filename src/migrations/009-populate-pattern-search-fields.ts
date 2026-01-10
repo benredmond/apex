@@ -101,6 +101,44 @@ function buildSearchIndex(data: any): string {
   return indexParts.join(" ");
 }
 
+function normalizeTags(rawTags: unknown): string {
+  if (!rawTags) return "[]";
+
+  if (Array.isArray(rawTags)) {
+    const cleaned = rawTags
+      .map((tag) => (typeof tag === "string" ? tag.trim() : String(tag)))
+      .filter((tag) => tag.length > 0);
+    return JSON.stringify(cleaned);
+  }
+
+  if (typeof rawTags === "string") {
+    const trimmed = rawTags.trim();
+    if (!trimmed) return "[]";
+
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed
+            .map((tag) => (typeof tag === "string" ? tag.trim() : String(tag)))
+            .filter((tag) => tag.length > 0);
+          return JSON.stringify(cleaned);
+        }
+      } catch {
+        // Fall through to CSV handling
+      }
+    }
+
+    const cleaned = trimmed
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0);
+    return JSON.stringify(cleaned);
+  }
+
+  return "[]";
+}
+
 const migration: Migration = {
   version: 9,
   id: "009-populate-pattern-search-fields",
@@ -169,15 +207,7 @@ const migration: Migration = {
           // Parse the JSON canonical data
           const data = JSON.parse(pattern.json_canonical);
 
-          // Extract tags (handle both array and string formats)
-          let tagsStr = "";
-          if (data.tags) {
-            if (Array.isArray(data.tags)) {
-              tagsStr = data.tags.join(",");
-            } else if (typeof data.tags === "string") {
-              tagsStr = data.tags;
-            }
-          }
+          const tagsStr = normalizeTags(data.tags);
 
           // Extract keywords from various fields
           const keywords = extractKeywords(data);
