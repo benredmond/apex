@@ -3,7 +3,7 @@ import path from "path";
 import type Database from "better-sqlite3";
 import type { DatabaseAdapter } from "./database-adapter.js";
 import { PatternDatabase } from "./database.js";
-import { escapeIdentifier, tableExists } from "./database-utils.js";
+import { escapeIdentifier } from "./database-utils.js";
 import { PatternCache } from "./cache.js";
 import { PatternLoader } from "./loader.js";
 import { FacetWriter } from "./facet-writer.js";
@@ -570,27 +570,8 @@ export class PatternRepository {
       | undefined = undefined;
 
     if (this.db.hasFallback()) {
-      const fallbackDb = this.db.fallbackDatabase;
-      const supportsFts = fallbackDb
-        ? tableExists(fallbackDb, "patterns_fts")
-        : false;
-      const supportsLanguages = fallbackDb
-        ? tableExists(fallbackDb, "pattern_languages")
-        : false;
-      const supportsFrameworks = fallbackDb
-        ? tableExists(fallbackDb, "pattern_frameworks")
-        : false;
-      const supportsTags = fallbackDb
-        ? tableExists(fallbackDb, "pattern_tags")
-        : false;
-
-      fallbackQuery = supportsFts
-        ? buildFtsSearchQuery({
-            includeLanguages: supportsLanguages,
-            includeFrameworks: supportsFrameworks,
-            includeTags: supportsTags,
-          })
-        : buildTrustOnlyQuery({ includeTags: supportsTags });
+      // Fallback DB may be unmigrated; avoid facet joins/FTS and use trust-only.
+      fallbackQuery = buildTrustOnlyQuery({ includeTags: false });
     }
 
     let rows: any[] = [];
@@ -684,21 +665,11 @@ export class PatternRepository {
     let fallbackSql: string | undefined;
     let fallbackParams: any[] | undefined;
     if (this.db.hasFallback()) {
-      const fallbackDb = this.db.fallbackDatabase;
-      const supportsLanguages = fallbackDb
-        ? tableExists(fallbackDb, "pattern_languages")
-        : false;
-      const supportsFrameworks = fallbackDb
-        ? tableExists(fallbackDb, "pattern_frameworks")
-        : false;
-      const supportsTags = fallbackDb
-        ? tableExists(fallbackDb, "pattern_tags")
-        : false;
-
+      // Avoid facet joins for fallback DBs that may not be fully migrated.
       const fallbackQuery = this.buildLookupQuery(queryFacets, {
-        includeLanguages: supportsLanguages,
-        includeFrameworks: supportsFrameworks,
-        includeTags: supportsTags,
+        includeLanguages: false,
+        includeFrameworks: false,
+        includeTags: false,
       });
       fallbackSql = fallbackQuery.sql;
       fallbackParams = fallbackQuery.params;
