@@ -9,9 +9,30 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import os from "os";
+import { createHash } from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const sortObjectKeys = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sortObjectKeys(item));
+  }
+  if (obj !== null && typeof obj === "object") {
+    return Object.keys(obj)
+      .sort()
+      .reduce((result: any, key) => {
+        result[key] = sortObjectKeys(obj[key]);
+        return result;
+      }, {});
+  }
+  return obj;
+};
+
+const canonicalize = (obj: any): string => JSON.stringify(obj);
+
+const computeDigest = (obj: any): string =>
+  createHash("sha256").update(canonicalize(sortObjectKeys(obj))).digest("hex");
 
 describe("PatternInserter", () => {
   let db: Database.Database;
@@ -188,6 +209,70 @@ describe("PatternInserter", () => {
       expect(result.title).toBe("Test Pattern");
       expect(result.summary).toBe("Test pattern for provenance");
       expect(result.type).toBe("CODEBASE");
+    });
+
+    it("should persist scope/tags facets and canonicalize json_canonical", () => {
+      const pattern: NewPattern & { tags?: string[] } = {
+        title: "Scoped Pattern",
+        summary: "Pattern with scope and tags",
+        scope: {
+          languages: ["typescript"],
+          frameworks: ["react"],
+          paths: ["src/**"],
+        },
+        tags: ["security", "auth"],
+        snippets: [],
+        evidence: [],
+      };
+
+      const patternId = inserter.insertNewPattern(pattern, "NEW_PATTERN");
+
+      const row = db
+        .prepare("SELECT json_canonical, pattern_digest FROM patterns WHERE id = ?")
+        .get(patternId) as any;
+      const canonical = JSON.parse(row.json_canonical);
+
+      expect(canonical.scope).toEqual(pattern.scope);
+      expect(canonical.tags).toEqual(pattern.tags);
+
+      const languages = db
+        .prepare(
+          "SELECT lang FROM pattern_languages WHERE pattern_id = ? ORDER BY lang",
+        )
+        .all(patternId)
+        .map((r: any) => r.lang);
+      expect(languages).toEqual(["typescript"]);
+
+      const frameworks = db
+        .prepare(
+          "SELECT framework FROM pattern_frameworks WHERE pattern_id = ? ORDER BY framework",
+        )
+        .all(patternId)
+        .map((r: any) => r.framework);
+      expect(frameworks).toEqual(["react"]);
+
+      const paths = db
+        .prepare(
+          "SELECT glob FROM pattern_paths WHERE pattern_id = ? ORDER BY glob",
+        )
+        .all(patternId)
+        .map((r: any) => r.glob);
+      expect(paths).toEqual(["src/**"]);
+
+      const tags = db
+        .prepare(
+          "SELECT tag FROM pattern_tags WHERE pattern_id = ? ORDER BY tag",
+        )
+        .all(patternId)
+        .map((r: any) => r.tag);
+      expect(tags).toEqual(["auth", "security"]);
+
+      const canonicalCore = { ...canonical };
+      delete canonicalCore.scope;
+      delete canonicalCore.tags;
+
+      const expectedDigest = computeDigest(canonicalCore);
+      expect(row.pattern_digest).toBe(expectedDigest);
     });
 
     it("should store tags as JSON array string", () => {

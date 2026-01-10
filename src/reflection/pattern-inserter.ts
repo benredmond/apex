@@ -8,6 +8,7 @@ import { nanoid } from "nanoid";
 import type { DatabaseAdapter } from "../storage/database-adapter.js";
 import { NewPattern, AntiPattern } from "./types.js";
 import { Pattern } from "../storage/types.js";
+import { FacetWriter } from "../storage/facet-writer.js";
 // [PAT:IMPORT:ESM] ★★★★☆ (67 uses, 89% success) - From cache
 import { PATTERN_SCHEMA_VERSION } from "../config/constants.js";
 
@@ -26,9 +27,11 @@ const parseTagsValue = (value: string | null | undefined): string[] => {
 
 export class PatternInserter {
   private db: DatabaseAdapter;
+  private facetWriter: FacetWriter;
 
   constructor(db: DatabaseAdapter) {
     this.db = db;
+    this.facetWriter = new FacetWriter(db);
     // [PAT:DI:CONSTRUCTOR] ★★★★★ (156 uses, 98% success) - Database injected via constructor
     // [FIX:DB:SHARED_CONNECTION] ★★★★★ (23 uses, 100% success) - Shared connection prevents locking
   }
@@ -115,6 +118,25 @@ export class PatternInserter {
 
     // Expand to 4-segment format for database compliance
     return `APEX.SYSTEM:${prefix}:${category}:${specificName}`;
+  }
+
+  private sortObjectKeys(obj: any): any {
+    if (Array.isArray(obj)) {
+      return obj.map((item) => this.sortObjectKeys(item));
+    }
+    if (obj !== null && typeof obj === "object") {
+      return Object.keys(obj)
+        .sort()
+        .reduce((result, key) => {
+          result[key] = this.sortObjectKeys(obj[key]);
+          return result;
+        }, {} as any);
+    }
+    return obj;
+  }
+
+  private canonicalize(obj: any): string {
+    return JSON.stringify(obj);
   }
 
   /**
@@ -329,6 +351,11 @@ export class PatternInserter {
       evidence = antiPattern.evidence || [];
     }
 
+    const rawTags = Array.isArray((pattern as any).tags)
+      ? (pattern as any).tags
+      : parseTagsValue((pattern as any).tags);
+    const scope = (pattern as any).scope;
+
     const canonicalData = {
       id: patternId,
       type,
@@ -336,23 +363,29 @@ export class PatternInserter {
       summary,
       snippets,
       evidence,
+      tags: rawTags,
+      ...(scope ? { scope } : {}),
     };
-    const jsonCanonical = JSON.stringify(canonicalData, null, 2);
+
+    const canonicalSorted = this.sortObjectKeys(canonicalData);
+    const jsonCanonical = this.canonicalize(canonicalSorted);
+
+    const digestSource = { ...canonicalData };
+    delete (digestSource as any).tags;
+    delete (digestSource as any).scope;
+    const digestCanonical = this.canonicalize(
+      this.sortObjectKeys(digestSource),
+    );
 
     // Create digest
     const digest = crypto
       .createHash("sha256")
-      .update(jsonCanonical)
+      .update(digestCanonical)
       .digest("hex");
 
     const now = new Date().toISOString();
 
     // Extract search fields from canonical data
-    const rawTags = Array.isArray((canonicalData as any).tags)
-      ? (canonicalData as any).tags
-      : Array.isArray((pattern as any).tags)
-        ? (pattern as any).tags
-        : [];
     const tags = JSON.stringify(rawTags);
     const keywords = this.extractKeywords(canonicalData);
     const searchIndex = this.buildSearchIndex(canonicalData);
@@ -462,6 +495,12 @@ export class PatternInserter {
         );
       }
     }
+
+    this.facetWriter.upsertFacets(patternId, {
+      ...pattern,
+      tags: rawTags,
+      scope,
+    });
 
     return patternId as string;
   }

@@ -71,6 +71,66 @@ describe("Pattern Lookup MCP Tool", () => {
       expect(response.request_id).toBeDefined();
     });
 
+    it("should preserve zero trust scores when ranking", async () => {
+      const now = new Date().toISOString();
+      const lowTrust = {
+        id: "TEST:TRUST:ZERO",
+        schema_version: "0.3.0",
+        pattern_version: "1.0.0",
+        type: "CODEBASE" as const,
+        title: "ZTrustOnly Pattern Zero",
+        summary: "ztrustonly low trust",
+        trust_score: 0,
+        alpha: null,
+        beta: null,
+        usage_count: 0,
+        success_count: 0,
+        created_at: now,
+        updated_at: now,
+        tags: ["ztrustonly"],
+        keywords: "ztrustonly",
+        search_index: "ztrustonly",
+        pattern_digest: "trust-digest-zero",
+        json_canonical: JSON.stringify({
+          title: "ZTrustOnly Pattern Zero",
+          summary: "ztrustonly low trust",
+        }),
+      };
+      const higherTrust = {
+        id: "TEST:TRUST:LOW",
+        schema_version: "0.3.0",
+        pattern_version: "1.0.0",
+        type: "CODEBASE" as const,
+        title: "ZTrustOnly Pattern Low",
+        summary: "ztrustonly slightly higher trust",
+        trust_score: 0.1,
+        alpha: null,
+        beta: null,
+        usage_count: 0,
+        success_count: 0,
+        created_at: now,
+        updated_at: now,
+        tags: ["ztrustonly"],
+        keywords: "ztrustonly",
+        search_index: "ztrustonly",
+        pattern_digest: "trust-digest-low",
+        json_canonical: JSON.stringify({
+          title: "ZTrustOnly Pattern Low",
+          summary: "ztrustonly slightly higher trust",
+        }),
+      };
+
+      await repository.create(lowTrust as any);
+      await repository.create(higherTrust as any);
+
+      const response = await lookupService.lookup({
+        task: "ztrustonly",
+      });
+
+      const ids = response.pattern_pack.candidates.map((c) => c.id);
+      expect(ids[0]).toBe(higherTrust.id);
+    });
+
     it("should handle complex context objects", async () => {
       const response = await lookupService.lookup({
         task: "implement user registration",

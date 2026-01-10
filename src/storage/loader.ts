@@ -77,7 +77,8 @@ export class PatternLoader {
       // Normalize and create canonical JSON
       const normalized = this.normalize(validation.data);
       const canonical = this.canonicalize(normalized);
-      const digest = this.computeDigest(canonical);
+      const digestSource = this.stripDigestFields(normalized);
+      const digest = this.computeDigest(this.canonicalize(digestSource));
 
       // Create pattern object
       const pattern: Pattern = {
@@ -127,7 +128,7 @@ export class PatternLoader {
    */
   private canonicalize(obj: any): string {
     // JSON Canonical Serialization (JCS)
-    return JSON.stringify(obj, Object.keys(obj).sort());
+    return JSON.stringify(obj);
   }
 
   /**
@@ -135,6 +136,13 @@ export class PatternLoader {
    */
   private computeDigest(canonical: string): string {
     return createHash("sha256").update(canonical).digest("hex");
+  }
+
+  private stripDigestFields(obj: any): any {
+    const cleaned = { ...obj };
+    delete cleaned.tags;
+    delete cleaned.scope;
+    return this.sortObjectKeys(cleaned);
   }
 
   /**

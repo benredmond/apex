@@ -6,6 +6,7 @@ import { PatternDatabase } from "./database.js";
 import { escapeIdentifier, tableExists } from "./database-utils.js";
 import { PatternCache } from "./cache.js";
 import { PatternLoader } from "./loader.js";
+import { FacetWriter } from "./facet-writer.js";
 import { FTSManager } from "./fts-manager.js";
 // PatternWatcher removed - patterns are now in database
 import { ApexConfig } from "../config/apex-config.js";
@@ -40,6 +41,7 @@ export class PatternRepository {
   private cache: PatternCache;
   private loader: PatternLoader;
   private ftsManager: FTSManager;
+  private facetWriter: FacetWriter;
   // Watcher removed - patterns now in database
   private isInitialized: boolean = false;
 
@@ -97,6 +99,7 @@ export class PatternRepository {
     this.cache = new PatternCache(options.cacheSize);
     this.loader = new PatternLoader();
     this.ftsManager = new FTSManager(this.db);
+    this.facetWriter = new FacetWriter(this.db.database);
     // Watcher removed - patterns are now stored in database
   }
 
@@ -676,9 +679,10 @@ export class PatternRepository {
     }
 
     // Build query
-    const sql = this.buildLookupQuery(queryFacets);
+    const { sql, params } = this.buildLookupQuery(queryFacets);
 
     let fallbackSql: string | undefined;
+    let fallbackParams: any[] | undefined;
     if (this.db.hasFallback()) {
       const fallbackDb = this.db.fallbackDatabase;
       const supportsLanguages = fallbackDb
@@ -691,17 +695,22 @@ export class PatternRepository {
         ? tableExists(fallbackDb, "pattern_tags")
         : false;
 
-      fallbackSql = this.buildLookupQuery(queryFacets, {
+      const fallbackQuery = this.buildLookupQuery(queryFacets, {
         includeLanguages: supportsLanguages,
         includeFrameworks: supportsFrameworks,
         includeTags: supportsTags,
       });
+      fallbackSql = fallbackQuery.sql;
+      fallbackParams = fallbackQuery.params;
     }
 
     // Use fallback query if available
     const rows = this.db.hasFallback()
-      ? this.db.queryWithFallback(sql, [], { fallbackSql })
-      : (this.db.prepare(sql).all() as any[]);
+      ? this.db.queryWithFallback(sql, params, {
+          fallbackSql,
+          fallbackParams,
+        })
+      : (this.db.prepare(sql).all(...params) as any[]);
 
     // Cache results
     const patternIds = rows.map((r) => r.id);
@@ -860,137 +869,7 @@ export class PatternRepository {
    * [PAT:INFRA:TYPESCRIPT_MIGRATION] ★★★☆☆ (2 uses) - Clean extraction of facet logic
    */
   private _insertFacets(patternId: string, pattern: any): void {
-    // Helper function to safely delete from facet tables
-    const safeDeleteFromTable = (tableName: string) => {
-      try {
-        // Check if table exists first
-        const tableExists = this.db
-          .prepare(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
-          )
-          .get(tableName);
-
-        if (tableExists) {
-          this.db
-            .prepare(
-              `DELETE FROM ${escapeIdentifier(tableName)} WHERE pattern_id = ?`,
-            )
-            .run(patternId);
-        }
-      } catch (error) {
-        // Log but don't fail on facet table deletion errors
-        console.warn(
-          `Warning: Could not delete from ${tableName}:`,
-          error.message,
-        );
-      }
-    };
-
-    // Delete existing facet data for this pattern
-    safeDeleteFromTable("pattern_languages");
-    safeDeleteFromTable("pattern_frameworks");
-    safeDeleteFromTable("pattern_tags");
-    safeDeleteFromTable("pattern_paths");
-    safeDeleteFromTable("pattern_repos");
-    safeDeleteFromTable("pattern_task_types");
-    safeDeleteFromTable("pattern_envs");
-
-    // Insert tags (already implemented)
-    if (pattern.tags && Array.isArray(pattern.tags)) {
-      const insertTag = this.db.prepare(
-        "INSERT INTO pattern_tags (pattern_id, tag) VALUES (?, ?)",
-      );
-      for (const tag of pattern.tags) {
-        insertTag.run(patternId, tag);
-      }
-    }
-
-    // Extract scope data if available (patterns loaded from YAML have scope field)
-    const scope = pattern.scope || {};
-
-    // Insert languages
-    if (scope.languages && Array.isArray(scope.languages)) {
-      const insertLang = this.db.prepare(
-        "INSERT INTO pattern_languages (pattern_id, lang) VALUES (?, ?)",
-      );
-      for (const lang of scope.languages) {
-        insertLang.run(patternId, lang);
-      }
-    }
-
-    // Insert frameworks with optional semver
-    if (scope.frameworks && Array.isArray(scope.frameworks)) {
-      const insertFramework = this.db.prepare(
-        "INSERT INTO pattern_frameworks (pattern_id, framework, semver) VALUES (?, ?, ?)",
-      );
-      for (const fw of scope.frameworks) {
-        if (typeof fw === "string") {
-          // Simple framework name
-          insertFramework.run(patternId, fw, null);
-        } else if (fw && typeof fw === "object" && fw.name) {
-          // Framework with semver
-          const semver = fw.semver || fw.version || null;
-          insertFramework.run(patternId, fw.name, semver);
-        }
-      }
-
-      // Also check semver_constraints for additional framework versions
-      if (pattern.semver_constraints?.dependencies) {
-        for (const [framework, version] of Object.entries(
-          pattern.semver_constraints.dependencies,
-        )) {
-          // Only add if not already in scope.frameworks
-          const alreadyAdded = scope.frameworks.some(
-            (fw: any) =>
-              (typeof fw === "string" && fw === framework) ||
-              (fw && typeof fw === "object" && fw.name === framework),
-          );
-          if (!alreadyAdded && typeof version === "string") {
-            insertFramework.run(patternId, framework, version);
-          }
-        }
-      }
-    }
-
-    // Insert paths
-    if (scope.paths && Array.isArray(scope.paths)) {
-      const insertPath = this.db.prepare(
-        "INSERT INTO pattern_paths (pattern_id, glob) VALUES (?, ?)",
-      );
-      for (const path of scope.paths) {
-        insertPath.run(patternId, path);
-      }
-    }
-
-    // Insert repos
-    if (scope.repos && Array.isArray(scope.repos)) {
-      const insertRepo = this.db.prepare(
-        "INSERT INTO pattern_repos (pattern_id, repo_glob) VALUES (?, ?)",
-      );
-      for (const repo of scope.repos) {
-        insertRepo.run(patternId, repo);
-      }
-    }
-
-    // Insert task types
-    if (scope.task_types && Array.isArray(scope.task_types)) {
-      const insertTaskType = this.db.prepare(
-        "INSERT INTO pattern_task_types (pattern_id, task_type) VALUES (?, ?)",
-      );
-      for (const taskType of scope.task_types) {
-        insertTaskType.run(patternId, taskType);
-      }
-    }
-
-    // Insert environments
-    if (scope.envs && Array.isArray(scope.envs)) {
-      const insertEnv = this.db.prepare(
-        "INSERT INTO pattern_envs (pattern_id, env) VALUES (?, ?)",
-      );
-      for (const env of scope.envs) {
-        insertEnv.run(patternId, env);
-      }
-    }
+    this.facetWriter.upsertFacets(patternId, pattern);
   }
 
   private async markInvalid(patternId: string, reason: string): Promise<void> {
@@ -1034,7 +913,7 @@ export class PatternRepository {
       includeFrameworks?: boolean;
       includeTags?: boolean;
     } = {},
-  ): string {
+  ): { sql: string; params: any[] } {
     const includeLanguages = options.includeLanguages ?? true;
     const includeFrameworks = options.includeFrameworks ?? true;
     const includeTags = options.includeTags ?? true;
@@ -1042,29 +921,33 @@ export class PatternRepository {
     let sql = "SELECT DISTINCT p.* FROM patterns p";
     const joins: string[] = [];
     const wheres: string[] = ["p.invalid = 0"];
+    const params: any[] = [];
 
     // Include all patterns regardless of trust score
     // The ranking system will prioritize high-trust patterns
     // This allows new patterns to be discovered and used
 
     if (facets.type) {
-      wheres.push(`p.type = '${facets.type}'`);
+      wheres.push("p.type = ?");
+      params.push(facets.type);
     }
 
     // Only add language filter if languages are specified and non-empty
     if (includeLanguages && facets.languages && facets.languages.length > 0) {
+      const langPlaceholders = facets.languages.map(() => "?").join(", ");
       wheres.push(
         `(
           EXISTS (
             SELECT 1 FROM pattern_languages l
             WHERE l.pattern_id = p.id
-              AND l.lang IN (${facets.languages.map((l) => `'${l}'`).join(",")})
+              AND l.lang IN (${langPlaceholders})
           )
           OR NOT EXISTS (
             SELECT 1 FROM pattern_languages l2 WHERE l2.pattern_id = p.id
           )
         )`,
       );
+      params.push(...facets.languages);
     }
 
     // Only add framework filter if frameworks are specified and non-empty
@@ -1074,15 +957,20 @@ export class PatternRepository {
       facets.frameworks.length > 0
     ) {
       joins.push("LEFT JOIN pattern_frameworks f ON f.pattern_id = p.id");
-      const frameworkCondition = facets.frameworks
-        .map((f) => `f.framework = '${f}'`)
-        .join(" OR ");
-      wheres.push(`(f.framework IS NULL OR (${frameworkCondition}))`);
+      const frameworkPlaceholders = facets.frameworks
+        .map(() => "?")
+        .join(", ");
+      wheres.push(
+        `(f.framework IS NULL OR f.framework IN (${frameworkPlaceholders}))`,
+      );
+      params.push(...facets.frameworks);
     }
 
     if (includeTags && facets.tags?.length) {
       joins.push("JOIN pattern_tags t ON t.pattern_id = p.id");
-      wheres.push(`t.tag IN (${facets.tags.map((t) => `'${t}'`).join(",")})`);
+      const tagPlaceholders = facets.tags.map(() => "?").join(", ");
+      wheres.push(`t.tag IN (${tagPlaceholders})`);
+      params.push(...facets.tags);
     }
 
     // Add other facet joins...
@@ -1095,7 +983,7 @@ export class PatternRepository {
     // Order by trust score descending to prioritize high-trust patterns
     sql += " ORDER BY p.trust_score DESC";
 
-    return sql;
+    return { sql, params };
   }
 
   /**

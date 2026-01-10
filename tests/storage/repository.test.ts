@@ -309,6 +309,31 @@ describe("PatternRepository Tests", () => {
     });
   });
 
+  describe("Lookup functionality", () => {
+    test("should parameterize tag filters to avoid SQL injection/syntax errors", async () => {
+      const { repository, cleanup } = await setupRepository();
+
+      try {
+        const unsafeTag = "security' OR 1=1 --";
+        const pattern = buildPattern("TEST:LOOKUP:TAG:QUOTE", {
+          title: "Lookup Tag Pattern",
+          tags: [unsafeTag],
+        });
+
+        await repository.create(pattern);
+
+        const results = await repository.lookup({
+          tags: [unsafeTag],
+          k: 10,
+        });
+
+        expect(results.patterns.map((p) => p.id)).toContain(pattern.id);
+      } finally {
+        await cleanup();
+      }
+    });
+  });
+
   describe("Batch operations", () => {
     test("should handle batch inserts", async () => {
       const { repository, cleanup } = await setupRepository();

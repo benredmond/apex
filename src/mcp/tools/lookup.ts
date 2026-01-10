@@ -408,7 +408,7 @@ export class PatternLookupService {
           frameworks: extracted.frameworks || [],
         },
         trust: {
-          score: p.trust_score || 0.8,
+          score: p.trust_score ?? 0.5,
           alpha: p.alpha,
           beta: p.beta,
         },
