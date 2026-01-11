@@ -1,6 +1,6 @@
 {
   "name": "@benredmond/apex",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "APEX - Autonomous Pattern-Enhanced eXecution. AI-powered development workflow with APEX Intelligence for pattern recognition and task execution",
   "publishConfig": {
     "access": "public"
