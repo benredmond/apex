@@ -65,6 +65,7 @@ export const NewPatternSchema = z.object({
   title: z.string().min(1).max(200),
   summary: z.string().min(1).max(1000),
   pattern_id: z.string().optional(), // Optional custom pattern ID
+  tags: z.array(z.string()).optional(),
   scope: z
     .object({
       languages: z.array(z.string()).optional(),
