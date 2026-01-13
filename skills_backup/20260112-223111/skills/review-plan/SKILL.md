@@ -117,7 +117,7 @@ Find what research discovered that plan doesn't address.
 - List any unaddressed security concerns
 
 **Pattern Provenance:**
-- [ ] Patterns claimed in plan can be traced to research (pattern library or codebase conventions)
+- [ ] Patterns claimed in plan can be traced to research (APEX patterns or codebase conventions)
 - [ ] Trust scores roughly match what research found
 - List any patterns that appear fabricated or unsupported
 
@@ -153,8 +153,8 @@ Find what research discovered that plan doesn't address.
 ### Pattern Issues
 - **[Pattern]**: Claimed in plan but can't find source in research.
   - **Fix**: Remove pattern or trace back to research source.
-- **[Pattern]**: Confidence rating mismatch ([X] in plan vs [Y] in research).
-  - **Fix**: Align confidence rating with research.
+- **[Pattern]**: Trust score mismatch ([X] in plan vs [Y] in research).
+  - **Fix**: Align trust score with research.
 
 ### Documentation That Will Drift
 - **[doc path]**: Research flagged for update, not in plan's files to modify.

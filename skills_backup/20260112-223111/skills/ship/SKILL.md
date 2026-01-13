@@ -1,13 +1,13 @@
 ---
 name: ship
-description: Review and finalize (REVIEWER + DOCUMENTER phases) - runs adversarial code review, commits changes, completes task, and records reflection to capture pattern outcomes.
+description: Review and finalize (REVIEWER + DOCUMENTER phases) - runs adversarial code review, commits changes, completes task, and submits reflection to update pattern trust scores.
 argument-hint: [task-identifier]
 ---
 
 <skill name="apex:ship" phase="ship">
 
 <overview>
-Final phase: Review implementation with adversarial agents, commit changes, complete task, and record reflection.
+Final phase: Review implementation with adversarial agents, commit changes, complete task, and submit reflection.
 
 Combines REVIEWER (adversarial code review) and DOCUMENTER (commit, complete, reflect).
 </overview>
@@ -33,7 +33,7 @@ source_of_truth:
 This phase requires THREE mandatory actions in order:
 1. **Adversarial Review** - Launch review agents
 2. **Git Commit** - Commit all changes
-3. **Final Reflection** - Record pattern outcomes and key learnings
+3. **apex_reflect** - Submit pattern outcomes
 
 YOU CANNOT SKIP ANY OF THESE for APPROVE or CONDITIONAL outcomes.
 If REJECT, stop after review, set frontmatter to `phase: rework`, and return to `/apex:implement`.
@@ -199,7 +199,7 @@ For each finding:
 On REJECT:
 1. Write `<ship><decision>REJECT</decision>` with a brief rationale
 2. Update frontmatter: `phase: rework`, `updated: [ISO timestamp]`
-3. STOP. Do NOT commit or finalize reflection. Return to `/apex:implement`.
+3. STOP. Do NOT commit or call apex_reflect. Return to `/apex:implement`.
 </reject-flow>
 </step>
 
@@ -253,7 +253,7 @@ Record in `<implementation><docs-updated>`:
 
 <step id="6" title="Git commit">
 <critical>
-Commit BEFORE final reflection - reflection should reference an immutable commit.
+Commit BEFORE apex_reflect - reflection validates git evidence.
 </critical>
 
 <commands>
@@ -272,34 +272,140 @@ git log -1 --oneline  # Capture commit SHA
 <checkpoint>Commit SHA captured for evidence.</checkpoint>
 </step>
 
-<step id="7" title="Reflection and completion">
-<critical>
-You MUST record a final reflection. This is NOT optional.
+<step id="7" title="apex_task_complete">
+<call>
+```javascript
+apex_task_complete({
+  id: taskId,
+  outcome: "success" | "partial" | "failure",
+  key_learning: "Main lesson from this task",
+  patterns_used: ["PAT:ID:FROM:PLAN"]  // Only patterns from plan
+})
+```
+</call>
 
-Without reflection:
+<returns>ReflectionDraft - use as basis for apex_reflect</returns>
+</step>
+
+<step id="8" title="apex_reflect">
+<critical>
+YOU MUST CALL apex_reflect. THIS IS NOT OPTIONAL.
+
+Without apex_reflect:
+- Pattern trust scores don't update
 - Learnings aren't captured
-- Pattern outcomes aren't recorded
 - Future tasks don't benefit
 </critical>
 
-<reflection-format>
-```markdown
-### Reflection
-- **Outcome**: success | partial | failure
-- **Key Learning**: [Main lesson from this task]
-- **Patterns Used**: [PAT:ID from plan] with outcome notes
-- **New Patterns / Anti-patterns**: [If discovered]
-- **Evidence**: [Commit SHA, files, tests]
+<format-choice>
+**batch_patterns** (simple, for most cases):
+```javascript
+apex_reflect({
+  task: { id: taskId, title: taskTitle },
+  outcome: "success",
+  batch_patterns: [
+    {
+      pattern: "PAT:ID",  // Must exist in plan's pattern list
+      outcome: "worked-perfectly",
+      notes: "Optional notes about usage"
+    }
+  ]
+})
 ```
-</reflection-format>
 
-<instructions>
-1. Summarize outcome and key learning
-2. List patterns used from the plan with outcome notes
-3. Capture any new patterns or anti-patterns discovered
-4. Reference evidence (commit SHA, file paths, tests)
-5. Update the task file's `<ship><reflection>` section
-</instructions>
+**claims** (advanced, for new patterns/anti-patterns/learnings):
+```javascript
+apex_reflect({
+  task: { id: taskId, title: taskTitle },
+  outcome: "success",
+  claims: {
+    // Patterns used from plan (updates trust scores)
+    patterns_used: [{
+      pattern_id: "PAT:ID",
+      evidence: [{
+        kind: "git_lines",
+        file: "src/auth.ts",
+        sha: "HEAD",  // or commit SHA
+        start: 45,
+        end: 78
+      }]
+    }],
+
+    // Trust score updates (required for patterns_used)
+    trust_updates: [{
+      pattern_id: "PAT:ID",
+      outcome: "worked-perfectly"
+    }],
+
+    // NEW patterns discovered during implementation
+    new_patterns: [{
+      title: "Error Boundary Pattern",
+      summary: "Wrap async operations with consistent error handling",
+      snippets: [{
+        snippet_id: "error-boundary-1",
+        source_ref: {
+          kind: "git_lines",
+          file: "src/utils/errors.ts",
+          sha: "HEAD",
+          start: 10,
+          end: 35
+        }
+      }],
+      evidence: []
+    }],
+
+    // Anti-patterns to AVOID
+    anti_patterns: [{
+      title: "Direct Database Access in Handler",
+      reason: "Bypasses transaction management and audit logging",
+      evidence: [{
+        kind: "git_lines",
+        file: "src/handlers/user.ts",
+        sha: "HEAD",
+        start: 100,
+        end: 110
+      }]
+    }],
+
+    // General learnings
+    learnings: [{
+      assertion: "JWT refresh tokens require httpOnly cookies for security",
+      evidence: [{
+        kind: "git_lines",
+        file: "src/auth/tokens.ts",
+        sha: "HEAD",
+        start: 50,
+        end: 65
+      }]
+    }]
+  }
+})
+```
+</format-choice>
+
+<evidence-kinds>
+| Kind | Required Fields | When to Use |
+|------|-----------------|-------------|
+| `git_lines` | file, sha, start, end | Code at specific lines |
+| `commit` | sha | Entire commit as evidence |
+| `pr` | number, repo | Pull request reference |
+| `ci_run` | id, provider | CI/CD run evidence |
+</evidence-kinds>
+
+<valid-outcomes>
+- "worked-perfectly" → 100% success (alpha: 1.0, beta: 0.0)
+- "worked-with-tweaks" → 70% success (alpha: 0.7, beta: 0.3)
+- "partial-success" → 50% success (alpha: 0.5, beta: 0.5)
+- "failed-minor-issues" → 30% success (alpha: 0.3, beta: 0.7)
+- "failed-completely" → 0% success (alpha: 0.0, beta: 1.0)
+</valid-outcomes>
+
+<common-errors>
+1. **Mixing formats**: Use batch_patterns OR claims, not both
+2. **Missing SHA**: Always include sha (use "HEAD" if current)
+3. **Fabricated patterns**: Only claim patterns from plan
+4. **Not committing first**: Evidence validation fails without commit
+</common-errors>
 </step>
 
 <step id="9" title="Write ship section to task file">
@@ -358,7 +464,7 @@ Append to `<ship>` section:
     <pattern id="PAT:X:Y" outcome="[outcome]"/>
   </patterns-reported>
   <key-learning>[Main lesson]</key-learning>
-  <reflection-status>recorded|missing</reflection-status>
+  <apex-reflect-status>submitted|failed</apex-reflect-status>
 </reflection>
 
 <final-summary>
@@ -391,7 +497,7 @@ Set `phase: complete`, `status: complete`, and `updated: [ISO timestamp]`
 
 📚 **Patterns**:
 - Applied: [N] patterns
-- Reflection: ✅ Recorded
+- Reflection: ✅ Submitted
 
 ✅ **Acceptance Criteria**:
 - AC-* coverage: [met|not met with exceptions]
@@ -415,7 +521,8 @@ BEFORE reporting to user, verify ALL actions completed:
 - [ ] Documentation checklist completed?
 - [ ] Contract verification completed (AC mapping + out-of-scope check)?
 - [ ] Git commit created? (verify with git log -1)
-- [ ] Reflection recorded in `<ship><reflection>`?
+- [ ] apex_task_complete called? (received ReflectionDraft?)
+- [ ] apex_reflect called? (received ok: true?)
 
 **If ANY unchecked → GO BACK AND COMPLETE IT.**
 </completion-verification>
@@ -427,7 +534,8 @@ BEFORE reporting to user, verify ALL actions completed:
 - Contract verification completed with AC mapping and scope confirmation
 - All FIX_NOW items resolved (or explicitly accepted)
 - Git commit created with proper message
-- Reflection recorded with patterns and learnings
+- apex_task_complete called
+- apex_reflect called with proper format (batch_patterns or claims)
 - Task file updated with complete ship section
 - Frontmatter shows phase: complete, status: complete
 </success-criteria>

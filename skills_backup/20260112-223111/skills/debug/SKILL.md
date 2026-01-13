@@ -1,16 +1,16 @@
 ---
 name: apex:debug
-description: Systematic debugging with pattern learning. Applies hypothesis-driven investigation, evidence collection, and reflection to update pattern confidence.
+description: Systematic debugging with APEX pattern learning. Applies hypothesis-driven investigation, evidence collection, and reflection to update pattern trust scores.
 argument-hint: [task-identifier or error-description]
 ---
 
 <skill name="apex:debug" phase="any">
 
 <overview>
-Systematic debugging workflow that leverages pattern intelligence and reflection.
+Systematic debugging workflow that leverages APEX pattern intelligence and reflection.
 
 Integrates with failure-predictor and git-historian agents to provide historical context.
-Produces evidence that feeds into the reflection step for continuous learning.
+Produces evidence that feeds into `apex_reflect` for continuous learning.
 
 Can operate phase-agnostic: debug sessions can happen at any point in the workflow.
 </overview>
@@ -23,9 +23,9 @@ Can operate phase-agnostic: debug sessions can happen at any point in the workfl
 
 <principles>
 - **Evidence-Based**: Every hypothesis needs concrete evidence (error messages, stack traces, git bisect results)
-- **Pattern-Informed**: Check known patterns or past incidents for failure modes before investigating
+- **Pattern-Informed**: Query APEX patterns for known failure modes before investigating
 - **Learn From History**: Check similar past bugs and their resolutions
-- **Reflective**: Record debugging outcomes to improve future debugging
+- **Reflective**: Submit debugging outcomes to improve future debugging via `apex_reflect`
 - **Systematic**: Follow structured methodology - no shotgun debugging
 - **Hypothesis Discipline**: Maximum 3 concurrent hypotheses to prevent scattered investigation
 </principles>
@@ -46,12 +46,29 @@ Usage: `/apex:debug [task-id]` or `/apex:debug "error message or description"`
 <step id="1" title="Initialize debug session">
 <instructions>
 1. **Parse argument**: Determine if task ID or error description
-2. **Query patterns**: Review existing patterns or incident notes for debugging/failure patterns
+2. **Query patterns**: Call `apex_patterns_lookup` for debugging/failure patterns
 3. **Link or create task**:
    - If task ID provided: Read `./.apex/tasks/[ID].md`
-   - If error description: Create a new debug task entry in the task log
+   - If error description: Create new debug task with `apex_task_create`
 4. **Spawn failure-predictor**: Get historical failure context
 </instructions>
+
+<mcp-calls>
+```javascript
+// Query for relevant debugging patterns
+apex_patterns_lookup({
+  task: "[error description or task title]",
+  task_intent: { type: "bug_fix", confidence: 0.8 }
+})
+
+// If creating new task
+apex_task_create({
+  intent: "Debug: [error summary]",
+  type: "bug",
+  tags: ["debugging", "investigation"]
+})
+```
+</mcp-calls>
 
 <spawn-agents>
 <agent type="apex:failure-predictor">
@@ -63,6 +80,11 @@ Return: Predicted failures with prevention strategies.
 </agent>
 </spawn-agents>
 
+<mcp-checkpoint>
+```javascript
+apex_task_checkpoint(taskId, "DEBUG: Initialized debug session", 0.3)
+```
+</mcp-checkpoint>
 </step>
 
 <step id="2" title="Reproduce and gather evidence">
@@ -83,8 +105,23 @@ Do NOT proceed without reproducing the bug. Reproducibility is mandatory.
    - Environment state (versions, config)
    - Recent changes (git log)
 
-3. **Record evidence** in the task log:
+3. **Record evidence** via MCP:
 </instructions>
+
+<mcp-calls>
+```javascript
+// Record reproduction evidence
+apex_task_append_evidence(taskId, "error",
+  "Error message: [exact error]",
+  { file: "[file]", line_start: N, line_end: M }
+)
+
+apex_task_append_evidence(taskId, "file",
+  "Reproduction test case at [location]",
+  { file: "[test file]" }
+)
+```
+</mcp-calls>
 
 <reproduction-checklist>
 - [ ] Bug reproduces consistently OR intermittency pattern documented
@@ -98,7 +135,7 @@ Do NOT proceed without reproducing the bug. Reproducibility is mandatory.
 <step id="3" title="Root cause investigation">
 <instructions>
 1. **Spawn git-historian**: Find related changes
-2. **Query similar failures**: Search existing patterns or incident notes for matches
+2. **Query similar failures**: Search APEX patterns for matches
 3. **Trace data flow**: Follow bad value to its source
 4. **Form hypotheses**: Based on evidence (MAX 3 concurrent)
 </instructions>
@@ -113,6 +150,17 @@ Find: Recent changes, regressions, related fixes.
 Return: Git intelligence with blame and commit analysis.
 </agent>
 </spawn-agents>
+
+<mcp-calls>
+```javascript
+// Search for similar failures in pattern database
+apex_patterns_discover({
+  query: "[error symptoms]",
+  filters: { types: ["ANTI", "FAILURE"] },
+  max_results: 10
+})
+```
+</mcp-calls>
 
 <hypothesis-formation>
 Form hypotheses based on evidence gathered:
@@ -154,6 +202,11 @@ git bisect good [known-good-commit]
 ```
 </root-cause-techniques>
 
+<mcp-checkpoint>
+```javascript
+apex_task_checkpoint(taskId, "DEBUG: Investigation - [N] hypotheses formed", 0.5)
+```
+</mcp-checkpoint>
 </step>
 
 <step id="4" title="Hypothesis testing">
@@ -191,6 +244,15 @@ If 3 hypotheses fail:
 4. Consider spawning systems-researcher for deeper analysis
 </escalation-trigger>
 
+<mcp-calls>
+```javascript
+// Record hypothesis testing results
+apex_task_append_evidence(taskId, "decision",
+  "Hypothesis [N] [confirmed|refuted]: [summary]",
+  { pattern_id: "[if pattern-related]" }
+)
+```
+</mcp-calls>
 </step>
 
 <step id="5" title="Fix implementation">
@@ -228,6 +290,11 @@ npm run lint
 ```
 </validation-commands>
 
+<mcp-checkpoint>
+```javascript
+apex_task_checkpoint(taskId, "DEBUG: Fix implemented and validated", 0.8)
+```
+</mcp-checkpoint>
 </step>
 
 <step id="6" title="Reflection and learning">
@@ -239,9 +306,9 @@ Without reflection, debugging learnings are lost. This step is MANDATORY.
 1. **Document root cause**: Clear explanation of what caused the bug
 2. **Document fix**: What changed and why
 3. **Identify patterns**:
-   - Did existing patterns help? (update confidence)
+   - Did existing patterns help? (update trust scores)
    - Discovered new failure mode? (propose new pattern)
-4. **Submit reflection**: Record a structured reflection with evidence
+4. **Submit reflection**: Call `apex_reflect` with evidence
 5. **Update task**: Complete debug section
 </instructions>
 
@@ -262,6 +329,69 @@ Without reflection, debugging learnings are lost. This step is MANDATORY.
 ```
 </reflection-template>
 
+<mcp-calls>
+```javascript
+// Submit debugging reflection
+apex_reflect({
+  task: { id: taskId, title: "[task title]" },
+  outcome: "success", // or "partial" or "failure"
+  claims: {
+    patterns_used: [
+      {
+        pattern_id: "[PAT:ID]",
+        evidence: [
+          {
+            kind: "git_lines",
+            file: "[file]",
+            sha: "HEAD",
+            start: 1,
+            end: 10
+          }
+        ],
+        notes: "[how it helped]"
+      }
+    ],
+    trust_updates: [
+      {
+        pattern_id: "[PAT:ID]",
+        outcome: "worked-perfectly" // or "worked-with-tweaks", "failed-completely"
+      }
+    ],
+    learnings: [
+      { assertion: "[What we learned]", evidence: [...] }
+    ],
+    // Only if genuinely new pattern discovered:
+    new_patterns: [
+      {
+        title: "[Pattern title]",
+        summary: "[What it does]",
+        snippets: [
+          {
+            snippet_id: "[snippet id]",
+            source_ref: {
+              kind: "git_lines",
+              file: "[file]",
+              sha: "HEAD",
+              start: 1,
+              end: 10
+            }
+          }
+        ],
+        evidence: [...]
+      }
+    ]
+  }
+})
+
+// Complete task if appropriate
+apex_task_complete({
+  id: taskId,
+  outcome: "success",
+  key_learning: "[Most important takeaway]",
+  patterns_used: ["[PAT:IDs]"]
+})
+```
+</mcp-calls>
 </step>
 
 </workflow>
@@ -288,7 +418,7 @@ Append to task file `./.apex/tasks/[ID].md`:
     <error-message>[Exact error]</error-message>
     <stack-trace>[Relevant portions]</stack-trace>
     <related-commits>[Git history findings]</related-commits>
-    <pattern-matches>[Patterns that matched]</pattern-matches>
+    <pattern-matches>[APEX patterns that matched]</pattern-matches>
   </evidence>
 
   <hypotheses>
@@ -347,17 +477,17 @@ Forming 10+ hypotheses without testing any.
 
 <avoid name="Skipping Reflection">
 Fixing bug but not recording learnings.
-**Instead**: Always record a reflection at the end.
+**Instead**: Always call `apex_reflect` at the end.
 </avoid>
 </antipatterns>
 
 <success-criteria>
 - Bug reproduced (or intermittency documented)
-- Evidence gathered and recorded in the task log
+- Evidence gathered and recorded via `apex_task_append_evidence`
 - Root cause identified through systematic investigation
 - Fix implemented with failing test first
 - All tests pass including new regression test
-- Reflection recorded with debugging outcomes
+- `apex_reflect` called with debugging outcomes
 - Task file updated with `<debug>` section
 - Checkpoints recorded at each major step
 </success-criteria>

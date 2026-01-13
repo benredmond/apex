@@ -58,7 +58,7 @@ You can find active tasks in `./.apex/tasks/` or run with:
 5. Parse `<research>` section for context
 6. If phase != research, refuse with: "Task is in [phase] phase. Expected: research"
 7. Extract context pack references from `<context-pack-refs>`:
-   - ctx.patterns = research.pattern-library
+   - ctx.patterns = research.apex-patterns
    - ctx.impl = research.codebase-patterns
    - ctx.web = research.web-research
    - ctx.history = research.git-history
@@ -71,6 +71,11 @@ Contract rules:
 - If scope/ACs must change, append a <amendments><amendment ...> entry inside task-contract and bump its version
 </instructions>
 
+<mcp-checkpoint>
+```javascript
+apex_task_checkpoint(taskId, "ARCHITECT: Starting mandatory design analysis", 0.3)
+```
+</mcp-checkpoint>
 </step>
 
 <step id="2" title="Read research and spawn verification agents">
@@ -93,7 +98,7 @@ Based on research and analysis, I understand we need to [accurate summary].
 
 **Key Findings:**
 - [Current implementation at file:line]
-- [Pattern discovered with confidence rating]
+- [Pattern discovered with trust score]
 - [Complexity identified]
 
 **Questions Requiring Human Judgment:**
@@ -155,7 +160,7 @@ tree_of_thought:
     approach: [Name]
     description: [2-3 sentences]
     implementation: [Steps with file:line refs]
-    patterns_used: [PAT:IDs with confidence ratings]
+    patterns_used: [PAT:IDs with trust scores]
     pros: [Evidence-backed advantages]
     cons: [Specific limitations]
     complexity: [1-10 justified]
@@ -215,16 +220,16 @@ yagni_declaration:
 YOU CANNOT FABRICATE PATTERNS.
 
 Only use patterns that exist in:
-- ctx.patterns (from research.pattern-library)
+- ctx.patterns (from research.apex-patterns)
 - ctx.impl (from research.codebase-patterns)
 
 Before listing a pattern:
 1. Verify it exists in the research section
-2. Confirm confidence rating is from research, not invented
+2. Confirm trust score is from APEX, not invented
 3. Document where in research you found it
 
 VIOLATION: Claiming "PAT:NEW:THING" that wasn't in research
-CONSEQUENCE: Final reflection becomes unreliable and confidence ratings become meaningless
+CONSEQUENCE: apex_reflect will reject, trust scores become meaningless
 </critical>
 
 <intelligence-sources>
@@ -239,7 +244,7 @@ Check these sections for valid patterns:
 pattern_selection:
   applying:
     - pattern_id: [PAT:CATEGORY:NAME]
-      confidence_rating: [★★★★☆]
+      trust_score: [★★★★☆]
       usage_stats: [X uses, Y% success]
       why_this_pattern: [Specific fit]
       where_applying: [file:line]
@@ -388,6 +393,30 @@ Run `/apex:implement [identifier]` to begin implementation.
 Set `phase: plan` and `updated: [ISO timestamp]`
 </update-frontmatter>
 
+<mcp-calls>
+```javascript
+// Update DB telemetry for ARCHITECT phase
+apex_task_update({
+  id: taskId,
+  phase: "ARCHITECT",
+  handoff: builder_handoff_content,
+  confidence: 0.7,
+  files: files_to_modify.concat(files_to_create),
+  decisions: [chosen_solution, key_patterns, yagni_exclusions]
+})
+
+// Record architecture artifacts as evidence for learning
+apex_task_append_evidence(taskId, "pattern", "Architecture artifacts completed", {
+  design_rationale: "...",
+  tree_of_thought: { winner: "...", solutions: 3 },
+  yagni: { exclusions: N },
+  patterns_selected: ["PAT:IDs"]
+})
+
+// Checkpoint for phase completion
+apex_task_checkpoint(taskId, "ARCHITECT: Architecture complete, ready for BUILDER", 0.75)
+```
+</mcp-calls>
 </step>
 
 </workflow>
@@ -409,15 +438,15 @@ Set `phase: plan` and `updated: [ISO timestamp]`
 - All 5 artifacts completed with evidence
 - User confirmed architecture decisions
 - Research insights incorporated (ctx.* references used)
-- Pattern selections justified with confidence ratings (NO fabricated patterns)
+- Pattern selections justified with trust scores (NO fabricated patterns)
 - 3 DISTINCT architectures in Tree of Thought
 - YAGNI boundaries explicit
 - Task contract validated; AC coverage documented; amendments (if any) recorded with version bump
 - Implementation sequence concrete with validation
 - Task file updated at ./.apex/tasks/[ID].md
-- Checkpoints recorded at start and end
-- Task metadata updated for architecture completion
-- Architecture artifacts recorded in the task log
+- apex_task_checkpoint called at start and end
+- apex_task_update called with db_role: ARCHITECT
+- apex_task_append_evidence called to record artifacts
 </success-criteria>
 
 <next-phase>

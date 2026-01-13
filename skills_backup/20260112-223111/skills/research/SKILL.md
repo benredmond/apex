@@ -49,10 +49,10 @@ I'll analyze patterns, explore the codebase, find similar tasks, and create a de
 <instructions>
 Determine input type and create/find task:
 
-**Text description**: Create a task entry with intent, inferred type, generated identifier, and tags
-**Ticket ID (APE-59)**: Fetch ticket details (if available), then create a task entry with identifier set to ticket ID
-**File path**: Read file fully, parse content, then create a task entry
-**Database ID**: Look up existing task by ID to retrieve it
+**Text description**: Call `apex_task_create` with intent, inferred type, generated identifier, and tags
+**Ticket ID (APE-59)**: Fetch via MCP, then `apex_task_create` with identifier set to ticket ID
+**File path**: Read file fully, parse content, then `apex_task_create`
+**Database ID**: Call `apex_task_find` to retrieve existing task
 
 Store `taskId` and `identifier` for all subsequent operations.
 </instructions>
@@ -80,7 +80,7 @@ Vague task briefs lead to wasted research effort. Enhance before proceeding.
    - Integration test scenarios
    - Manual verification steps
 
-5. **Pattern Enhancement**: Check existing patterns or similar past tasks
+5. **Pattern Enhancement**: Check APEX patterns for similar past tasks
    - What worked before?
    - What failed and why?
 </optimization-steps>
@@ -249,7 +249,7 @@ Use the clarified enhanced_prompt (post-ambiguity resolution) as the source of t
 **Task ID**: [taskId]
 **Research Focus**: [User's question/area]
 
-Discover relevant patterns, find similar tasks, identify predicted failures, generate execution strategy.
+Discover APEX patterns, find similar tasks, identify predicted failures, generate execution strategy.
 Return: Context pack with pattern intelligence.
 </agent>
 
@@ -313,13 +313,13 @@ Surface forward-looking risks, edge cases, monitoring gaps, mitigations.
 1. Live codebase = primary truth (what actually exists)
 2. Implementation patterns = concrete project conventions
 3. Official documentation = authoritative reference
-4. Pattern library = proven cross-project solutions
+4. APEX patterns = proven cross-project solutions
 5. Best practices = industry consensus
 6. Git history = evolution understanding
 </priority-order>
 
 <synthesis-tasks>
-- Validate pattern library findings against actual codebase
+- Validate APEX patterns against actual codebase
 - Cross-reference with official docs
 - Identify gaps between current code and recommendations
 - Flag inconsistencies and deprecated patterns
@@ -392,7 +392,7 @@ Verify we have sufficient intelligence to architect a solution.
 - [ ] Version compatibility checked
 
 **Pattern Availability (35% weight)**:
-- [ ] Relevant patterns found (confidence ≥ 0.5)
+- [ ] Relevant APEX patterns found (trust ≥ 0.5)
 - [ ] Similar past tasks reviewed
 - [ ] Implementation patterns from codebase extracted
 - [ ] Anti-patterns identified to avoid
@@ -475,7 +475,7 @@ Append to `<research>` section:
 
 <context-pack-refs>
   <!-- Shorthand for downstream phases -->
-  ctx.patterns = pattern-library section
+  ctx.patterns = apex-patterns section
   ctx.impl = codebase-patterns section
   ctx.web = web-research section
   ctx.history = git-history section
@@ -503,10 +503,10 @@ Append to `<research>` section:
   <inconsistencies>[Multiple approaches found]</inconsistencies>
 </codebase-patterns>
 
-<pattern-library>
-  <pattern id="PAT:X:Y" confidence="★★★★☆" uses="N" success="X%">[Relevance]</pattern>
+<apex-patterns>
+  <pattern id="PAT:X:Y" trust="★★★★☆" uses="N" success="X%">[Relevance]</pattern>
   <anti-patterns>[Patterns to avoid with reasons]</anti-patterns>
-</pattern-library>
+</apex-patterns>
 
 <documentation>
   <architecture-context>[Relevant architecture docs found]</architecture-context>
@@ -575,7 +575,7 @@ Set `updated: [ISO timestamp]` and verify `phase: research`
 - All parallel agents completed (including documentation-researcher)
 - Implementation patterns extracted with file:line refs
 - Web research validated against official docs
-- Patterns analyzed with confidence ratings
+- APEX patterns analyzed with trust scores
 - Documentation context gathered
 - Git history examined
 - Intelligence report displayed to user

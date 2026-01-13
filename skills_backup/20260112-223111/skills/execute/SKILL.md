@@ -115,7 +115,7 @@ Pass the identifier.
 - Frontmatter shows phase: complete, status: complete
 - `<ship>` section populated
 - Git commit created
-- Reflection recorded
+- apex_reflect submitted
 </verify>
 
 <on-failure>
@@ -143,7 +143,7 @@ Stop and report: "Ship phase failed. Run `/apex:ship [identifier]` to retry."
 - Commit: [SHA]
 
 ### Key Learning:
-[From reflection]
+[From apex_reflect submission]
 
 Task complete. Full history in `./.apex/tasks/[identifier].md`
 </template>
@@ -182,7 +182,7 @@ If context is getting large:
 - All 4 phases completed successfully
 - Task file shows phase: complete, status: complete
 - Git commit exists
-- Reflection recorded
+- apex_reflect submitted
 - Final report displayed to user
 </success-criteria>
 

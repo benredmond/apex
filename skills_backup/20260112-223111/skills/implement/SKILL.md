@@ -62,6 +62,11 @@ Contract rules:
 - If scope/ACs must change, append a <amendments><amendment ...> entry inside task-contract and bump its version
 </instructions>
 
+<mcp-checkpoint>
+```javascript
+apex_task_checkpoint(taskId, "BUILDER_VALIDATOR: Starting implementation phase", 0.5)
+```
+</mcp-checkpoint>
 </step>
 
 <step id="2" title="Extract implementation directives">
@@ -136,7 +141,9 @@ Apply mitigations proactively.
 </validator-phase>
 
 <checkpoint-after-each-step>
-Record a checkpoint in the task log after each step (summary + confidence).
+```
+apex_task_checkpoint(taskId, "Completed [step]: [summary]", confidence)
+```
 </checkpoint-after-each-step>
 
 </loop>
@@ -156,21 +163,31 @@ For each pattern in `<patterns-used>`:
 </verification-checklist>
 
 <evidence-collection>
-Record pattern usage evidence BEFORE validation:
-- pattern_id
-- file and line range
-- outcome (worked|tweaked|failed)
-- notes on usage
+```javascript
+// Record pattern usage evidence BEFORE validation
+for (const pattern of patterns_used) {
+  apex_task_append_evidence(taskId, "pattern",
+    `Applied ${pattern.id} at ${pattern.location}`,
+    {
+      pattern_id: pattern.id,
+      file: pattern.file,
+      line_start: pattern.line_start,
+      line_end: pattern.line_end,
+      outcome: pattern.outcome
+    }
+  )
+}
+```
 </evidence-collection>
 
 <fabrication-check>
 IF any pattern in `<patterns-used>` is NOT in `<plan><patterns><applying>`:
 → REMOVE it from patterns-used
 → Document as "unplanned pattern discovered"
-→ Do NOT claim it in the final reflection
+→ Do NOT claim it in apex_reflect
 
-Unplanned patterns can be documented as "new patterns" in the final reflection,
-but NOT as "patterns used" (which updates confidence).
+Unplanned patterns can be submitted as `new_patterns` in apex_reflect,
+but NOT as `patterns_used` (which updates trust scores).
 </fabrication-check>
 </step>
 
@@ -273,7 +290,7 @@ Append to `<implementation>` section:
   <key-changes>[Most important modifications]</key-changes>
   <test-coverage>[What's tested]</test-coverage>
   <known-limitations>[Edge cases, TODOs]</known-limitations>
-  <patterns-for-reflection>[Patterns to report in the final reflection]</patterns-for-reflection>
+  <patterns-for-reflection>[Patterns to report in apex_reflect]</patterns-for-reflection>
 </reviewer-handoff>
 
 <next-steps>
@@ -287,6 +304,33 @@ Run `/apex:ship [identifier]` to review and finalize.
 Set `phase: implement` and `updated: [ISO timestamp]`
 </update-frontmatter>
 
+<mcp-calls>
+```javascript
+// Update task phase in database
+apex_task_update({
+  id: taskId,
+  phase: "BUILDER_VALIDATOR",  // Telemetry for build+validate completion
+  handoff: reviewer_handoff_content,
+  confidence: 0.85,
+  files: [...files_modified, ...files_created]
+})
+
+// Record implementation summary as evidence
+apex_task_append_evidence(taskId, "learning",
+  "Implementation complete: " + summary,
+  {
+    files_modified: files_modified.length,
+    files_created: files_created.length,
+    patterns_applied: patterns_used.length,
+    tests_passed: validation_results.tests.passed,
+    iterations: metadata.iterations
+  }
+)
+
+// Checkpoint for phase completion
+apex_task_checkpoint(taskId, "BUILDER_VALIDATOR: Implementation complete, ready for review", 0.85)
+```
+</mcp-calls>
 </step>
 
 </workflow>
@@ -301,7 +345,7 @@ In `<patterns-used>`, only list patterns from the plan.
 Pattern IDs claimed here will be validated during `/apex:ship`.
 
 VIOLATION: Claiming "PAT:NEW:THING" that was never in the plan
-CONSEQUENCE: The final reflection becomes unreliable and confidence becomes meaningless
+CONSEQUENCE: apex_reflect will reject, trust scores become meaningless
 </pattern-fabrication-prevention>
 
 <syntax-gate>
@@ -337,9 +381,9 @@ If implementation reveals spec ambiguity:
 - Patterns used are from plan only (Pattern Evidence Gate passed)
 - Deviations documented with reasons
 - Task file updated at ./.apex/tasks/[ID].md
-- Checkpoints recorded at start, per-step, and end
-- Pattern evidence recorded for usage
-- Task metadata updated for build/validate completion
+- apex_task_checkpoint called at start, per-step, and end
+- apex_task_append_evidence called for pattern usage
+- apex_task_update called with db_role: BUILDER_VALIDATOR
 </success-criteria>
 
 <next-phase>
