@@ -1,6 +1,6 @@
 {
   "name": "apex",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "description": "Pattern discovery, task tracking, and continuous learning for AI coding assistants. Provides 13 MCP tools for intelligent memory, context-aware pattern lookup, trust-scored recommendations, and comprehensive pattern browsing.",
   "author": {
     "name": "Ben",
