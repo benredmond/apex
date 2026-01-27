@@ -290,6 +290,19 @@ Search project docs for:
 Return: YAML with architecture_context, past_decisions, historical_learnings, docs_to_update.
 </agent>
 
+<agent type="learnings-researcher" required="true">
+**Task Intent**: [Enhanced prompt intent]
+**Keywords**: [Extracted keywords from task]
+
+Search past task files (.apex/tasks/*.md) for:
+- Problems solved and how they were fixed
+- Decisions made with rationale
+- Gotchas and surprising discoveries
+- Related tasks via related_tasks links
+
+Return: YAML with top 5 relevant learnings ranked by relevance score.
+</agent>
+
 <agent type="apex:systems-researcher" signal-based="true">
 **Trigger**: Cross-component changes, architectural impacts
 **Focus Area**: [Component or subsystem]
@@ -480,6 +493,7 @@ Append to `<research>` section:
   ctx.web = web-research section
   ctx.history = git-history section
   ctx.docs = documentation section (from documentation-researcher)
+  ctx.learnings = past-learnings section (from learnings-researcher)
   ctx.risks = risks section
   ctx.exec = recommendations.winner section
 </context-pack-refs>
@@ -514,6 +528,21 @@ Append to `<research>` section:
   <historical-learnings>[Gotchas and lessons from docs]</historical-learnings>
   <docs-to-update>[Files that may need updating after this task]</docs-to-update>
 </documentation>
+
+<past-learnings>
+  <count>[Number of relevant learnings found]</count>
+  <coverage>[EXCELLENT|GOOD|SPARSE|NONE]</coverage>
+  <learnings>
+    <learning task-id="[ID]" relevance="[0.0-1.0]">
+      <title>[Task title]</title>
+      <summary>[Why this is relevant and what's useful]</summary>
+      <problems>[Problems solved, if any]</problems>
+      <decisions>[Decisions made, if any]</decisions>
+      <gotchas>[Gotchas discovered, if any]</gotchas>
+    </learning>
+  </learnings>
+  <patterns-across>[Common themes from multiple past tasks]</patterns-across>
+</past-learnings>
 
 <git-history>
   <similar-changes>[Commits with lessons]</similar-changes>
@@ -572,11 +601,12 @@ Set `updated: [ISO timestamp]` and verify `phase: research`
 - Prompt optimized and enhanced with specificity
 - All mentioned files read fully
 - Triage scan completed and ambiguity resolved before spawning agents
-- All parallel agents completed (including documentation-researcher)
+- All parallel agents completed (including documentation-researcher, learnings-researcher)
 - Implementation patterns extracted with file:line refs
 - Web research validated against official docs
 - Patterns analyzed with confidence ratings
 - Documentation context gathered
+- Past learnings searched and top 5 relevant included
 - Git history examined
 - Intelligence report displayed to user
 - Ambiguity detection completed (0 ambiguities OR user clarified)

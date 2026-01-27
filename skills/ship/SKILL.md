@@ -270,6 +270,15 @@ git log -1 --oneline  # Capture commit SHA
 </commands>
 
 <checkpoint>Commit SHA captured for evidence.</checkpoint>
+
+<compound-prompt>
+After successful commit, display:
+```
+Committed: [SHA]
+
+Run `/apex:compound [identifier]` to capture learnings for future agents.
+```
+</compound-prompt>
 </step>
 
 <step id="7" title="Reflection and completion">
