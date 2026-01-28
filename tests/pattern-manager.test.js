@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from "vitest";
+import { describe, expect, beforeEach, afterEach } from "vitest";
 import { PatternManager } from "../src/intelligence/pattern-manager.js";
 import fs from "fs-extra";
 import path from "path";
@@ -11,14 +11,14 @@ describe("PatternManager", () => {
   beforeEach(async () => {
     // Create temporary directory for tests
     tempDir = path.join(os.tmpdir(), `apex-test-${Date.now()}`);
-    await fs.ensureDir(path.join(tempDir, ".apex"));
+    await fs.ensureDir(path.join(tempDir, "apex"));
 
     // Initialize pattern manager with temp directory
     patternManager = new PatternManager(tempDir);
 
     // Create initial files
     await fs.writeFile(
-      path.join(tempDir, ".apex", "CONVENTIONS.md"),
+      path.join(tempDir, "apex", "CONVENTIONS.md"),
       `# Conventions
 
 ## Patterns
@@ -45,11 +45,11 @@ PREVENTS: Unhandled promise rejections
     );
 
     await fs.writeFile(
-      path.join(tempDir, ".apex", "CONVENTIONS.pending.md"),
+      path.join(tempDir, "apex", "CONVENTIONS.pending.md"),
       "# Pending Conventions\n\n",
     );
 
-    await fs.writeJson(path.join(tempDir, ".apex", "config.json"), {
+    await fs.writeJson(path.join(tempDir, "apex", "config.json"), {
       apex: { patternPromotionThreshold: 3, trustScoreThreshold: 0.8 },
     });
   });
@@ -101,7 +101,7 @@ PREVENTS: Unhandled promise rejections
   describe("extractPatterns", () => {
     it("should extract patterns from markdown content", async () => {
       const content = await fs.readFile(
-        path.join(tempDir, ".apex", "CONVENTIONS.md"),
+        path.join(tempDir, "apex", "CONVENTIONS.md"),
         "utf-8",
       );
       const patterns = patternManager.extractPatterns(content);
@@ -144,7 +144,7 @@ PREVENTS: Unhandled promise rejections
       await patternManager.recordUsage("[CMD:TEST:UNIT]", true);
 
       const metadata = await fs.readJson(
-        path.join(tempDir, ".apex", "PATTERN_METADATA.json"),
+        path.join(tempDir, "apex", "PATTERN_METADATA.json"),
       );
 
       expect(metadata["[CMD:TEST:UNIT]"]).toMatchObject({
@@ -158,7 +158,7 @@ PREVENTS: Unhandled promise rejections
       await patternManager.recordUsage("[CMD:TEST:UNIT]", false);
 
       const metadata = await fs.readJson(
-        path.join(tempDir, ".apex", "PATTERN_METADATA.json"),
+        path.join(tempDir, "apex", "PATTERN_METADATA.json"),
       );
 
       expect(metadata["[CMD:TEST:UNIT]"].failures).toBe(1);
@@ -178,7 +178,7 @@ PREVENTS: Unhandled promise rejections
       await patternManager.addPattern(patternDef);
 
       const pending = await fs.readFile(
-        path.join(tempDir, ".apex", "CONVENTIONS.pending.md"),
+        path.join(tempDir, "apex", "CONVENTIONS.pending.md"),
         "utf-8",
       );
 

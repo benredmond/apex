@@ -309,7 +309,7 @@ metadata:
 
 **Common documentation patterns to look for:**
 - `/docs/`, `/documentation/`, `/wiki/`
-- `/.apex/`, `/notes/`, `/memory/`
+- `/apex/`, `/notes/`, `/memory/`
 - `/decisions/`, `/ADR/`, `/architecture/`
 - Root-level: `README.md`, `ARCHITECTURE.md`, `CONTRIBUTING.md`
 

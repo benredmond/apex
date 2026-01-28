@@ -24,7 +24,7 @@ source_of_truth:
 </phase-model>
 
 <phase-gate requires="plan|rework" sets="implement">
-  <reads-file>./.apex/tasks/[ID].md</reads-file>
+  <reads-file>./apex/tasks/[ID].md</reads-file>
   <requires-section>plan</requires-section>
   <appends-section>implementation</appends-section>
 </phase-gate>
@@ -40,7 +40,7 @@ source_of_truth:
 <if-no-arguments>
 I'll implement the planned architecture. Please provide the task identifier.
 
-You can find active tasks in `./.apex/tasks/` or run with:
+You can find active tasks in `./apex/tasks/` or run with:
 `/apex:implement [identifier]`
 </if-no-arguments>
 <if-arguments>Load task file and begin implementation.</if-arguments>
@@ -50,7 +50,7 @@ You can find active tasks in `./.apex/tasks/` or run with:
 
 <step id="1" title="Load task and verify phase">
 <instructions>
-1. Read `./.apex/tasks/[identifier].md`
+1. Read `./apex/tasks/[identifier].md`
 2. Verify frontmatter `phase: plan` OR `phase: rework`
 3. Parse `<task-contract>` first and treat it as authoritative scope/ACs
 4. Parse `<plan>` section, especially `<builder-handoff>`
@@ -336,7 +336,7 @@ If implementation reveals spec ambiguity:
 - Acceptance criteria status reported for all AC-*
 - Patterns used are from plan only (Pattern Evidence Gate passed)
 - Deviations documented with reasons
-- Task file updated at ./.apex/tasks/[ID].md
+- Task file updated at ./apex/tasks/[ID].md
 - Checkpoints recorded at start, per-step, and end
 - Pattern evidence recorded for usage
 - Task metadata updated for build/validate completion

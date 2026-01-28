@@ -9,7 +9,7 @@ import path from "path";
 export class PatternManager {
   constructor(projectRoot = ".") {
     this.projectRoot = projectRoot;
-    this.apexDir = path.join(projectRoot, ".apex");
+    this.apexDir = path.join(projectRoot, "apex");
     this.conventionsPath = path.join(this.apexDir, "CONVENTIONS.md");
     this.pendingPath = path.join(this.apexDir, "CONVENTIONS.pending.md");
     this.metadataPath = path.join(this.apexDir, "PATTERN_METADATA.json");

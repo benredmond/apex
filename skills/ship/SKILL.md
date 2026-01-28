@@ -24,7 +24,7 @@ source_of_truth:
 </phase-model>
 
 <phase-gate requires="implement" sets="complete">
-  <reads-file>./.apex/tasks/[ID].md</reads-file>
+  <reads-file>./apex/tasks/[ID].md</reads-file>
   <requires-section>implementation</requires-section>
   <appends-section>ship</appends-section>
 </phase-gate>
@@ -43,7 +43,7 @@ If REJECT, stop after review, set frontmatter to `phase: rework`, and return to 
 <if-no-arguments>
 I'll review and finalize the implementation. Please provide the task identifier.
 
-You can find active tasks in `./.apex/tasks/` or run with:
+You can find active tasks in `./apex/tasks/` or run with:
 `/apex:ship [identifier]`
 </if-no-arguments>
 <if-arguments>Load task file and begin review.</if-arguments>
@@ -53,7 +53,7 @@ You can find active tasks in `./.apex/tasks/` or run with:
 
 <step id="1" title="Load task and verify phase">
 <instructions>
-1. Read `./.apex/tasks/[identifier].md`
+1. Read `./apex/tasks/[identifier].md`
 2. Verify frontmatter `phase: implement`
 3. Parse `<task-contract>` first and note its latest version and any amendments
 4. Parse all sections for full context

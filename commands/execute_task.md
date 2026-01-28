@@ -190,7 +190,7 @@ ctx.docs       = context_pack.documentation_intelligence.{architecture_context|p
 
 - **Text description**: "implement dark mode toggle" → Create task from description
 - **Linear/JIRA ID**: "APE-59" or "PROJ-123" → Fetch from issue tracker
-- **Markdown file path**: "T026_feature.md" or ".apex/03_ACTIVE_SPRINTS/S02/T026.md" → Read file
+- **Markdown file path**: "T026_feature.md" or "apex/03_ACTIVE_SPRINTS/S02/T026.md" → Read file
 - **Database task ID**: "dS2y_DqSHdRpcLO5GYSIy" → Use existing task
 - **Empty**: Use user's current request as task intent
 

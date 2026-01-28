@@ -153,7 +153,7 @@ Validate pattern files using the APEX CLI:
 apex pattern-lint path/to/pattern.yaml
 
 # Validate multiple files
-apex pattern-lint ".apex/patterns/**/*.yaml"
+apex pattern-lint "apex/patterns/**/*.yaml"
 
 # Verbose output
 apex pattern-lint pattern.yaml --verbose
@@ -221,7 +221,7 @@ Existing patterns in CONVENTIONS.md can be migrated:
 
 Recommended structure:
 ```
-.apex/
+apex/
   patterns/
     CODEBASE/
       error-handling.yaml

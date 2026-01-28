@@ -12,7 +12,7 @@ services:
       - ./src:/app/src:ro
       - ./templates:/app/templates:ro
       - ./tests:/app/tests:ro
-      - ./.apex:/app/.apex
+      - ./apex:/app/apex
       # Prevent node_modules from being overwritten
       - /app/node_modules
     environment:

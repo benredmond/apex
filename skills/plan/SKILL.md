@@ -24,7 +24,7 @@ source_of_truth:
 </phase-model>
 
 <phase-gate requires="research" sets="plan">
-  <reads-file>./.apex/tasks/[ID].md</reads-file>
+  <reads-file>./apex/tasks/[ID].md</reads-file>
   <requires-section>research</requires-section>
   <appends-section>plan</appends-section>
 </phase-gate>
@@ -41,7 +41,7 @@ source_of_truth:
 <if-no-arguments>
 I'll create a rigorous technical architecture. Please provide the task identifier.
 
-You can find active tasks in `./.apex/tasks/` or run with:
+You can find active tasks in `./apex/tasks/` or run with:
 `/apex:plan [identifier]`
 </if-no-arguments>
 <if-arguments>Load task file and begin architecture process.</if-arguments>
@@ -51,7 +51,7 @@ You can find active tasks in `./.apex/tasks/` or run with:
 
 <step id="1" title="Load task and verify phase">
 <instructions>
-1. Read `./.apex/tasks/[identifier].md`
+1. Read `./apex/tasks/[identifier].md`
 2. Verify frontmatter `phase: research`
 3. Parse `<task-contract>` from the research output FIRST and treat it as authoritative scope/ACs
 4. If `<task-contract>` is missing, STOP and ask to rerun research or add the contract with an explicit amendment rationale
@@ -414,7 +414,7 @@ Set `phase: plan` and `updated: [ISO timestamp]`
 - YAGNI boundaries explicit
 - Task contract validated; AC coverage documented; amendments (if any) recorded with version bump
 - Implementation sequence concrete with validation
-- Task file updated at ./.apex/tasks/[ID].md
+- Task file updated at ./apex/tasks/[ID].md
 - Checkpoints recorded at start and end
 - Task metadata updated for architecture completion
 - Architecture artifacts recorded in the task log

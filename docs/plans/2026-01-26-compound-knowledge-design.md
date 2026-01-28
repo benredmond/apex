@@ -37,7 +37,7 @@ New session → /apex:research → learnings-researcher agent
 
 ## 1. `<future-agent-notes>` Structure
 
-**Location**: Appended to task file (`.apex/tasks/<identifier>.md`)
+**Location**: Appended to task file (`apex/tasks/<identifier>.md`)
 
 **Frontmatter addition**:
 ```yaml
@@ -92,7 +92,7 @@ related_tasks: [task-id-1, task-id-2]
 **Invocation**: `/apex:compound [task-identifier]` (or infer from current task file)
 
 ### Step 1: Check existing learnings
-- Search `.apex/tasks/*.md` for similar problems/decisions/gotchas
+- Search `apex/tasks/*.md` for similar problems/decisions/gotchas
 - Use grep on `<future-agent-notes>` sections with keywords from current task
 - If similar found, display them:
   ```
@@ -145,7 +145,7 @@ Select (1, 2, 3, or comma-separated):
 - Keywords extracted from intent
 
 **Process**:
-1. Grep `.apex/tasks/*.md` for `<future-agent-notes>` sections
+1. Grep `apex/tasks/*.md` for `<future-agent-notes>` sections
 2. Also scan `<research>`, `<plan>`, `<implementation>`, `<ship>` for relevant context
 3. Score relevance based on keyword overlap with current task intent
 4. Follow `related_tasks` links to find connected learnings

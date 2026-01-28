@@ -12,7 +12,7 @@ export class FailureTracker {
     this.projectRoot = projectRoot;
     this.failuresPath = path.join(
       projectRoot,
-      ".apex",
+      "apex",
       "09_LEARNING",
       "failures.jsonl",
     );

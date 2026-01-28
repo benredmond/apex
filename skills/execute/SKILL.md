@@ -50,7 +50,7 @@ Pass the original input argument.
 </invoke>
 
 <verify>
-- Task file created at ./.apex/tasks/[ID].md
+- Task file created at ./apex/tasks/[ID].md
 - Frontmatter shows phase: research
 - `<research>` section populated
 </verify>
@@ -128,7 +128,7 @@ Stop and report: "Ship phase failed. Run `/apex:ship [identifier]` to retry."
 ## APEX Workflow Complete ✅
 
 **Task**: [Title]
-**File**: ./.apex/tasks/[identifier].md
+**File**: ./apex/tasks/[identifier].md
 
 ### Phases Completed:
 1. ✅ Research - [summary]
@@ -145,7 +145,7 @@ Stop and report: "Ship phase failed. Run `/apex:ship [identifier]` to retry."
 ### Key Learning:
 [From reflection]
 
-Task complete. Full history in `./.apex/tasks/[identifier].md`
+Task complete. Full history in `./apex/tasks/[identifier].md`
 </template>
 </step>
 

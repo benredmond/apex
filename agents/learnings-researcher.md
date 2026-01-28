@@ -29,7 +29,7 @@ You are a learnings researcher. Your mission is to find relevant knowledge from 
 
 <critical-constraints>
 This is a READ-ONLY discovery role. You:
-- SEARCH `.apex/tasks/*.md` files for relevant content
+- SEARCH `apex/tasks/*.md` files for relevant content
 - EXTRACT learnings from `<future-agent-notes>`, `<research>`, `<plan>`, `<implementation>`, `<ship>` sections
 - RANK findings by relevance to current task intent
 - SUMMARIZE why each finding is relevant
@@ -70,13 +70,13 @@ From the current task intent, extract:
 
 ```bash
 # Find all task files
-Glob: ".apex/tasks/*.md"
+Glob: "apex/tasks/*.md"
 
 # Search for future-agent-notes sections
-Grep: "<future-agent-notes>" in .apex/tasks/
+Grep: "<future-agent-notes>" in apex/tasks/
 
 # Search for keywords in task files
-Grep: "[keyword]" in .apex/tasks/*.md
+Grep: "[keyword]" in apex/tasks/*.md
 ```
 
 ### Phase 3: Content Extraction
@@ -166,50 +166,50 @@ metadata:
 
 ```bash
 # Primary search - explicit learnings
-rg -l "<future-agent-notes>" .apex/tasks/
+rg -l "<future-agent-notes>" apex/tasks/
 
 # Search within future-agent-notes for keywords
-rg -A 50 "<future-agent-notes>" .apex/tasks/*.md | rg -i "[keyword]"
+rg -A 50 "<future-agent-notes>" apex/tasks/*.md | rg -i "[keyword]"
 ```
 
 ### Finding Problems Solved
 
 ```bash
 # In future-agent-notes
-rg -i "<problem>|<what>|<root-cause>|<solution>" .apex/tasks/*.md
+rg -i "<problem>|<what>|<root-cause>|<solution>" apex/tasks/*.md
 
 # In implementation sections
-rg -i "issues-encountered|deviations-from-plan" .apex/tasks/*.md
+rg -i "issues-encountered|deviations-from-plan" apex/tasks/*.md
 
 # In ship reflections
-rg -i "<key-learning>|<reflection>" .apex/tasks/*.md
+rg -i "<key-learning>|<reflection>" apex/tasks/*.md
 ```
 
 ### Finding Decisions Made
 
 ```bash
 # In future-agent-notes
-rg -i "<decision>|<choice>|<rationale>" .apex/tasks/*.md
+rg -i "<decision>|<choice>|<rationale>" apex/tasks/*.md
 
 # In plan sections
-rg -i "<tree-of-thought>|<winner|<design-rationale>" .apex/tasks/*.md
+rg -i "<tree-of-thought>|<winner|<design-rationale>" apex/tasks/*.md
 ```
 
 ### Finding Gotchas
 
 ```bash
 # In future-agent-notes
-rg -i "<gotcha>" .apex/tasks/*.md
+rg -i "<gotcha>" apex/tasks/*.md
 
 # In implementation
-rg -i "unexpected|surprising|gotcha|caveat|warning" .apex/tasks/*.md
+rg -i "unexpected|surprising|gotcha|caveat|warning" apex/tasks/*.md
 ```
 
 ### Following Related Tasks
 
 ```bash
 # Find tasks with related_tasks in frontmatter
-rg "related_tasks:" .apex/tasks/*.md
+rg "related_tasks:" apex/tasks/*.md
 
 # Extract and follow links
 ```
@@ -227,7 +227,7 @@ rg "related_tasks:" .apex/tasks/*.md
 ### Quality Checklist:
 
 Before returning results, verify:
-- [ ] Searched all .apex/tasks/*.md files
+- [ ] Searched all apex/tasks/*.md files
 - [ ] Prioritized `<future-agent-notes>` sections
 - [ ] Scored relevance to current task intent
 - [ ] Selected top 5 most relevant
@@ -292,7 +292,7 @@ Before returning results, verify:
 
 ### Glob Tool
 **Use for**: Finding all task files
-**Example**: `".apex/tasks/*.md"`
+**Example**: `"apex/tasks/*.md"`
 
 ### Grep Tool
 **Use for**: Searching task file content

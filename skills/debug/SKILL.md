@@ -16,7 +16,7 @@ Can operate phase-agnostic: debug sessions can happen at any point in the workfl
 </overview>
 
 <phase-gate requires="none" sets="none">
-  <reads-file>./.apex/tasks/[ID].md (if task-linked)</reads-file>
+  <reads-file>./apex/tasks/[ID].md (if task-linked)</reads-file>
   <appends-section>debug</appends-section>
   <note>Debug is phase-agnostic - can be invoked at any workflow stage</note>
 </phase-gate>
@@ -33,7 +33,7 @@ Can operate phase-agnostic: debug sessions can happen at any point in the workfl
 <initial-response>
 <if-no-arguments>
 I'll help debug systematically. Please provide either:
-- A task identifier from `./.apex/tasks/`
+- A task identifier from `./apex/tasks/`
 - An error description to investigate
 
 Usage: `/apex:debug [task-id]` or `/apex:debug "error message or description"`
@@ -48,7 +48,7 @@ Usage: `/apex:debug [task-id]` or `/apex:debug "error message or description"`
 1. **Parse argument**: Determine if task ID or error description
 2. **Query patterns**: Review existing patterns or incident notes for debugging/failure patterns
 3. **Link or create task**:
-   - If task ID provided: Read `./.apex/tasks/[ID].md`
+   - If task ID provided: Read `./apex/tasks/[ID].md`
    - If error description: Create a new debug task entry in the task log
 4. **Spawn failure-predictor**: Get historical failure context
 </instructions>
@@ -267,7 +267,7 @@ Without reflection, debugging learnings are lost. This step is MANDATORY.
 </workflow>
 
 <output-format>
-Append to task file `./.apex/tasks/[ID].md`:
+Append to task file `./apex/tasks/[ID].md`:
 
 ```xml
 <debug>

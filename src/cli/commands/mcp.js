@@ -25,8 +25,8 @@ export function createMCPCommand() {
       const spinner = ora("Configuring MCP...").start();
 
       try {
-        // Check if .apex directory exists
-        if (!(await fs.pathExists(".apex"))) {
+        // Check if apex directory exists
+        if (!(await fs.pathExists("apex"))) {
           spinner.fail("APEX not initialized. Run 'apex init' first.");
           process.exit(1);
         }

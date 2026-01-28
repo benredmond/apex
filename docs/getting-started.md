@@ -102,7 +102,7 @@ Gather intelligence before coding:
 - **Parallel agents**: intelligence-gatherer, git-historian, systems-researcher
 - **Pattern lookup**: Find relevant patterns from database
 - **Similar tasks**: Learn from past implementations
-- **Creates**: Task file at `.apex/tasks/T001.md`
+- **Creates**: Task file at `apex/tasks/T001.md`
 
 ### Phase 2: Plan (`/apex:plan`)
 Design the architecture:
@@ -143,7 +143,7 @@ const token = jwt.sign(
 
 ## Configuration
 
-Edit `.apex/config.json`:
+Edit `apex/config.json`:
 
 ```json
 {
@@ -185,7 +185,7 @@ Edit `.apex/config.json`:
 ```bash
 apex doctor           # Check system health
 apex mcp serve        # Test MCP server manually
-ls ~/.apex/           # Verify database exists
+ls ~/apex/           # Verify database exists
 ```
 
 ## Next Steps

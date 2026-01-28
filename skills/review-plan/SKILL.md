@@ -18,7 +18,7 @@ Output goes to chat. User fixes issues inline, then proceeds to implement.
 </overview>
 
 <phase-gate requires="none" sets="none">
-  <reads-file>./.apex/tasks/[ID].md</reads-file>
+  <reads-file>./apex/tasks/[ID].md</reads-file>
   <expects-sections>research, plan</expects-sections>
   <outputs-to>chat</outputs-to>
 </phase-gate>
@@ -35,7 +35,7 @@ Output goes to chat. User fixes issues inline, then proceeds to implement.
 <if-no-arguments>
 I'll review the plan for gaps and correctness. Please provide the task identifier.
 
-You can find tasks in `./.apex/tasks/` or run with:
+You can find tasks in `./apex/tasks/` or run with:
 `/apex:review-plan [identifier]`
 </if-no-arguments>
 <if-arguments>Load task file and begin review.</if-arguments>
@@ -45,7 +45,7 @@ You can find tasks in `./.apex/tasks/` or run with:
 
 <step id="1" title="Load task and extract sections">
 <instructions>
-1. Read `./.apex/tasks/[identifier].md`
+1. Read `./apex/tasks/[identifier].md`
 2. Note current phase from frontmatter (informational only - don't block)
 3. Extract and parse (note any missing sections):
    - `<task-contract>` - From within `<research>` section

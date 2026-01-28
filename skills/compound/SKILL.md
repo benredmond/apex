@@ -13,7 +13,7 @@ This skill can run after any phase or standalone session. It compounds the agent
 </overview>
 
 <phase-gate requires="none" sets="none">
-  <reads-file>./.apex/tasks/[ID].md</reads-file>
+  <reads-file>./apex/tasks/[ID].md</reads-file>
   <appends-section>future-agent-notes</appends-section>
   <may-modify>CLAUDE.md</may-modify>
 </phase-gate>
@@ -24,7 +24,7 @@ I'll capture learnings from this session to help future agents.
 
 Please provide the task identifier, or I'll try to find the current task from context.
 
-You can find active tasks in `./.apex/tasks/` or run with:
+You can find active tasks in `./apex/tasks/` or run with:
 `/apex:compound [identifier]`
 </if-no-arguments>
 <if-arguments>Load task file and begin knowledge capture.</if-arguments>
@@ -34,7 +34,7 @@ You can find active tasks in `./.apex/tasks/` or run with:
 
 <step id="1" title="Load task context">
 <instructions>
-1. Read `./.apex/tasks/[identifier].md`
+1. Read `./apex/tasks/[identifier].md`
 2. Parse all sections for context:
    - `<research>` - What was investigated
    - `<plan>` - What was decided
@@ -56,10 +56,10 @@ Avoid duplication and surface related past learnings.
 keywords = extract_keywords(task_intent, task_title)
 
 # Search past task files for similar learnings
-Grep: "[keywords]" in .apex/tasks/*/<future-agent-notes>
-Grep: "<problem>.*[keywords]" in .apex/tasks/*.md
-Grep: "<decision>.*[keywords]" in .apex/tasks/*.md
-Grep: "<gotcha>.*[keywords]" in .apex/tasks/*.md
+Grep: "[keywords]" in apex/tasks/*/<future-agent-notes>
+Grep: "<problem>.*[keywords]" in apex/tasks/*.md
+Grep: "<decision>.*[keywords]" in apex/tasks/*.md
+Grep: "<gotcha>.*[keywords]" in apex/tasks/*.md
 ```
 </search-strategy>
 

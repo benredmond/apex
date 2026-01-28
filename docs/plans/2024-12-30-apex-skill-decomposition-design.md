@@ -39,7 +39,7 @@ skills/apex/
 
 ### Task File
 
-**Location**: `./.apex/tasks/[ID].md` (project-local for greppability)
+**Location**: `./apex/tasks/[ID].md` (project-local for greppability)
 
 **Format** (XML sections for better LLM parsing):
 ```markdown
@@ -202,7 +202,7 @@ Extract to skill preamble or shared reference:
 2. **Debuggability**: One file shows full task history
 3. **Flexibility**: Run phases individually or chained
 4. **Maintainability**: ~400 lines per skill vs 2000-line monolith
-5. **Greppability**: `./.apex/tasks/` is project-local
+5. **Greppability**: `./apex/tasks/` is project-local
 
 ### Future Work
 

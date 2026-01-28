@@ -7,7 +7,7 @@ argument-hint: [task-description|ticket-id|file-path|task-id]
 <skill name="apex:research" phase="research">
 
 <overview>
-Conduct comprehensive research by orchestrating parallel sub-agents. Outputs to `./.apex/tasks/[ID].md`.
+Conduct comprehensive research by orchestrating parallel sub-agents. Outputs to `./apex/tasks/[ID].md`.
 
 This is the **first phase** of the APEX workflow. It gathers all intelligence needed for planning and implementation.
 </overview>
@@ -24,7 +24,7 @@ source_of_truth:
 </phase-model>
 
 <phase-gate requires="none" sets="research">
-  <creates-file>./.apex/tasks/[ID].md</creates-file>
+  <creates-file>./apex/tasks/[ID].md</creates-file>
   <appends-section>research</appends-section>
 </phase-gate>
 
@@ -205,7 +205,7 @@ Maximum 1 clarification round. After user responds:
 
 <step id="5" title="Create task file">
 <instructions>
-Create `./.apex/tasks/[identifier].md` with frontmatter:
+Create `./apex/tasks/[identifier].md` with frontmatter:
 
 ```markdown
 ---
@@ -294,7 +294,7 @@ Return: YAML with architecture_context, past_decisions, historical_learnings, do
 **Task Intent**: [Enhanced prompt intent]
 **Keywords**: [Extracted keywords from task]
 
-Search past task files (.apex/tasks/*.md) for:
+Search past task files (apex/tasks/*.md) for:
 - Problems solved and how they were fixed
 - Decisions made with rationale
 - Gotchas and surprising discoveries
@@ -614,7 +614,7 @@ Set `updated: [ISO timestamp]` and verify `phase: research`
 - 3 solution approaches generated (Tree of Thought)
 - Risks identified with mitigations
 - Task contract created with intent, scope, ACs, and NFRs
-- Task file created/updated at ./.apex/tasks/[ID].md
+- Task file created/updated at ./apex/tasks/[ID].md
 - Context pack refs documented for downstream phases
 </success-criteria>
 
