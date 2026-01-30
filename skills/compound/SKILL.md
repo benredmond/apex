@@ -15,7 +15,7 @@ This skill can run after any phase or standalone session. It compounds the agent
 <phase-gate requires="none" sets="none">
   <reads-file>./apex/tasks/[ID].md</reads-file>
   <appends-section>future-agent-notes</appends-section>
-  <may-modify>CLAUDE.md</may-modify>
+  <may-modify>AGENTS.md</may-modify>
 </phase-gate>
 
 <initial-response>
@@ -197,14 +197,14 @@ Related tasks linked: [list or "none"]
 </confirmation>
 </step>
 
-<step id="6" title="Offer promotion to CLAUDE.md">
+<step id="6" title="Offer promotion to AGENTS.md">
 <purpose>
-Critical learnings should be "always loaded" context in CLAUDE.md.
+Critical learnings should be "always loaded" context in AGENTS.md.
 </purpose>
 
 <promotion-prompt>
 ```
-Promote any to CLAUDE.md? (These become "always loaded" context)
+Promote any to AGENTS.md? (These become "always loaded" context)
 
 1. [Problem] [Brief description]
 2. [Decision] [Brief description]
@@ -221,13 +221,13 @@ Select (numbers comma-separated, or N for none):
 </selection-handling>
 </step>
 
-<step id="7" title="Promote to CLAUDE.md">
+<step id="7" title="Promote to AGENTS.md">
 <instructions>
-1. Read CLAUDE.md fully
+1. Read AGENTS.md fully
 2. Find `## Learnings` section (create at end if doesn't exist)
 3. Check for duplicates (don't add if similar already exists)
 4. Append selected items in condensed format
-5. Write updated CLAUDE.md
+5. Write updated AGENTS.md
 </instructions>
 
 <promotion-format>
@@ -260,9 +260,9 @@ Select (numbers comma-separated, or N for none):
 <duplicate-check>
 Before adding, search for similar content:
 ```bash
-Grep: "[key phrase from learning]" in CLAUDE.md
+Grep: "[key phrase from learning]" in AGENTS.md
 ```
-If similar exists, skip with message: "Similar learning already in CLAUDE.md, skipping."
+If similar exists, skip with message: "Similar learning already in AGENTS.md, skipping."
 </duplicate-check>
 </step>
 
@@ -278,7 +278,7 @@ Learnings documented:
 - Gotchas: [N]
 
 Related tasks: [list or "none"]
-Promoted to CLAUDE.md: [list or "none"]
+Promoted to AGENTS.md: [list or "none"]
 
 These learnings will be surfaced by `learnings-researcher` in future `/apex:research` runs.
 </template>
@@ -292,9 +292,9 @@ These learnings will be surfaced by `learnings-researcher` in future `/apex:rese
 - Meaningful learnings identified (or explicitly none)
 - `<future-agent-notes>` section written to task file
 - `related_tasks` updated in frontmatter if applicable
-- Promotion to CLAUDE.md offered
+- Promotion to AGENTS.md offered
 - Selected items promoted with proper format
-- Duplicates avoided in CLAUDE.md
+- Duplicates avoided in AGENTS.md
 </success-criteria>
 
 <when-to-use>
