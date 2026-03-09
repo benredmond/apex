@@ -1,350 +1,261 @@
 ---
 name: review-plan
-description: Advisory plan review - validates plan correctness and identifies gaps before implementation. Works on any task with research and plan sections.
+description: Use when a task already has research and plan sections and the plan needs adversarial review before implementation
 argument-hint: [task-identifier]
 ---
 
 <skill name="apex:review-plan" phase="advisory">
 
 <overview>
-Lightweight plan review that catches gaps and errors before implementation commitment.
+Iterative adversarial plan review.
 
-Three focused lenses:
-1. **Completeness** - Are all required plan artifacts present and substantive?
-2. **Gap Analysis** - What did research find that plan doesn't address?
-3. **Correctness** - Is the plan internally consistent and feasible?
+Run a fresh reviewer round against the current task plan, revise the `<plan>` section after every in-scope `VERDICT: REVISE`, and repeat until the plan reaches `VERDICT: APPROVED`, the loop hits 5 rounds, or the task must return to `/apex:research` or `/apex:plan` because the inputs are too weak for safe review.
 
-Output goes to chat. User fixes issues inline, then proceeds to implement.
+Target: 2-3 rounds. Hard max: 5 rounds.
 </overview>
 
 <phase-gate requires="none" sets="none">
   <reads-file>./apex/tasks/[ID].md</reads-file>
   <expects-sections>research, plan</expects-sections>
+  <updates-section>plan</updates-section>
   <outputs-to>chat</outputs-to>
 </phase-gate>
 
 <principles>
-- **Advisory Only**: No phase changes, no file modifications
-- **Fast**: Direct analysis, no subagents
-- **Actionable**: Every gap or error includes what to fix
-- **Honest**: Call out real problems, don't rubber-stamp
-- **Flexible**: Works regardless of current phase
+- **Approval Gate**: Do not recommend implementation until the final verdict is `APPROVED`
+- **Fresh Adversary**: Spawn a new reviewer subagent each round
+- **Read-Only Reviewer**: Reviewer analyzes only; primary agent owns all plan edits
+- **Fix Forward**: Address `REVISE` findings immediately in the task's `<plan>` section
+- **High-Signal Review**: Prioritize architecture, security, edge cases, concurrency/state, sequencing, and validation realism
+- **No Silent Scope Drift**: Do not change `<task-contract>` in this skill; if approval requires contract changes, stop and route back to `/apex:plan`
+- **Evidence First**: If research is missing or the plan is below the minimum review threshold, stop early instead of speculating
 </principles>
 
 <initial-response>
 <if-no-arguments>
-I'll review the plan for gaps and correctness. Please provide the task identifier.
+I'll run iterative adversarial review on the plan. Please provide the task identifier.
 
 You can find tasks in `./apex/tasks/` or run with:
 `/apex:review-plan [identifier]`
 </if-no-arguments>
-<if-arguments>Load task file and begin review.</if-arguments>
+<if-arguments>Load task file, extract the current plan, and start round 1.</if-arguments>
 </initial-response>
 
 <workflow>
 
-<step id="1" title="Load task and extract sections">
+<step id="1" title="Load task and build the review packet">
 <instructions>
 1. Read `./apex/tasks/[identifier].md`
-2. Note current phase from frontmatter (informational only - don't block)
-3. Extract and parse (note any missing sections):
-   - `<task-contract>` - From within `<research>` section
-   - `<research>` - All findings from research phase
-   - `<plan>` - All artifacts from plan phase
-4. If `<research>` or `<plan>` sections are missing/empty, report as finding (don't refuse)
-5. Verify file paths mentioned in `<plan><architecture-decision><files-to-modify>` exist using glob/ls
+2. Note current phase from frontmatter for context only; do not block on it
+3. Extract:
+   - `<task-contract>` from the research section
+   - `<research>`
+   - `<plan>`
+4. Check reviewability before starting round 1:
+   - If `<research>` is missing, lacks `<task-contract>`, or is too thin to identify risks, recommendations, and relevant evidence:
+     - stop immediately
+     - return `VERDICT: REVISE`
+     - set next action to `RETURN_TO_RESEARCH`
+     - instruct the user to run `/apex:research [identifier]`
+   - If `<plan>` is missing, or below the minimum plan threshold:
+     - stop immediately
+     - return `VERDICT: REVISE`
+     - set next action to `RETURN_TO_PLAN`
+     - instruct the user to run `/apex:plan [identifier]`
+5. Minimum plan threshold for `review-plan`:
+   - the 5 mandatory plan artifacts from `/apex:plan` are present in substantive form
+   - architecture decision / implementation sequence exists
+   - builder handoff exists
+   - contract validation / AC coverage exists
+6. Capture the plan review packet:
+   - Task title and identifier
+   - Contract version, acceptance criteria, amendments
+   - Research risks, security concerns, recommendations, documentation drift, patterns, and relevant file references
+   - Current `<plan>` contents
+7. Verify any existing files referenced in the plan's implementation path using `ls`, `rg`, or equivalent read-only inspection
 </instructions>
 </step>
 
-<step id="2" title="Completeness Check">
-<purpose>
-Verify all mandatory plan artifacts are present and substantive.
-</purpose>
+<step id="2" title="Run the adversarial review loop">
+<instructions>
+For rounds `1..5`:
 
-<mandatory-artifacts>
-Look for these concepts (tag names may vary):
+1. Create a compact round summary for the reviewer:
+   - Current plan snapshot
+   - Contract and research constraints
+   - Prior round findings and what changed since then
+2. Spawn exactly one fresh subagent for the round
+3. Instruct the subagent:
+   - This is a read-only review round
+   - Do not edit files
+   - Review the plan as an adversary, not a collaborator
+   - Inspect repo files if needed to verify feasibility
+   - Focus on:
+     - mandatory artifact completeness
+     - architecture soundness
+     - contract coverage
+     - contract version / amendment acknowledgement
+     - security concerns
+     - edge cases and failure modes
+     - concurrency, state, ordering, and race risks
+     - pattern provenance and trust alignment
+     - documentation drift
+     - non-functional requirement coverage
+     - validation quality and realism
+     - implementation sequencing and dependency order
+     - research-to-plan mismatches
+4. Require the subagent to return this structure:
 
-1. **Design Rationale** - Current state, problem breakdown, hidden complexity, success criteria
-2. **Tree of Thought** - 3 different solution approaches with a winner selected
-3. **Chain of Draft** - Evolution through multiple drafts
-4. **YAGNI** - What's explicitly excluded, complexity budget
-5. **Patterns** - Which patterns are being applied (can be empty)
-6. **Architecture Decision** - Files to change, implementation steps, how to validate
-7. **Builder Handoff** - Clear mission, ordered steps, validation checkpoints
-8. **Contract Validation** - AC coverage confirmation
-</mandatory-artifacts>
+```text
+ROUND: [N]
+VERDICT: [REVISE|APPROVED]
+NEXT ACTION: [CONTINUE|RETURN_TO_RESEARCH|RETURN_TO_PLAN|IMPLEMENT]
 
-<contract-validation>
-- [ ] Plan acknowledges the current contract version
-- [ ] If amendments exist in task-contract, they are acknowledged in plan
-- [ ] Every AC in task-contract is addressed somewhere in plan
-</contract-validation>
+MUST FIX
+- ...
 
-<output-format>
-## Completeness Check
+NON-BLOCKING
+- ...
 
-### Missing Artifacts
-- **[Artifact name]**: Not found or empty
-  - **Fix**: Add required section to plan
+SUGGESTED PLAN EDITS
+- ...
 
-### Incomplete Artifacts
-- **[Artifact name]**: Missing [specific subsection]
-  - **Fix**: Add [subsection] with [expected content]
+APPROVAL SUMMARY
+- ...
+```
 
-### Contract Issues
-- **Version mismatch**: Contract v[X] but plan references v[Y]
-  - **Fix**: Update plan to reference current contract version
-- **Unacknowledged amendment**: Amendment not recorded in plan
-  - **Fix**: Acknowledge the amendment in plan
+Rules for the verdict:
+- `APPROVED` only when there are no blocking issues left
+- `REVISE` when any blocking issue remains
+- Reviewer must not use softer top-line verdicts like `PROCEED` or `RETHINK`
 
-**Completeness Score**: [N] artifacts present, [N] issues
-</output-format>
+Rules for `NEXT ACTION`:
+- `CONTINUE` means the plan is reviewable and can be revised in place
+- `RETURN_TO_RESEARCH` means the evidence base is too weak for safe review
+- `RETURN_TO_PLAN` means the plan is below threshold or requires scope / contract rework
+- `IMPLEMENT` is only valid with `VERDICT: APPROVED`
+</instructions>
 </step>
 
-<step id="3" title="Gap Analysis">
-<purpose>
-Find what research discovered that plan doesn't address.
-</purpose>
+<step id="3" title="Handle REVISE rounds">
+<instructions>
+If the reviewer returns `VERDICT: REVISE`:
 
-<checklist>
-**Research Risks vs Plan Mitigations:**
-- [ ] Every risk identified in research has a mitigation in plan
-- [ ] High-probability AND high-impact risks have explicit handling
-- List any unaddressed risks with their probability/impact
-
-**Research Security Concerns vs Plan:**
-- [ ] Security concerns from research are addressed in plan OR explicitly excluded
-- List any unaddressed security concerns
-
-**Pattern Provenance:**
-- [ ] Patterns claimed in plan can be traced to research (pattern library or codebase conventions)
-- [ ] Trust scores roughly match what research found
-- List any patterns that appear fabricated or unsupported
-
-**Documentation Drift:**
-- [ ] Docs flagged for update in research are included in plan's files to modify (or noted as intentionally skipped)
-- List any documentation that will drift
-
-**Research Recommendations vs Chosen Solution:**
-- [ ] Plan's chosen solution aligns with research recommendation (or has justification for divergence)
-- List any unexplained divergences
-
-**Task Contract Coverage:**
-- [ ] Every AC in task-contract maps to implementation steps
-- [ ] Non-functional requirements are addressed in validation approach
-- List any uncovered ACs or NFRs
-
-**Complexity Budget:**
-- [ ] Plan's complexity estimate is reasonable given what research found
-- Flag if plan seems significantly over/under-scoped
-</checklist>
-
-<output-format>
-## Gap Analysis
-
-### Unaddressed Risks
-- **[Risk name]** (probability: [H/M/L], impact: [H/M/L]): Research identified [description]. Plan has no mitigation.
-  - **Fix**: Add mitigation to plan's risk section.
-
-### Security Gaps
-- **[Concern]**: From research, not addressed in plan.
-  - **Fix**: Add to risks or explicitly exclude with rationale.
-
-### Pattern Issues
-- **[Pattern]**: Claimed in plan but can't find source in research.
-  - **Fix**: Remove pattern or trace back to research source.
-- **[Pattern]**: Confidence rating mismatch ([X] in plan vs [Y] in research).
-  - **Fix**: Align confidence rating with research.
-
-### Documentation That Will Drift
-- **[doc path]**: Research flagged for update, not in plan's files to modify.
-  - **Fix**: Add to files or note why update not needed.
-
-### Uncovered Requirements
-- **AC-[N]**: [Description] - No implementation step addresses this.
-  - **Fix**: Add step to cover this AC.
-- **NFR [type]**: [Constraint] - Not validated.
-  - **Fix**: Add validation for this constraint.
-
-**Gap Score**: [N] gaps ([N] critical, [N] moderate, [N] minor)
-</output-format>
+1. Extract the blocking findings
+2. If `NEXT ACTION` is `RETURN_TO_RESEARCH`:
+   - stop the loop
+   - do not edit `<plan>`
+   - instruct the user to run `/apex:research [identifier]`
+3. If `NEXT ACTION` is `RETURN_TO_PLAN`:
+   - stop the loop
+   - do not edit `<plan>`
+   - instruct the user to run `/apex:plan [identifier]`
+4. Otherwise continue with in-scope plan fixes
+5. Update the task's `<plan>` section directly to resolve them
+6. Keep edits scoped to the plan:
+   - preserve all 5 mandatory artifacts
+   - preserve architecture decision, builder handoff, and contract validation
+   - acknowledge contract version and any amendments
+   - preserve or restore docs drift, pattern provenance, and NFR coverage checks
+   - refine architecture choice
+   - add missing mitigations
+   - cover uncovered acceptance criteria
+   - tighten sequencing
+   - replace vague validation with concrete commands
+   - clarify ownership of edge cases or concurrency handling
+7. Do not edit `<task-contract>` or `<research>`
+8. If a blocking issue cannot be fixed without changing contract scope, assumptions, or acceptance criteria:
+   - stop the loop
+   - report `VERDICT: REVISE`
+   - set next action to `RETURN_TO_PLAN`
+   - instruct the user to return to `/apex:plan [identifier]`
+9. After editing the plan, validate the mutation before the next round:
+   - reread the task file
+   - confirm the `<plan>` block still parses and is isolated from surrounding sections
+   - confirm the edit stayed scoped to `<plan>`
+   - confirm required plan artifacts were not accidentally removed
+   - if the task file is malformed, repair it before continuing; if that is not possible, stop and return to `/apex:plan [identifier]`
+10. After each revision, summarize in chat:
+   - what the reviewer flagged
+   - what changed in the plan
+   - what remains to validate next round
+11. Start the next round with a fresh reviewer subagent
+</instructions>
 </step>
 
-<step id="4" title="Correctness Check">
-<purpose>
-Verify plan is internally consistent and feasible.
-</purpose>
+<step id="4" title="Handle APPROVED or max-round exit">
+<instructions>
+If the reviewer returns `VERDICT: APPROVED`:
+- Stop immediately
+- Set next action to `IMPLEMENT`
+- Do not run extra review rounds
+- Present the final approval summary and the most important improvements made during the loop
 
-<checklist>
-**Internal Consistency:**
-- [ ] Chosen solution in summary/metadata matches the winner in Tree of Thought
-- [ ] Complexity estimate aligns with risks (high risk → expect higher complexity)
-- [ ] Implementation sequence in architecture decision matches builder handoff
-- [ ] Risk level matches actual risks identified
-- List any contradictions
-
-**Tree of Thought Validity:**
-- [ ] 3 solutions are genuinely different approaches (not variations of same idea)
-- [ ] Winner selection has concrete reasoning citing evidence (not "this feels right")
-- [ ] Pros/cons reference specific findings from research, not hypotheticals
-
-**Chain of Draft Evolution:**
-- [ ] Final draft is meaningfully different from first draft (not cosmetic rewording)
-- [ ] Issues identified in earlier drafts are resolved in later drafts
-- [ ] Evolution shows actual refinement based on research insights
-
-**YAGNI Coherence:**
-- [ ] Excluded features don't contradict task contract in-scope items
-- [ ] Excluded features aren't required by any AC
-
-**Implementation Sequence:**
-- [ ] Steps are in dependency order (foundations before dependents)
-- [ ] Each step has a concrete validation (command to run, not "verify it works")
-- [ ] File paths to modify exist (verify via glob)
-- [ ] New files are clearly marked as new
-
-**Validation Quality:**
-- [ ] Automated validation includes actual runnable commands (npm test, pytest, etc.)
-- [ ] Manual verification has specific steps, not vague checks
-
-**Feasibility:**
-- [ ] No circular dependencies in implementation sequence
-- [ ] Patterns applied at sensible locations (not generic "apply everywhere")
-- [ ] No magical thinking ("this edge case won't happen")
-</checklist>
-
-<output-format>
-## Correctness Check
-
-### Internal Contradictions
-- **[Field A] vs [Field B]**: [A] says [X] but [B] says [Y]
-  - **Fix**: Reconcile to [recommendation]
-
-### Tree of Thought Issues
-- **Solutions not distinct**: [A] and [B] are variations of same approach
-  - **Fix**: Replace [B] with genuinely different architecture
-- **Weak winner reasoning**: Selection based on preference, not evidence
-  - **Fix**: Add specific research findings supporting choice
-
-### Implementation Issues
-- **Step [N]**: [Problem - missing validation, wrong order, etc.]
-  - **Fix**: [Specific correction]
-- **Vague validation gate**: "[gate text]" is not testable
-  - **Fix**: Replace with concrete command: `[suggested command]`
-
-### File Path Issues
-- **[path]**: Listed in files-to-modify but does not exist
-  - **Fix**: Correct path or move to files-to-create
-
-### Feasibility Concerns
-- **[Concern]**: [Why this might not work]
-  - **Fix**: [How to address]
-
-**Correctness Score**: [SOUND / MINOR_ISSUES / MAJOR_ISSUES]
-</output-format>
+If round 5 ends with `VERDICT: REVISE`:
+- Stop the loop
+- Set next action to `RETURN_TO_PLAN`
+- Do not continue beyond 5 rounds
+- Present the unresolved blockers
+- Recommend returning to `/apex:plan [identifier]` for a larger rework
+</instructions>
 </step>
 
-<step id="5" title="Deliver Review">
+<step id="5" title="Deliver the final review result">
 <output-format>
 # Plan Review: [Task Title]
 
-## Summary
+## Round Status
+- Round [N]: [REVISE|APPROVED]
+- Repeat for each executed round, up to 5
 
-| Dimension | Status | Issues |
-|-----------|--------|--------|
-| Completeness | [✅ Complete / ⚠️ Gaps / ❌ Missing Artifacts] | [N] |
-| Gap Analysis | [✅ Clean / ⚠️ Gaps / ❌ Major Gaps] | [N] |
-| Correctness | [✅ Sound / ⚠️ Minor Issues / ❌ Major Issues] | [N] |
+## Final Verdict
+`VERDICT: [REVISE|APPROVED]`
 
-**Recommendation**: [PROCEED / REVISE / RETHINK]
+## Next Action
+`[RETURN_TO_RESEARCH|RETURN_TO_PLAN|IMPLEMENT]`
 
----
+## Blocking Findings
+- [Finding + exact fix, if any remain]
 
-## Completeness Check
-[From step 2]
+## Plan Changes Made
+- [High-signal summary of plan revisions applied during the loop]
 
----
-
-## Gap Analysis
-[From step 3]
-
----
-
-## Correctness Check
-[From step 4]
-
----
-
-## Action Items
-
-### Must Fix Before Implement
-> Issues that will cause implementation to fail or produce wrong results
-
-1. [Issue with specific fix]
-
-### Should Address
-> Issues that won't block but will cause problems later
-
-1. [Issue with specific fix]
-
-### Consider
-> Improvements that would make the plan better
-
-1. [Suggestion]
-
----
-
-## Next Steps
-
-[If PROCEED]: Ready for `/apex:implement [identifier]`
-[If REVISE]: Fix the issues above in this session, then re-run `/apex:review-plan [identifier]`
-[If RETHINK]: Fundamental issues found - consider returning to `/apex:plan [identifier]` to rework architecture
+## Final Notes
+- [If IMPLEMENT]: Ready for `/apex:implement [identifier]`
+- [If RETURN_TO_RESEARCH]: Return to `/apex:research [identifier]`
+- [If RETURN_TO_PLAN]: Return to `/apex:plan [identifier]`
 </output-format>
 </step>
 
 </workflow>
 
-<classification-rubric>
-**Must Fix** (blocks implementation):
-- Missing mandatory artifacts (completeness)
-- Unaddressed high-impact risks
-- Fabricated patterns (no source in research)
-- Uncovered acceptance criteria
-- File paths that don't exist (listed as modify, not create)
-- Internal contradictions (metadata vs content)
-- Vague validation gates with no concrete commands
+<review-rubric>
+Treat these as blocking unless the plan clearly handles them:
 
-**Should Address** (causes problems later):
-- Unaddressed medium-impact risks
-- Documentation drift (docs-to-update not in plan)
-- Unacknowledged contract amendments
-- Weak Tree of Thought (solutions too similar)
-- Chain of Draft shows no real evolution
-- Trust score mismatches
-- NFRs not validated
-
-**Consider** (improvements):
-- Minor inconsistencies in wording
-- Complexity budget slightly high
-- Could use additional patterns
-- Validation could be more thorough
-</classification-rubric>
-
-<recommendation-criteria>
-- **PROCEED**: 0 Must Fix items
-- **REVISE**: 1-3 Must Fix items (fixable in current session)
-- **RETHINK**: 4+ Must Fix items OR most key artifacts missing OR fundamental architecture problems (wrong solution chosen, contradicts research)
-</recommendation-criteria>
+- Missing mandatory plan artifacts or thin placeholder artifacts
+- Missing or contradictory contract coverage
+- Missing contract version / amendment acknowledgement
+- Architecture that does not match research evidence
+- Security-sensitive gaps with no mitigation or explicit exclusion
+- Concurrency/state/order-of-operations risks left implicit
+- Edge cases handled with wishful thinking
+- Pattern claims that do not trace back to research or codebase evidence
+- Documentation drift identified in research but absent from the plan
+- Non-functional requirements without validation coverage
+- Validation gates that are vague, manual-only, or not runnable
+- File or dependency assumptions that do not match the repo
+</review-rubric>
 
 <success-criteria>
-- Task file read (regardless of phase)
-- Missing sections reported as findings, not errors
-- File existence verified via glob/ls
-- Completeness check: key artifacts assessed
-- Gap analysis: risks, security, patterns, docs, ACs, NFRs checked
-- Correctness check: consistency, validity, feasibility assessed
-- Classification rubric applied consistently
-- Clear recommendation with actionable next steps
+- Task file loaded and parsed
+- Unreviewable research or plan states fail fast to the correct upstream skill
+- Plan reviewed in iterative rounds, not one pass
+- Fresh reviewer used for each round
+- Reviewer returns a verdict and next action
+- `REVISE` rounds produce inline `<plan>` updates
+- Each plan edit is reread and structure-checked before the next round
+- Loop stops on approval or after 5 rounds
+- Final result clearly states verdict, key fixes, and next step
 </success-criteria>
 
 </skill>
