@@ -85,119 +85,220 @@ git log --oneline -10
 </get-diffs>
 </step>
 
-<step id="3" title="Phase 1: Launch review agents">
+<step id="2.5" title="Classify review mode">
+<purpose>
+Select the lightest review mode that is still safe for the change. If signals conflict, choose the stricter mode.
+</purpose>
+
+<review-modes>
+- `light`:
+  - Small, localized, low-risk change with a limited blast radius
+  - Often docs, prompts, tests, or tightly local refactors and bugfixes
+  - Green validation or validation that is not materially needed
+  - Does not reshape system boundaries
+- `standard`:
+  - Default for normal feature or bugfix work
+  - Use whenever there is meaningful runtime behavior change
+  - Also use when signals are mixed and confidence in `light` is not high
+- `deep`:
+  - Broad, risky, or cross-cutting change
+  - Touches auth, permissions, parsing, persistence, schemas, migrations, public API/CLI, concurrency, build/release, or shared abstractions
+  - Validation is partial, warnings remain open, or regression potential is high
+</review-modes>
+
+<classification-signals>
+Assess and record:
+- changed file count and subsystem spread
+- whether behavior, contracts, or data shape changed
+- whether risky surfaces were touched
+- whether plan warnings remain relevant
+- whether validation is strong, weak, or absent
+- whether git history suggests high churn or regression risk
+</classification-signals>
+
+<mode-selection-rules>
+1. Start from the smallest plausible mode.
+2. Escalate to `standard` or `deep` when risky surfaces or mixed signals appear.
+3. `light` is only valid when the change is obviously low-risk and easy to verify.
+4. Record both the chosen mode and the rationale in the final `<ship>` section.
+</mode-selection-rules>
+</step>
+
+<step id="2.6" title="Assemble mode-specific context pack">
+<instructions>
+Before launching reviewers, build the context pack that matches the selected mode:
+
+- `light`:
+  - full diff
+  - modified/created file list
+  - validation summary
+  - reviewer handoff summary
+  - recent commits, churn/regression signals, and ownership summary for modified files
+
+- `standard`:
+  - everything in `light`
+  - plan warnings and architecture decision summary
+  - churn/regression signals for modified files
+
+- `deep`:
+  - everything in `standard`
+  - adjacent snippets for changed functions/classes
+  - closely related tests, call sites, or neighboring abstractions needed to reason about downstream impact of the changed lines
+
+Use the selected context pack consistently in Phase 1 and Phase 2 prompts.
+</instructions>
+</step>
+
+<step id="3" title="Phase 1: Launch mode-appropriate review agents">
 <critical>
 Launch ALL 5 Phase 1 agents in a SINGLE message for true parallelism.
+Only use agents that actually exist in `agents/review/phase1/`.
 </critical>
+
+<mode-behavior>
+All modes use the same 5 Phase 1 agents:
+- `review-security-analyst`
+- `review-architecture-analyst`
+- `review-test-coverage-analyst`
+- `review-code-quality-analyst`
+- `review-git-historian`
+
+Modes change context depth, not reviewer count or scoring rules:
+- `light` → concise context pack for low-risk, localized changes
+- `standard` → normal context pack
+- `deep` → richer context pack (plan warnings, validation gaps, git churn, adjacent snippets) and more explicit prompts for scrutinizing downstream impact of changed lines
+</mode-behavior>
 
 <agents parallel="true">
 
 <agent type="apex:review:phase1:review-security-analyst">
+Include in every mode.
+
 **Task ID**: [taskId]
+**Review Mode**: [selected mode]
 **Code Changes**: [Full diff]
+**Mode Context Pack**: [Context assembled in Step 2.6 for the selected mode]
 **Journey Context**: Architecture warnings, implementation decisions, test results
 
-Review for security vulnerabilities. Return YAML with id, severity, confidence, location, issue, evidence, mitigations_found.
-</agent>
-
-<agent type="apex:review:phase1:review-performance-analyst">
-**Task ID**: [taskId]
-**Code Changes**: [Full diff]
-**Journey Context**: Architecture warnings, implementation decisions
-
-Review for performance issues. Return YAML findings.
+Review for security vulnerabilities. In `deep`, read adjacent context and likely exploit paths to better assess changed lines, but only report findings rooted in the diff. Return the standard security-analyst YAML schema.
 </agent>
 
 <agent type="apex:review:phase1:review-architecture-analyst">
+Include in every mode.
+
 **Task ID**: [taskId]
+**Review Mode**: [selected mode]
 **Code Changes**: [Full diff]
+**Mode Context Pack**: [Context assembled in Step 2.6 for the selected mode]
 **Journey Context**: Original architecture from plan, pattern selections
 
-Review for architecture violations and pattern consistency. Return YAML findings.
+Review for architecture violations and pattern consistency. In `deep`, use neighboring abstractions and dependency context to assess the changed lines more rigorously, but keep findings anchored to the diff. Return the standard architecture-analyst YAML schema.
 </agent>
 
 <agent type="apex:review:phase1:review-test-coverage-analyst">
+Include in every mode.
+
 **Task ID**: [taskId]
+**Review Mode**: [selected mode]
 **Code Changes**: [Full diff]
+**Mode Context Pack**: [Context assembled in Step 2.6 for the selected mode]
 **Validation Results**: [From implementation section]
 
-Review for test coverage gaps. Return YAML findings.
+Review for test coverage gaps. In `deep`, use integration seams and adjacent helpers to reason about risky changed paths, but only flag gaps tied to changed behavior. Return the standard test-coverage-analyst YAML schema.
 </agent>
 
 <agent type="apex:review:phase1:review-code-quality-analyst">
+Include in every mode.
+
 **Task ID**: [taskId]
+**Review Mode**: [selected mode]
 **Code Changes**: [Full diff]
+**Mode Context Pack**: [Context assembled in Step 2.6 for the selected mode]
 **Journey Context**: Patterns applied, conventions followed
 
-Review for maintainability and code quality. Return YAML findings.
+Review for maintainability and code quality. In `deep`, examine long-term complexity and compounding design debt around the changed lines, but keep findings tied to the diff. Return the standard code-quality-analyst YAML schema.
+</agent>
+
+<agent type="apex:review:phase1:review-git-historian">
+Include in every mode.
+
+**Task ID**: [taskId]
+**Review Mode**: [selected mode]
+**Code Changes**: [Full diff]
+**Mode Context Pack**: [Context assembled in Step 2.6 for the selected mode]
+**Git Context**: [recent commits, churn, regressions, ownership signals from the selected mode context pack]
+
+Review for pattern violations, regressions, and inconsistencies using git history. In `deep`, prioritize high-churn and previously reverted areas to pressure-test the changed lines. Return the standard git-historian YAML schema.
 </agent>
 
 </agents>
 
-<wait-for-all>WAIT for ALL 5 agents to complete before Phase 2.</wait-for-all>
+<wait-for-all>WAIT for ALL 5 Phase 1 agents to complete before Phase 2.</wait-for-all>
 </step>
 
 <step id="4" title="Phase 2: Adversarial challenge">
 <agents parallel="true">
-
 <agent type="apex:review:phase2:review-challenger">
+**Review Mode**: [selected mode]
+**Review Mode Rationale**: [why this mode was chosen]
+**Phase 1 Agents Used**: [all 5 Phase 1 agents]
 **Phase 1 Findings**: [YAML from all 5 Phase 1 agents]
+**Mode Context Pack**: [Context assembled in Step 2.6 for the selected mode]
 **Original Code**: [Relevant snippets]
-**Journey Context**: Plan rationale, implementation justifications
+**Journey Context**: Plan rationale, implementation justifications, validation status, git risk signals
 
-Challenge EVERY finding for:
-- Code accuracy (did Phase 1 read correctly?)
-- Pattern applicability (does framework prevent this?)
-- Evidence quality (Strong/Medium/Weak)
-- ROI Analysis:
-  - fix_effort: trivial | minor | moderate | significant | major
-  - benefit_type: security | reliability | performance | maintainability | correctness
-  - roi_score: 0.0-1.0 (benefit / effort ratio)
-  - override_decision: pull_forward | keep | push_back
-  - override_reason: [Why changing priority]
+Challenge EVERY finding using the standard challenger contract:
+- validate code accuracy and evidence quality
+- assess historical context and justification
+- analyze ROI and overrides using the challenger’s standard enums and schema
+- return the standard challenger YAML output, including per-finding validation, historical_context, roi_analysis, override, challenge_result, final_confidence, and final_category
 
-Return: challenge_result (UPHELD|DOWNGRADED|DISMISSED), evidence_quality, recommended_confidence, roi_analysis
+Use the selected review mode only to decide how much context to read before applying the standard contract:
+- `light` → concise context pack
+- `standard` → normal context pack
+- `deep` → richer context pack and more context-reading before judgment
 </agent>
-
-<agent type="apex:review:phase2:review-context-defender">
-**Phase 1 Findings**: [Findings affecting existing code]
-**Repository**: [Path and git info]
-
-Use git history to find justifications for seemingly problematic patterns.
-Return: Context justifications for historical code choices.
-</agent>
-
 </agents>
 
-<wait-for-all>WAIT for both agents to complete.</wait-for-all>
+<wait-for-all>WAIT for the challenger to complete.</wait-for-all>
 </step>
 
 <step id="5" title="Synthesize review results">
 <confidence-adjustment>
-For each finding:
-  finalConfidence = phase1Confidence
-  finalConfidence *= challengeImpact  # UPHELD=1.0, DOWNGRADED=0.6, DISMISSED=0.2
-  finalConfidence *= (0.5 + evidence_score * 0.5)
-  if context_justified: finalConfidence *= 0.3
+For each challenge in `challenger.challenges[]`:
+  REQUIRE challenge.final_confidence and challenge.final_category
+  If either is missing:
+    STOP and re-run Phase 2 with the standard challenger schema
+  finalConfidence = challenge.final_confidence
+  finalCategory = challenge.final_category
 </confidence-adjustment>
 
 <action-decision>
-- confidence < 0.3 → DISMISS
-- critical AND confidence > 0.5 → FIX_NOW
-- high AND confidence > 0.6 → FIX_NOW
-- confidence > 0.7 → SHOULD_FIX
-- else → NOTE
+- if finalConfidence >= 80 → FIX_NOW
+- else if finalConfidence >= 60 → SHOULD_FIX
+- else → FILTERED
+
+If finalCategory disagrees with the threshold-implied category:
+- STOP and re-run Phase 2 with the standard challenger schema
+
+Filtered findings are internal only:
+- do not add them to `<action-items>`
+- do not include filtered findings as individual action items or detailed findings
+- do record aggregate filtered counts in the review summary
 </action-decision>
 
 <review-decision>
-- 0 FIX_NOW → APPROVE (proceed to commit)
-- 1-2 FIX_NOW minor → CONDITIONAL (fix or accept with docs)
-- 3+ FIX_NOW or critical security → REJECT (return to /apex:implement)
+- 0 FIX_NOW and no critical security → APPROVE (proceed to commit)
+- 1-2 FIX_NOW minor and no critical security → CONDITIONAL (fix or accept with docs)
+- 3+ FIX_NOW or any critical security finding → REJECT (return to /apex:implement)
 </review-decision>
 
 <reject-flow>
 On REJECT:
-1. Write `<ship><decision>REJECT</decision>` with a brief rationale
+1. Write a minimal `<ship>` section that includes:
+   - `<decision>REJECT</decision>`
+   - `<review-summary><review-mode>[selected mode]</review-mode><review-mode-rationale>[why this mode was chosen]</review-mode-rationale></review-summary>`
+   - a brief reject rationale
 2. Update frontmatter: `phase: rework`, `updated: [ISO timestamp]`
 3. STOP. Do NOT commit or finalize reflection. Return to `/apex:implement`.
 </reject-flow>
@@ -324,15 +425,24 @@ Append to `<ship>` section:
 </metadata>
 
 <review-summary>
+  <review-mode>[light|standard|deep]</review-mode>
+  <review-mode-rationale>[Why this mode was selected]</review-mode-rationale>
   <phase1-findings count="X">
     <by-severity critical="N" high="N" medium="N" low="N"/>
-    <by-agent security="N" performance="N" architecture="N" testing="N" quality="N"/>
+    <by-agent>
+      <agent name="code-quality-analyst" findings="N"/>
+      <agent name="git-historian" findings="N"/>
+      <agent name="test-coverage-analyst" findings="N"/>
+      <agent name="architecture-analyst" findings="N"/>
+      <agent name="security-analyst" findings="N"/>
+    </by-agent>
   </phase1-findings>
   <phase2-challenges>
     <upheld>N</upheld>
     <downgraded>N</downgraded>
     <dismissed>N</dismissed>
   </phase2-challenges>
+  <final-categories fix-now="N" should-fix="N" filtered="N"/>
   <false-positive-rate>[X%]</false-positive-rate>
 </review-summary>
 
@@ -345,7 +455,7 @@ Append to `<ship>` section:
   <out-of-scope-check>[Confirm no out-of-scope work slipped in]</out-of-scope-check>
 </contract-verification>
 
-<action-items>
+  <action-items>
   <fix-now>
     <item id="[ID]" severity="[S]" confidence="[C]" location="[file:line]">
       [Issue and fix]
@@ -353,7 +463,6 @@ Append to `<ship>` section:
   </fix-now>
   <should-fix>[Deferred items]</should-fix>
   <accepted>[Accepted risks with justification]</accepted>
-  <dismissed>[False positives with reasons]</dismissed>
 </action-items>
 
 <commit>
@@ -407,7 +516,8 @@ Set `phase: complete`, `status: complete`, and `updated: [ISO timestamp]`
 
 🔍 **Review**:
 - Phase 1 findings: [N]
-- Dismissed as false positives: [N] ([X]%)
+- Filtered by thresholds: [N]
+- Dismissed by challenger: [N] ([X]%)
 - Action items: [N] (all resolved)
 
 ⏭️ **Next**: Task complete. No further action required.
@@ -420,7 +530,8 @@ Set `phase: complete`, `status: complete`, and `updated: [ISO timestamp]`
 BEFORE reporting to user, verify ALL actions completed:
 
 - [ ] Phase 1 review agents launched and returned?
-- [ ] Phase 2 challenge agents launched and returned (with ROI analysis)?
+- [ ] Review mode selected and rationale recorded?
+- [ ] Phase 2 challenger launched and returned (with ROI analysis)?
 - [ ] Documentation checklist completed?
 - [ ] Contract verification completed (AC mapping + out-of-scope check)?
 - [ ] Git commit created? (verify with git log -1)
@@ -430,8 +541,10 @@ BEFORE reporting to user, verify ALL actions completed:
 </completion-verification>
 
 <success-criteria>
-- Adversarial review completed (7 agents: 5 Phase 1 + 2 Phase 2)
+- Adversarial review completed with a selected mode (`light`, `standard`, or `deep`)
+- All 5 Phase 1 agents ran with the selected context depth
 - ROI analysis included in challenger findings
+- Challenger used the selected mode as posture guidance while returning the standard schema
 - Documentation checklist completed (grep → read → update → verify)
 - Contract verification completed with AC mapping and scope confirmation
 - All FIX_NOW items resolved (or explicitly accepted)
