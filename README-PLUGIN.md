@@ -44,9 +44,8 @@ Skills provide workflow guidance and are auto-triggered based on context:
 - `ship` - Review, commit, and reflection phase
 - `execute` - Full workflow orchestrator (research → plan → implement → ship)
 - `debug` - Systematic debugging with hypothesis-driven investigation and pattern learning
-
-**Reference Skill:**
-- `using-apex-mcp` - Complete MCP tools reference with schemas and examples
+- `review-plan` - Adversarial review for task plans before implementation
+- `compound` - Capture learnings and gotchas from sessions
 
 ### Slash Commands (7 Available)
 
@@ -264,13 +263,6 @@ apex mcp info
 ls ~/.apex/
 ```
 
-### Skills Not Auto-Loading
-
-The `using-apex-mcp` skill loads automatically when:
-- The plugin is installed and enabled
-- You mention APEX tool names (apex_patterns_lookup, apex_task_create, etc.)
-- You ask about pattern discovery or task tracking
-
 ## Development
 
 ### Local Testing
@@ -288,16 +280,15 @@ The `using-apex-mcp` skill loads automatically when:
 apex/
 ├── .claude-plugin/
 │   └── plugin.json           # Plugin manifest
-├── skills/                   # 7 workflow skills
+├── skills/                   # 8 workflow skills
 │   ├── research/SKILL.md     # Intelligence gathering
 │   ├── plan/SKILL.md         # Architecture design
 │   ├── implement/SKILL.md    # Build and validate
 │   ├── ship/SKILL.md         # Review and reflect
 │   ├── execute/SKILL.md      # Full workflow orchestrator
 │   ├── debug/SKILL.md        # Systematic debugging
-│   └── using-apex-mcp/       # MCP reference
-│       ├── SKILL.md
-│       └── apex-reflect-guide.md
+│   ├── review-plan/SKILL.md  # Review existing plans before build
+│   └── compound/SKILL.md     # Capture session learnings
 ├── agents/                   # 12 specialized agents
 │   ├── intelligence-gatherer.md
 │   ├── git-historian.md
@@ -317,9 +308,7 @@ apex/
 
 - **Main Repository**: https://github.com/benredmond/apex
 - **NPM Package**: https://www.npmjs.com/package/@benredmond/apex
-- **Workflow Skills**: See `skills/research/`, `skills/plan/`, `skills/implement/`, `skills/ship/`
-- **MCP Reference**: See `skills/using-apex-mcp/SKILL.md`
-- **Reflection Guide**: See `skills/using-apex-mcp/apex-reflect-guide.md`
+- **Workflow Skills**: See `skills/research/`, `skills/plan/`, `skills/implement/`, `skills/ship/`, `skills/review-plan/`, `skills/compound/`
 
 ## License
 

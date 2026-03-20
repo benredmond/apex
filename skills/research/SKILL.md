@@ -12,22 +12,6 @@ Conduct comprehensive research by orchestrating parallel sub-agents. Outputs to 
 This is the **first phase** of the APEX workflow. It gathers all intelligence needed for planning and implementation.
 </overview>
 
-<phase-model>
-phase_model:
-  frontmatter: [research, plan, implement, rework, complete]
-  rework: enabled
-  db_role: [RESEARCH, ARCHITECT, BUILDER, BUILDER_VALIDATOR, REVIEWER, DOCUMENTER]
-  legacy_db_role: [VALIDATOR]
-source_of_truth:
-  gating: frontmatter.phase
-  telemetry: db_role
-</phase-model>
-
-<phase-gate requires="none" sets="research">
-  <creates-file>./apex/tasks/[ID].md</creates-file>
-  <appends-section>research</appends-section>
-</phase-gate>
-
 <initial-response>
 <if-no-arguments>
 I'll conduct comprehensive research to gather intelligence and explore the codebase.
@@ -58,49 +42,16 @@ Store `taskId` and `identifier` for all subsequent operations.
 </instructions>
 </step>
 
-<step id="2" title="Optimize and improve prompt">
-<purpose>
-Vague task briefs lead to wasted research effort. Enhance before proceeding.
-</purpose>
+<step id="2" title="Clarify intent and scope">
+<instructions>
+Before any deep research, answer these three questions in 1-2 sentences each:
 
-<optimization-steps>
-1. **Clarify Intent**: What is the user REALLY trying to accomplish?
-   - Look for implicit goals behind explicit requests
-   - Identify the "why" behind the "what"
+1. **Intent**: What is the user actually trying to accomplish? (Look past the literal request)
+2. **Scope**: What files/systems are in play? What's explicitly out?
+3. **Verification**: How will we know it's done? (Test command, observable behavior, or acceptance criteria)
 
-2. **Add Specificity**: Transform vague terms into concrete requirements
-   - "improve performance" → "reduce API response time below 200ms"
-   - "fix the bug" → "prevent null pointer when user has no profile"
-
-3. **Structure Requirements**: Break into testable acceptance criteria
-   - Given [context], When [action], Then [expected result]
-
-4. **Include Testing**: How will we verify success?
-   - Unit test expectations
-   - Integration test scenarios
-   - Manual verification steps
-
-5. **Pattern Enhancement**: Check existing patterns or similar past tasks
-   - What worked before?
-   - What failed and why?
-</optimization-steps>
-
-<enhanced-prompt-format>
-```yaml
-original_prompt: "[User's original request]"
-enhanced_prompt:
-  intent: "[Clarified goal]"
-  scope:
-    in: ["[Specific inclusions]"]
-    out: ["[Explicit exclusions]"]
-  acceptance_criteria:
-    - "[Testable criterion 1]"
-    - "[Testable criterion 2]"
-  success_metrics:
-    - "[Measurable outcome]"
-  related_patterns: ["[PAT:IDs from quick lookup]"]
-```
-</enhanced-prompt-format>
+If any answer is "I don't know," that's an ambiguity to resolve in step 4.
+</instructions>
 </step>
 
 <step id="3" title="Read mentioned files FULLY">
@@ -113,19 +64,15 @@ Before ANY analysis or spawning agents:
 </critical>
 </step>
 
-<step id="4" title="Triage scan + Ambiguity Gate (Pre-Agents)">
+<step id="4" title="Triage scan + Ambiguity Gate">
 <purpose>
-Run a low-cost scan to reduce ambiguity before spawning deep research agents.
+Run cheap scans to locate target areas and detect ambiguity before spawning agents.
 </purpose>
 
 <triage-scan>
-- Run cheap `rg` scans to locate entrypoints, tests, and likely target areas:
-  - `rg -n "main|entry|cli|index\\.(ts|js)|server\\.(ts|js)" src`
-  - `rg -n "describe\\(|it\\(" tests`
-  - `rg -n "[task keywords]" src tests docs` (derive keywords from enhanced_prompt)
+- Use Grep/Glob to locate entrypoints, tests, and likely target areas using keywords from step 2.
 - Capture candidate files/areas to refine scope.
 - Do NOT open large files unless the user explicitly mentioned them.
-- Use this scan ONLY to detect ambiguity and shape clarifying questions.
 </triage-scan>
 
 <critical>
@@ -133,74 +80,49 @@ Ambiguity is a BLOCKING condition that ONLY users can resolve.
 DO NOT spawn deep research agents with unclear requirements.
 </critical>
 
-<ambiguity-checklist>
-Check for these ambiguity indicators:
-
-**Vague Goals**:
-- "improve", "enhance", "optimize" without metrics
-- "fix the bug" without reproduction steps
-- "make it better" without criteria
-
-**Unclear Scope**:
-- No defined boundaries (what's in/out)
-- Multiple interpretations possible
-- Triage scan surfaces multiple plausible entrypoints/tests
-
-**Technical Choices**:
-- Triage scan shows multiple candidate libraries/approaches
-- Architecture decisions user should make
-- Technology/library selection needed
-
-**Missing Constraints**:
-- No performance requirements
-- No security requirements specified
-- No compatibility requirements
-</ambiguity-checklist>
-
-<assessment-logic>
-```python
-def assess_ambiguity(enhanced_prompt, triage_scan):
-    ambiguities = []
-
-    # Check each category
-    if has_vague_goals(enhanced_prompt):
-        ambiguities.append({"type": "vague_goal", "question": "..."})
-
-    if has_unclear_scope(enhanced_prompt, triage_scan):
-        ambiguities.append({"type": "unclear_scope", "question": "..."})
-
-    if needs_technical_choice(triage_scan):
-        ambiguities.append({"type": "technical_choice", "question": "..."})
-
-    if missing_constraints(enhanced_prompt):
-        ambiguities.append({"type": "missing_constraint", "question": "..."})
-
-    return ambiguities
-```
-</assessment-logic>
+<ambiguity-triggers>
+Ask the user if ANY of these are true:
+- Goal is vague ("improve", "enhance", "optimize") without measurable criteria
+- Multiple plausible interpretations exist after triage scan
+- Architecture/library choices the user should make
+- Scope is unbounded (no clear in/out boundary)
+</ambiguity-triggers>
 
 <decision>
-- **0 ambiguities**: PROCEED to spawn parallel research agents
-- **1+ ambiguities**: ASK USER before spawning deep research agents
-
-**Question Format**:
-```
-Before I spawn deep research agents, I need to clarify:
-
-[For each ambiguity, ONE focused question]
-
-1. **[Category]**: [Specific question]?
-   - Option A: [Choice with implication]
-   - Option B: [Choice with implication]
-   - Option C: [Let me know your preference]
-```
+- **0 ambiguities**: PROCEED to determine research depth and spawn agents
+- **1+ ambiguities**: ASK USER (max 1 round, options with implications, then proceed)
 </decision>
+</step>
 
-<max-rounds>
-Maximum 1 clarification round. After user responds:
-- Incorporate answers into enhanced_prompt
-- Proceed to spawn parallel research agents (do NOT ask more questions)
-</max-rounds>
+<step id="4b" title="Determine research depth">
+<purpose>
+Scale agent deployment to task complexity. Not every task needs 6+ agents.
+</purpose>
+
+<complexity-signals>
+Assess from triage scan results:
+- **How many files/systems are touched?** (1-3 files = small, 4-10 = medium, 10+ = large)
+- **Does this involve external APIs, libraries, or unfamiliar tech?** (triggers web research)
+- **Does this cross module/package boundaries?** (triggers systems research)
+- **Is this in a high-risk area (auth, data, payments, public API)?** (triggers risk analyst)
+</complexity-signals>
+
+<depth-tiers>
+**LIGHT** (simple bug fix, small refactor, test addition):
+- Skip: web-researcher, systems-researcher, risk-analyst
+- Run: implementation-pattern-extractor, git-historian, learnings-researcher
+- Output: Concise but complete research section — include all core sections (executive summary, target files, codebase patterns, risks, recommendations, task contract) even if brief
+
+**STANDARD** (feature, multi-file change, moderate complexity):
+- Run: implementation-pattern-extractor, git-historian, documentation-researcher, learnings-researcher
+- Conditional: web-researcher (only if external dependencies involved)
+- Conditional: systems-researcher (only if cross-module)
+- Output: Full research section
+
+**DEEP** (architecture change, new subsystem, high-risk, cross-cutting):
+- Run: ALL agents including risk-analyst and systems-researcher
+- Output: Full research section with all sections populated
+</depth-tiers>
 </step>
 
 <step id="5" title="Create task file">
@@ -241,84 +163,67 @@ status: active
 
 <step id="6" title="Spawn parallel research agents">
 <critical>
-Use the clarified enhanced_prompt (post-ambiguity resolution) as the source of truth for all agent prompts.
+- Use clarified intent from step 2 as source of truth for all agent prompts.
+- Only spawn agents appropriate for the depth tier from step 4b.
+- Launch all selected agents in parallel.
 </critical>
-<agents parallel="true">
 
-<agent type="intelligence-gatherer" required="true">
-**Task ID**: [taskId]
-**Research Focus**: [User's question/area]
+<agents>
 
-Discover relevant patterns, find similar tasks, identify predicted failures, generate execution strategy.
-Return: Context pack with pattern intelligence.
-</agent>
-
-<agent type="implementation-pattern-extractor" required="true">
+<agent type="implementation-pattern-extractor" tier="LIGHT+">
 **Task Context**: [Brief description]
 **Task Type**: [bug|feature|refactor|test]
 
 Extract concrete implementation patterns from THIS codebase with file:line references.
-Return: YAML with primary patterns, conventions, reusable snippets, testing patterns.
+Return: primary patterns, conventions, reusable snippets, testing patterns.
 </agent>
 
-<agent type="web-researcher" required="true">
-**Research Topic**: [Component/Technology/Pattern]
-**Context**: [What we're trying to accomplish]
-
-Find official documentation, best practices, security concerns, recent changes.
-Return: YAML with official_docs, best_practices, security_concerns, recent_changes.
-</agent>
-
-<agent type="apex:git-historian" required="true">
-**Scope**: [files/directories]
+<agent type="apex:git-historian" tier="LIGHT+">
+**Scope**: [files/directories from triage scan]
 **Window**: 9 months
 
 Analyze git history for similar changes, regressions, ownership.
 Return: Structured git intelligence.
 </agent>
 
-<agent type="apex:documentation-researcher" required="true">
-**Scope**: Project markdown documentation
+<agent type="apex:documentation-researcher" tier="STANDARD+">
 **Focus**: [Task-relevant topics]
 
-Search project docs for:
-- Architecture context and design decisions
-- Past decisions and rationale (ADRs)
-- Historical learnings and gotchas
-- Related documentation that may need updating
-
-Return: YAML with architecture_context, past_decisions, historical_learnings, docs_to_update.
+Search project docs for architecture context, past decisions, learnings, and gotchas.
+Return: architecture_context, past_decisions, historical_learnings, docs_to_update.
 </agent>
 
-<agent type="learnings-researcher" required="true">
-**Task Intent**: [Enhanced prompt intent]
-**Keywords**: [Extracted keywords from task]
+<agent type="learnings-researcher" tier="STANDARD+">
+**Task Intent**: [Intent from step 2]
+**Keywords**: [Extracted keywords]
 
-Search past task files (apex/tasks/*.md) for:
-- Problems solved and how they were fixed
-- Decisions made with rationale
-- Gotchas and surprising discoveries
-- Related tasks via related_tasks links
-
-Return: YAML with top 5 relevant learnings ranked by relevance score.
+Search past task files for problems solved, decisions made, and gotchas.
+Return: Top 5 relevant learnings ranked by relevance.
 </agent>
 
-<agent type="apex:systems-researcher" signal-based="true">
-**Trigger**: Cross-component changes, architectural impacts
+<agent type="web-researcher" tier="STANDARD+ when external deps involved">
+**Research Topic**: [Component/Technology/Pattern]
+**Context**: [What we're trying to accomplish]
+
+Find official documentation, best practices, security concerns.
+Return: official_docs, best_practices, security_concerns, recent_changes.
+
+**Skip this agent when**: task is purely internal codebase work with no external APIs or libraries.
+</agent>
+
+<agent type="apex:systems-researcher" tier="DEEP or cross-module">
 **Focus Area**: [Component or subsystem]
 
 Trace execution flow, dependencies, state transitions, integration points.
 </agent>
 
-<agent type="apex:risk-analyst" signal-based="true">
-**Trigger**: Complexity >= 7, production-critical, security-sensitive
-
+<agent type="apex:risk-analyst" tier="DEEP or high-risk area">
 Surface forward-looking risks, edge cases, monitoring gaps, mitigations.
 </agent>
 
 </agents>
 
-<wait-for-all>CRITICAL: Wait for ALL agents to complete before proceeding.</wait-for-all>
+<wait-for-all>Wait for ALL spawned agents to complete before proceeding.</wait-for-all>
 </step>
 
 <step id="7" title="Synthesize findings">
@@ -339,231 +244,145 @@ Surface forward-looking risks, edge cases, monitoring gaps, mitigations.
 - Note security concerns
 - Resolve contradictions (codebase > docs > patterns > opinions)
 </synthesis-tasks>
+
+<evidence-rule>
+**Every factual assertion must cite its source.** No bare claims.
+- Code assertions → file:line or function name with file path
+- Behavioral claims → test name or command that demonstrates it
+- Risk claims → specific code construct that could fail, not "could break things"
+- Performance claims → allocation count, hot-path evidence, or "no perf data available"
+If you cannot cite evidence for a claim, qualify it as an assumption or open question.
+</evidence-rule>
 </step>
 
 <step id="8" title="Display Intelligence Report">
-<purpose>Give user visibility into gathered intelligence before the technical adequacy gate.</purpose>
+<purpose>Give user visibility into gathered intelligence before the gap check.</purpose>
 
 <display-format>
 ```
-## Intelligence Report
+## Research Summary
 
 **Task**: [Title]
-**Agents Deployed**: [N]
-**Files Analyzed**: [X]
+**Depth**: [LIGHT|STANDARD|DEEP] — [N] agents deployed
 
-### Baseline Metrics
-- Complexity estimate: [1-10]
-- Risk level: [Low/Medium/High]
-- Pattern coverage: [X patterns found, Y% high-trust]
+### Target Files
+- [file:line] — [why this file changes]
 
-### Pattern Intelligence
-- High-trust patterns (★★★★☆+): [N] patterns applicable
-- Similar past tasks: [N] found, [X]% success rate
-- Predicted failure points: [N] identified
-
-### Historical Intelligence
-- Related commits: [N] in last 9 months
-- Previous attempts: [List any failed/reverted changes]
-- Key maintainers: [Names/areas]
-
-### Execution Strategy
-- Recommended approach: [Brief]
-- Parallelization opportunities: [Yes/No]
-- Estimated scope: [Small/Medium/Large]
-
-### Key Insights
-1. [Most important finding]
+### Key Findings
+1. [Most important finding from agents]
 2. [Second most important]
-3. [Third most important]
+3. [Third, if applicable]
+
+### Recommended Approach
+[1-2 sentence summary of the winning solution]
+
+### Open Questions
+- [Any gaps or unknowns for the plan phase]
 ```
 </display-format>
 </step>
 
-<step id="9" title="Technical Adequacy Gate (Phase 2)">
+<step id="9" title="Gap check">
 <purpose>
-Verify we have sufficient intelligence to architect a solution.
+Before writing the research document, verify you can answer these concrete questions.
+If you can't, that's a gap to flag — not a score to compute.
 </purpose>
 
-<scoring-dimensions>
-**Technical Context (30% weight)**:
-- [ ] Primary files identified with line numbers
-- [ ] Dependencies mapped
-- [ ] Integration points documented
-- [ ] Current behavior understood
+<must-know>
+1. **Which files change?** (specific paths from triage + pattern extraction)
+2. **How is this tested?** (existing test patterns or new test strategy)
+3. **What could break?** (downstream consumers, edge cases from git history)
+4. **Is there a prior art?** (similar past task, codebase pattern, or documented decision)
+</must-know>
 
-**Risk Assessment (20% weight)**:
-- [ ] Security concerns identified
-- [ ] Performance implications assessed
-- [ ] Breaking change potential evaluated
-- [ ] Rollback strategy considered
-
-**Dependency Mapping (15% weight)**:
-- [ ] Upstream dependencies known
-- [ ] Downstream consumers identified
-- [ ] External API constraints documented
-- [ ] Version compatibility checked
-
-**Pattern Availability (35% weight)**:
-- [ ] Relevant patterns found (confidence ≥ 0.5)
-- [ ] Similar past tasks reviewed
-- [ ] Implementation patterns from codebase extracted
-- [ ] Anti-patterns identified to avoid
-</scoring-dimensions>
-
-<confidence-calculation>
-```python
-def calculate_adequacy(checklist_results):
-    weights = {
-        "technical_context": 0.30,
-        "risk_assessment": 0.20,
-        "dependency_mapping": 0.15,
-        "pattern_availability": 0.35
-    }
-
-    score = sum(
-        weights[dim] * (checked / total)
-        for dim, (checked, total) in checklist_results.items()
-    )
-
-    return score  # 0.0 to 1.0
-```
-</confidence-calculation>
-
-<decision-thresholds>
-- **≥ 0.8**: PROCEED to Tree of Thought
-- **0.6-0.8**: PROCEED with caution, note gaps
-- **< 0.6**: INSUFFICIENT - spawn recovery agents or escalate
-
-**If INSUFFICIENT**:
-```
-## Insufficient Context
-
-Adequacy Score: [X]% (threshold: 60%)
-
-**Gaps Identified**:
-- [Dimension]: [What's missing]
-
-**Recovery Options**:
-1. Spawn additional agents for [specific gap]
-2. Ask user for [specific information]
-3. Proceed with documented limitations
-
-Which approach should I take?
-```
-</decision-thresholds>
+<if-gaps>
+If any must-know is unanswered:
+- Spawn a targeted recovery agent for the specific gap, OR
+- Flag it as an open question in the research output for the user/architect
+Do NOT block on gaps that the plan phase can resolve.
+</if-gaps>
 </step>
 
-<step id="10" title="Generate Tree of Thought recommendations">
+<step id="10" title="Generate solution approaches">
 <instructions>
-Produce exactly 3 distinct solution approaches:
+**For all tasks**: Produce at least 2 solution approaches with pros, cons, risk level, and a recommended winner. The second approach provides valuable contrast even when one approach is clearly better.
 
-**Solution A**: [Approach name]
-- Philosophy, implementation path, pros, cons, risk level
+**For genuinely ambiguous tasks** (multiple viable architectures, real trade-offs):
+Produce 3 distinct approaches.
 
-**Solution B**: [Different paradigm]
-- Philosophy, implementation path, pros, cons, risk level
+Do not pad to 3 by inventing obviously bad options — but always have at least 2.
 
-**Solution C**: [Alternative architecture]
-- Philosophy, implementation path, pros, cons, risk level
-
-**Comparative Analysis**: Winner with reasoning, runner-up with why not
+**For each approach**: Name the specific functions/types to create or modify (not abstract descriptions). Include before/after signatures for key interface changes.
 </instructions>
 </step>
 
 <step id="11" title="Write research section to task file">
 <output-format>
-Append to `<research>` section:
+Append to `<research>` section. **Include all core sections** even if brief — the completeness of coverage matters for downstream quality assessment. Optional sections (web-research, past-learnings) may be omitted when agents returned nothing relevant.
 
 ```xml
 <research>
 <metadata>
   <timestamp>[ISO]</timestamp>
+  <depth>[LIGHT|STANDARD|DEEP]</depth>
   <agents-deployed>[N]</agents-deployed>
   <files-analyzed>[X]</files-analyzed>
-  <confidence>[0-10]</confidence>
-  <adequacy-score>[0.0-1.0]</adequacy-score>
-  <ambiguities-resolved>[N]</ambiguities-resolved>
 </metadata>
 
-<context-pack-refs>
-  <!-- Shorthand for downstream phases -->
-  ctx.patterns = pattern-library section
-  ctx.impl = codebase-patterns section
-  ctx.web = web-research section
-  ctx.history = git-history section
-  ctx.docs = documentation section (from documentation-researcher)
-  ctx.learnings = past-learnings section (from learnings-researcher)
-  ctx.risks = risks section
-  ctx.exec = recommendations.winner section
-</context-pack-refs>
-
 <executive-summary>
-[2-3 paragraphs synthesizing ALL findings]
+[1-3 paragraphs synthesizing findings. This is the most important section — downstream
+phases read this first. Lead with: what changes, where, why, and the recommended approach.]
 </executive-summary>
 
-<web-research>
-  <official-docs>[Key findings with URLs]</official-docs>
-  <best-practices>[Practices with sources]</best-practices>
-  <security-concerns>[Issues with severity and mitigation]</security-concerns>
-  <gap-analysis>[Codebase vs recommendations]</gap-analysis>
-</web-research>
+<target-files>
+[List of files that will change, with file:line references and brief rationale.
+Include function/method names — bare file paths are insufficient.
+This is what the plan phase consumes most directly.]
+</target-files>
 
 <codebase-patterns>
   <primary-pattern location="file:line">[Description with code snippet]</primary-pattern>
-  <conventions>[Naming, structure, types, error handling]</conventions>
-  <reusable-snippets>[Copy-pasteable code with sources]</reusable-snippets>
-  <testing-patterns>[How similar features are tested]</testing-patterns>
-  <inconsistencies>[Multiple approaches found]</inconsistencies>
+  <key-signatures>[Before/after signatures for interfaces or types being modified]</key-signatures>
+  <testing-patterns>[How similar features are tested, with specific test file:line references]</testing-patterns>
+  <conventions>[Only if non-obvious naming/structure/error-handling conventions exist]</conventions>
 </codebase-patterns>
 
-<pattern-library>
-  <pattern id="PAT:X:Y" confidence="★★★★☆" uses="N" success="X%">[Relevance]</pattern>
-  <anti-patterns>[Patterns to avoid with reasons]</anti-patterns>
-</pattern-library>
+<!-- Include only sections with real findings. Omit empty sections. -->
 
-<documentation>
-  <architecture-context>[Relevant architecture docs found]</architecture-context>
-  <past-decisions>[ADRs and design decisions]</past-decisions>
-  <historical-learnings>[Gotchas and lessons from docs]</historical-learnings>
-  <docs-to-update>[Files that may need updating after this task]</docs-to-update>
-</documentation>
+<web-research><!-- Only if web-researcher was deployed -->
+  <official-docs>[Key findings with URLs]</official-docs>
+  <best-practices>[Practices with sources]</best-practices>
+  <security-concerns>[Issues with severity and mitigation]</security-concerns>
+</web-research>
 
-<past-learnings>
-  <count>[Number of relevant learnings found]</count>
-  <coverage>[EXCELLENT|GOOD|SPARSE|NONE]</coverage>
-  <learnings>
-    <learning task-id="[ID]" relevance="[0.0-1.0]">
-      <title>[Task title]</title>
-      <summary>[Why this is relevant and what's useful]</summary>
-      <problems>[Problems solved, if any]</problems>
-      <decisions>[Decisions made, if any]</decisions>
-      <gotchas>[Gotchas discovered, if any]</gotchas>
-    </learning>
-  </learnings>
-  <patterns-across>[Common themes from multiple past tasks]</patterns-across>
+<past-learnings><!-- Only if learnings-researcher found relevant matches -->
+  <learning task-id="[ID]">[What's relevant and why — problems, decisions, gotchas]</learning>
 </past-learnings>
 
 <git-history>
   <similar-changes>[Commits with lessons]</similar-changes>
-  <evolution>[How code got here]</evolution>
 </git-history>
 
-<risks>
-  <risk probability="H|M|L" impact="H|M|L">[Description with mitigation]</risk>
+<risks><!-- Only if concrete risks identified -->
+  <risk probability="H|M|L" impact="H|M|L" evidence="[file:line or code construct]">
+    [Description]. Mitigation: [concrete action, not "be careful"].
+  </risk>
 </risks>
 
+<performance><!-- Include when changes touch request paths, loops, or allocation-heavy code -->
+  [Allocation impact, hot-path analysis, or explicit "no perf impact — [reason]"]
+</performance>
+
 <recommendations>
+  <!-- For straightforward tasks: single recommended approach -->
+  <!-- For ambiguous tasks: 2-3 approaches with winner -->
   <solution id="A" name="[Name]">
-    <philosophy>[Core principle]</philosophy>
     <path>[Implementation steps]</path>
     <pros>[Advantages]</pros>
     <cons>[Disadvantages]</cons>
     <risk-level>[Low|Medium|High]</risk-level>
   </solution>
-  <solution id="B" name="[Name]">...</solution>
-  <solution id="C" name="[Name]">...</solution>
-  <winner id="[A|B|C]" reasoning="[Why]"/>
+  <winner id="[A]" reasoning="[Why]"/>
 </recommendations>
 
 <task-contract version="1">
@@ -573,14 +392,13 @@ Append to `<research>` section:
   <acceptance-criteria>
     <criterion id="AC-1">Given..., When..., Then...</criterion>
   </acceptance-criteria>
-  <non-functional>
-    <performance>[Performance constraints]</performance>
-    <security>[Security constraints]</security>
-    <compatibility>[Compatibility constraints]</compatibility>
-  </non-functional>
-  <amendments>
-    <!-- Append amendments in plan/implement/ship with explicit rationale and version bump -->
-  </amendments>
+  <verification>
+    <command>[Exact test command an agent can run to verify success]</command>
+    <test-strategy>[Which test files/patterns cover this change]</test-strategy>
+  </verification>
+  <open-questions><!-- Gaps from step 9 that plan phase should resolve -->
+    <question>[Specific unanswered question]</question>
+  </open-questions>
 </task-contract>
 
 <next-steps>
@@ -598,24 +416,18 @@ Set `updated: [ISO timestamp]` and verify `phase: research`
 </workflow>
 
 <success-criteria>
-- Prompt optimized and enhanced with specificity
-- All mentioned files read fully
-- Triage scan completed and ambiguity resolved before spawning agents
-- All parallel agents completed (including documentation-researcher, learnings-researcher)
-- Implementation patterns extracted with file:line refs
-- Web research validated against official docs
-- Patterns analyzed with confidence ratings
-- Documentation context gathered
-- Past learnings searched and top 5 relevant included
-- Git history examined
-- Intelligence report displayed to user
-- Ambiguity detection completed (0 ambiguities OR user clarified)
-- Technical adequacy score ≥ 0.6
-- 3 solution approaches generated (Tree of Thought)
-- Risks identified with mitigations
-- Task contract created with intent, scope, ACs, and NFRs
+- Intent, scope, and verification strategy clarified
+- All mentioned files read fully before spawning agents
+- Ambiguity resolved before spawning agents (0 ambiguities OR user clarified)
+- Research depth determined (LIGHT/STANDARD/DEEP) and agents scaled accordingly
+- All spawned agents completed
+- Target files identified with file:line references
+- Implementation patterns extracted from codebase
+- Gap check passed (must-know questions answered or flagged)
+- Recommended approach documented with rationale
+- Task contract created with intent, scope, and acceptance criteria
 - Task file created/updated at ./apex/tasks/[ID].md
-- Context pack refs documented for downstream phases
+- Intelligence report displayed to user
 </success-criteria>
 
 <next-phase>

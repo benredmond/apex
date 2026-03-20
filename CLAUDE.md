@@ -46,7 +46,7 @@ npm run release:major     # Release major version (1.x.x)
    - `trust-calculator.js` - Calculates pattern trust scores
 
 3. **Plugin Components** (Claude Code integration)
-   - `/skills/` - 7 workflow skills (research, plan, implement, ship, execute, debug, using-apex-mcp)
+   - `/skills/` - 8 workflow skills (research, plan, implement, ship, execute, debug, review-plan, compound)
    - `/agents/` - 12 specialized agents for intelligence gathering and review
    - `/commands/` - Slash commands that invoke skills
 
@@ -71,7 +71,8 @@ skills/
 ├── ship/SKILL.md             # Review and reflect phase
 ├── execute/SKILL.md          # Full workflow orchestrator
 ├── debug/SKILL.md            # Systematic debugging with pattern learning
-└── using-apex-mcp/SKILL.md   # MCP tools reference
+├── review-plan/SKILL.md      # Adversarial review of existing plans
+└── compound/SKILL.md         # Capture learnings from sessions
 
 agents/                       # 12 specialized agents
 commands/                     # 7 slash commands

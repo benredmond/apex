@@ -398,14 +398,15 @@ your-project/
 │       └── T001.md                 # Task brief with research, plan, evidence
 │
 # Plugin components (in apex package)
-├── skills/                         # 7 workflow skills
+├── skills/                         # 8 workflow skills
 │   ├── research/SKILL.md           # Intelligence gathering
 │   ├── plan/SKILL.md               # Architecture design
 │   ├── implement/SKILL.md          # Build and validate
 │   ├── ship/SKILL.md               # Review and reflect
 │   ├── execute/SKILL.md            # Full workflow orchestrator
 │   ├── debug/SKILL.md              # Systematic debugging
-│   └── using-apex-mcp/SKILL.md     # MCP tools reference
+│   ├── review-plan/SKILL.md        # Adversarial plan review
+│   └── compound/SKILL.md           # Session learnings capture
 ├── agents/                         # 12 specialized agents
 │   ├── intelligence-gatherer.md    # Orchestrates research
 │   ├── git-historian.md            # Git history analysis
